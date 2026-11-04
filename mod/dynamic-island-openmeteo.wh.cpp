@@ -2,7 +2,7 @@
 // @id              dynamic-island-openmeteo
 // @name            Dynamic Island for Windows (Open-Meteo)
 // @description     Private fork of Dynamic Island 1.4.0 using Open-Meteo for weather. A living, breathing pill overlay inspired by iPhone's Dynamic Island. Reacts to media, downloads, clipboard, battery, and more.
-// @version         1.4.0-openmeteo.12
+// @version         1.4.0-openmeteo.13
 // @author          Himanshu
 // @github          https://github.com/devcode90
 // @include         windhawk.exe
@@ -5824,13 +5824,20 @@ DWORD WINAPI NotificationThreadProc(void*) {
                             NotificationSnapshot snapshot;
                             snapshot.active = true;
                             snapshot.expiresAt = NowSeconds() + 4.0;
-                            Wh_Log(L"Notifications: step appinfo");
-                            auto appInfo = userNotification.AppInfo();
-                            Wh_Log(L"Notifications: step aumid %s", appInfo.AppUserModelId().c_str());
-                            auto displayInfo = appInfo.DisplayInfo();
-                            Wh_Log(L"Notifications: step displayname");
-                            snapshot.app = displayInfo.DisplayName().c_str();
-                            Wh_Log(L"Notifications: step app=%s", snapshot.app.c_str());
+                            winrt::Windows::ApplicationModel::AppInfo appInfo{nullptr};
+                            winrt::Windows::ApplicationModel::AppDisplayInfo displayInfo{nullptr};
+                            const ULONGLONG appInfoStart = GetTickCount64();
+                            try {
+                                appInfo = userNotification.AppInfo();
+                                displayInfo = appInfo.DisplayInfo();
+                                snapshot.app = displayInfo.DisplayName().c_str();
+                                Wh_Log(L"Notifications: app info in %llu ms", GetTickCount64() - appInfoStart);
+                            } catch (const winrt::hresult_error& appInfoError) {
+                                Wh_Log(L"Notifications: app info failed (0x%08X) after %llu ms",
+                                       static_cast<unsigned>(appInfoError.to_abi()), GetTickCount64() - appInfoStart);
+                            } catch (...) {
+                                Wh_Log(L"Notifications: app info failed (unknown) after %llu ms", GetTickCount64() - appInfoStart);
+                            }
 
                             // Filter out noisy background console/script engines like PowerShell that fire system toasts unexpectedly
                             const std::wstring lowerApp = ToLowerCopy(snapshot.app);
@@ -5839,7 +5846,7 @@ DWORD WINAPI NotificationThreadProc(void*) {
                                 lowerApp.find(L"cmd.exe") != std::wstring::npos) {
                                 continue;
                             }
-                            try {
+                            if (displayInfo) try {
                                 Wh_Log(L"Notifications: step logo");
                                 auto logo = displayInfo.GetLogo({32.0f, 32.0f});
                                 Wh_Log(L"Notifications: step logo read");
@@ -5883,8 +5890,8 @@ DWORD WINAPI NotificationThreadProc(void*) {
                                 bool isPhoneLink = lowerApp.find(L"phone link") != std::wstring::npos;
                                 try {
                                     isPhoneLink = isPhoneLink ||
-                                        ToLowerCopy(appInfo.PackageFamilyName().c_str()).find(L"microsoft.yourphone") !=
-                                            std::wstring::npos;
+                                        (appInfo && ToLowerCopy(appInfo.PackageFamilyName().c_str()).find(L"microsoft.yourphone") !=
+                                            std::wstring::npos);
                                 } catch (...) {
                                 }
                                 if (isPhoneLink && texts.size() >= 2) {
@@ -5922,11 +5929,7 @@ DWORD WINAPI NotificationThreadProc(void*) {
                             }
                             TriggerNudge();
                         } catch (const winrt::hresult_error& nex) {
-                            if (nex.to_abi() == static_cast<int32_t>(0x80004001) || nex.to_abi() == static_cast<int32_t>(0x80040154)) { // E_NOTIMPL or REGDB_E_CLASSNOTREG
-                                // UWP subsystem not ready, skip without spamming logs
-                            } else {
-                                Wh_Log(L"Failed to parse a notification (0x%08X); skipping.", nex.to_abi());
-                            }
+                            Wh_Log(L"Failed to parse a notification (0x%08X); skipping.", static_cast<unsigned>(nex.to_abi()));
                         } catch (...) {
                             Wh_Log(L"Failed to parse a notification; skipping.");
                         }
