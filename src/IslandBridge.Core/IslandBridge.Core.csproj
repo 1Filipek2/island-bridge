@@ -3,6 +3,7 @@
     <OutputType>Library</OutputType>
     <RootNamespace>IslandBridge.Core</RootNamespace>
     <AssemblyName>IslandBridge.Core</AssemblyName>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="IslandBridge.Tests" />
