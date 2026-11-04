@@ -2,13 +2,12 @@ using System.Globalization;
 
 namespace IslandBridge.AncsSpike;
 
-internal sealed record SpikeOptions(string? DeviceName, bool ShowText, bool FetchExisting, TimeSpan? Duration)
+internal sealed record SpikeOptions(string? DeviceName, bool ShowText, TimeSpan? Duration)
 {
     public static SpikeOptions Parse(ReadOnlySpan<string> args)
     {
         string? deviceName = null;
         var showText = false;
-        var fetchExisting = false;
         TimeSpan? duration = null;
 
         for (var i = 0; i < args.Length; i++)
@@ -21,9 +20,6 @@ internal sealed record SpikeOptions(string? DeviceName, bool ShowText, bool Fetc
                 case "--show-text":
                     showText = true;
                     break;
-                case "--fetch-existing":
-                    fetchExisting = true;
-                    break;
                 case "--seconds" when i + 1 < args.Length
                     && int.TryParse(args[i + 1], NumberStyles.None, CultureInfo.InvariantCulture, out var seconds)
                     && seconds > 0:
@@ -33,6 +29,6 @@ internal sealed record SpikeOptions(string? DeviceName, bool ShowText, bool Fetc
             }
         }
 
-        return new SpikeOptions(deviceName, showText, fetchExisting, duration);
+        return new SpikeOptions(deviceName, showText, duration);
     }
 }

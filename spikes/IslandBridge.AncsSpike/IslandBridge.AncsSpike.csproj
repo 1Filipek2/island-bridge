@@ -7,4 +7,7 @@
     <OptimizationPreference>Size</OptimizationPreference>
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\IslandBridge.Core\IslandBridge.Core.csproj" />
+  </ItemGroup>
 </Project>
