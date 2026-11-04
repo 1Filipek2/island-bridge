@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="App_Name" xml:space="preserve">
+    <value>IslandBridge</value>
+  </data>
+  <data name="Tray_Open" xml:space="preserve">
+    <value>Open IslandBridge</value>
+  </data>
+  <data name="Tray_Test" xml:space="preserve">
+    <value>Send test notification</value>
+  </data>
+  <data name="Tray_Pause" xml:space="preserve">
+    <value>Pause notifications</value>
+  </data>
+  <data name="Tray_Pause15" xml:space="preserve">
+    <value>For 15 minutes</value>
+  </data>
+  <data name="Tray_Pause60" xml:space="preserve">
+    <value>For 1 hour</value>
+  </data>
+  <data name="Tray_Pause480" xml:space="preserve">
+    <value>For 8 hours</value>
+  </data>
+  <data name="Tray_PauseUntilResumed" xml:space="preserve">
+    <value>Until I resume</value>
+  </data>
+  <data name="Tray_Resume" xml:space="preserve">
+    <value>Resume notifications</value>
+  </data>
+  <data name="Tray_Exit" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="Status_NoDevice" xml:space="preserve">
+    <value>No iPhone selected</value>
+  </data>
+  <data name="Status_Delayed" xml:space="preserve">
+    <value>Starting soon</value>
+  </data>
+  <data name="Status_Connecting" xml:space="preserve">
+    <value>Connecting to {0}</value>
+  </data>
+  <data name="Status_Ready" xml:space="preserve">
+    <value>Connected to {0}</value>
+  </data>
+  <data name="Status_WaitingForDevice" xml:space="preserve">
+    <value>Waiting for {0}</value>
+  </data>
+  <data name="Status_PermissionRequired" xml:space="preserve">
+    <value>Permission needed on {0}</value>
+  </data>
+  <data name="Status_Retrying" xml:space="preserve">
+    <value>Connection problem, retrying</value>
+  </data>
+  <data name="Status_Stopped" xml:space="preserve">
+    <value>Stopped</value>
+  </data>
+  <data name="Status_PausedUntil" xml:space="preserve">
+    <value>Paused until {0}</value>
+  </data>
+  <data name="Status_PausedIndefinitely" xml:space="preserve">
+    <value>Paused</value>
+  </data>
+  <data name="Hint_NoDevice" xml:space="preserve">
+    <value>Pick your iPhone in the Device section.</value>
+  </data>
+  <data name="Hint_Waiting" xml:space="preserve">
+    <value>The iPhone is out of range or its Bluetooth is off. IslandBridge reconnects automatically.</value>
+  </data>
+  <data name="Hint_Permission" xml:space="preserve">
+    <value>On the iPhone, open Settings &gt; Bluetooth, tap (i) next to this PC and turn on Share System Notifications.</value>
+  </data>
+  <data name="Hint_Retrying" xml:space="preserve">
+    <value>IslandBridge keeps trying in the background.</value>
+  </data>
+  <data name="Section_Notifications" xml:space="preserve">
+    <value>Notifications</value>
+  </data>
+  <data name="Section_Recent" xml:space="preserve">
+    <value>Recent</value>
+  </data>
+  <data name="Section_Device" xml:space="preserve">
+    <value>Device</value>
+  </data>
+  <data name="Section_Startup" xml:space="preserve">
+    <value>Startup</value>
+  </data>
+  <data name="Section_Appearance" xml:space="preserve">
+    <value>Appearance</value>
+  </data>
+  <data name="Section_Filters" xml:space="preserve">
+    <value>Filters</value>
+  </data>
+  <data name="Pause_Active" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="Pause_15" xml:space="preserve">
+    <value>15 min</value>
+  </data>
+  <data name="Pause_60" xml:space="preserve">
+    <value>1 h</value>
+  </data>
+  <data name="Pause_480" xml:space="preserve">
+    <value>8 h</value>
+  </data>
+  <data name="Pause_Off" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Recent_Empty" xml:space="preserve">
+    <value>Nothing yet.</value>
+  </data>
+  <data name="Recent_TextHidden" xml:space="preserve">
+    <value>Text hidden</value>
+  </data>
+  <data name="Test_Button" xml:space="preserve">
+    <value>Test</value>
+  </data>
+  <data name="Device_None" xml:space="preserve">
+    <value>No iPhone selected</value>
+  </data>
+  <data name="Device_Find" xml:space="preserve">
+    <value>Find</value>
+  </data>
+  <data name="Device_Searching" xml:space="preserve">
+    <value>Searching paired devices...</value>
+  </data>
+  <data name="Device_FoundNone" xml:space="preserve">
+    <value>No paired device offers iPhone notifications. Pair the iPhone in Windows Settings &gt; Bluetooth &amp; devices first.</value>
+  </data>
+  <data name="Device_Use" xml:space="preserve">
+    <value>Use</value>
+  </data>
+  <data name="Device_Forget" xml:space="preserve">
+    <value>Forget</value>
+  </data>
+  <data name="Device_Reconnect" xml:space="preserve">
+    <value>Reconnect</value>
+  </data>
+  <data name="Device_Help" xml:space="preserve">
+    <value>Pair the iPhone in Windows Settings &gt; Bluetooth &amp; devices. On the iPhone, open Settings &gt; Bluetooth, tap (i) next to this PC and turn on Show Notifications and Share System Notifications. Then choose Find.</value>
+  </data>
+  <data name="Device_YourIphone" xml:space="preserve">
+    <value>your iPhone</value>
+  </data>
+  <data name="Setting_Autostart" xml:space="preserve">
+    <value>Start with Windows</value>
+  </data>
+  <data name="Setting_AutostartDisabledByUser" xml:space="preserve">
+    <value>Turned off in Task Manager. Turning it on here re-enables it.</value>
+  </data>
+  <data name="Setting_StartMinimized" xml:space="preserve">
+    <value>Stay in the tray at startup</value>
+  </data>
+  <data name="Setting_Delay" xml:space="preserve">
+    <value>Bluetooth delay after sign-in</value>
+  </data>
+  <data name="Setting_DelayNone" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="Setting_DelaySeconds" xml:space="preserve">
+    <value>{0} s</value>
+  </data>
+  <data name="Setting_Previews" xml:space="preserve">
+    <value>Show text in this window</value>
+  </data>
+  <data name="Setting_IgnoreSilent" xml:space="preserve">
+    <value>Ignore quietly delivered</value>
+  </data>
+  <data name="Setting_Language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Setting_Theme" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="Choice_Auto" xml:space="preserve">
+    <value>Auto</value>
+  </data>
+  <data name="Lang_English" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Lang_Slovak" xml:space="preserve">
+    <value>Slovenčina</value>
+  </data>
+  <data name="Theme_Light" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="Theme_Dark" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+  <data name="Filters_Categories" xml:space="preserve">
+    <value>Categories</value>
+  </data>
+  <data name="Filters_Apps" xml:space="preserve">
+    <value>Apps</value>
+  </data>
+  <data name="Filters_AppsEmpty" xml:space="preserve">
+    <value>Apps appear here after their first notification.</value>
+  </data>
+  <data name="Category_Other" xml:space="preserve">
+    <value>Other</value>
+  </data>
+  <data name="Category_IncomingCall" xml:space="preserve">
+    <value>Calls</value>
+  </data>
+  <data name="Category_MissedCall" xml:space="preserve">
+    <value>Missed calls</value>
+  </data>
+  <data name="Category_Voicemail" xml:space="preserve">
+    <value>Voicemail</value>
+  </data>
+  <data name="Category_Social" xml:space="preserve">
+    <value>Social</value>
+  </data>
+  <data name="Category_Schedule" xml:space="preserve">
+    <value>Calendar</value>
+  </data>
+  <data name="Category_Email" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="Category_News" xml:space="preserve">
+    <value>News</value>
+  </data>
+  <data name="Category_HealthAndFitness" xml:space="preserve">
+    <value>Health</value>
+  </data>
+  <data name="Category_BusinessAndFinance" xml:space="preserve">
+    <value>Finance</value>
+  </data>
+  <data name="Category_Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="Category_Entertainment" xml:space="preserve">
+    <value>Entertainment</value>
+  </data>
+  <data name="Footer_Logs" xml:space="preserve">
+    <value>Logs</value>
+  </data>
+  <data name="Footer_Exit" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="Footer_Privacy" xml:space="preserve">
+    <value>No network access. Notification text is never logged.</value>
+  </data>
+  <data name="Test_Title" xml:space="preserve">
+    <value>IslandBridge</value>
+  </data>
+  <data name="Test_Message" xml:space="preserve">
+    <value>This is a test notification.</value>
+  </data>
+  <data name="Filter_Paused" xml:space="preserve">
+    <value>paused</value>
+  </data>
+  <data name="Filter_Silent" xml:space="preserve">
+    <value>quiet</value>
+  </data>
+  <data name="Filter_MutedApp" xml:space="preserve">
+    <value>app muted</value>
+  </data>
+  <data name="Filter_MutedCategory" xml:space="preserve">
+    <value>category muted</value>
+  </data>
+</root>

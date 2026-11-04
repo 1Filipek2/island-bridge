@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="App_Name" xml:space="preserve">
+    <value>IslandBridge</value>
+  </data>
+  <data name="Tray_Open" xml:space="preserve">
+    <value>Otvoriť IslandBridge</value>
+  </data>
+  <data name="Tray_Test" xml:space="preserve">
+    <value>Poslať testovacie upozornenie</value>
+  </data>
+  <data name="Tray_Pause" xml:space="preserve">
+    <value>Pozastaviť upozornenia</value>
+  </data>
+  <data name="Tray_Pause15" xml:space="preserve">
+    <value>Na 15 minút</value>
+  </data>
+  <data name="Tray_Pause60" xml:space="preserve">
+    <value>Na 1 hodinu</value>
+  </data>
+  <data name="Tray_Pause480" xml:space="preserve">
+    <value>Na 8 hodín</value>
+  </data>
+  <data name="Tray_PauseUntilResumed" xml:space="preserve">
+    <value>Kým neobnovím</value>
+  </data>
+  <data name="Tray_Resume" xml:space="preserve">
+    <value>Obnoviť upozornenia</value>
+  </data>
+  <data name="Tray_Exit" xml:space="preserve">
+    <value>Ukončiť</value>
+  </data>
+  <data name="Status_NoDevice" xml:space="preserve">
+    <value>Nie je vybraný iPhone</value>
+  </data>
+  <data name="Status_Delayed" xml:space="preserve">
+    <value>Čoskoro sa spustí</value>
+  </data>
+  <data name="Status_Connecting" xml:space="preserve">
+    <value>Pripája sa k {0}</value>
+  </data>
+  <data name="Status_Ready" xml:space="preserve">
+    <value>Pripojené k {0}</value>
+  </data>
+  <data name="Status_WaitingForDevice" xml:space="preserve">
+    <value>Čaká sa na {0}</value>
+  </data>
+  <data name="Status_PermissionRequired" xml:space="preserve">
+    <value>Na {0} chýba povolenie</value>
+  </data>
+  <data name="Status_Retrying" xml:space="preserve">
+    <value>Problém so spojením, skúšam znova</value>
+  </data>
+  <data name="Status_Stopped" xml:space="preserve">
+    <value>Zastavené</value>
+  </data>
+  <data name="Status_PausedUntil" xml:space="preserve">
+    <value>Pozastavené do {0}</value>
+  </data>
+  <data name="Status_PausedIndefinitely" xml:space="preserve">
+    <value>Pozastavené</value>
+  </data>
+  <data name="Hint_NoDevice" xml:space="preserve">
+    <value>Vyberte svoj iPhone v sekcii Zariadenie.</value>
+  </data>
+  <data name="Hint_Waiting" xml:space="preserve">
+    <value>iPhone je mimo dosahu alebo má vypnutý Bluetooth. IslandBridge sa pripojí automaticky.</value>
+  </data>
+  <data name="Hint_Permission" xml:space="preserve">
+    <value>Na iPhone otvorte Nastavenia &gt; Bluetooth, ťuknite na (i) pri tomto PC a zapnite Zdieľať systémové upozornenia.</value>
+  </data>
+  <data name="Hint_Retrying" xml:space="preserve">
+    <value>IslandBridge to skúša ďalej na pozadí.</value>
+  </data>
+  <data name="Section_Notifications" xml:space="preserve">
+    <value>Upozornenia</value>
+  </data>
+  <data name="Section_Recent" xml:space="preserve">
+    <value>Posledné</value>
+  </data>
+  <data name="Section_Device" xml:space="preserve">
+    <value>Zariadenie</value>
+  </data>
+  <data name="Section_Startup" xml:space="preserve">
+    <value>Spustenie</value>
+  </data>
+  <data name="Section_Appearance" xml:space="preserve">
+    <value>Vzhľad</value>
+  </data>
+  <data name="Section_Filters" xml:space="preserve">
+    <value>Filtre</value>
+  </data>
+  <data name="Pause_Active" xml:space="preserve">
+    <value>Zapnuté</value>
+  </data>
+  <data name="Pause_15" xml:space="preserve">
+    <value>15 min</value>
+  </data>
+  <data name="Pause_60" xml:space="preserve">
+    <value>1 h</value>
+  </data>
+  <data name="Pause_480" xml:space="preserve">
+    <value>8 h</value>
+  </data>
+  <data name="Pause_Off" xml:space="preserve">
+    <value>Vypnuté</value>
+  </data>
+  <data name="Recent_Empty" xml:space="preserve">
+    <value>Zatiaľ nič.</value>
+  </data>
+  <data name="Recent_TextHidden" xml:space="preserve">
+    <value>Text skrytý</value>
+  </data>
+  <data name="Test_Button" xml:space="preserve">
+    <value>Test</value>
+  </data>
+  <data name="Device_None" xml:space="preserve">
+    <value>Nie je vybraný iPhone</value>
+  </data>
+  <data name="Device_Find" xml:space="preserve">
+    <value>Nájsť</value>
+  </data>
+  <data name="Device_Searching" xml:space="preserve">
+    <value>Hľadám spárované zariadenia...</value>
+  </data>
+  <data name="Device_FoundNone" xml:space="preserve">
+    <value>Žiadne spárované zariadenie neponúka upozornenia z iPhonu. Najprv spárujte iPhone v Nastaveniach Windows &gt; Bluetooth a zariadenia.</value>
+  </data>
+  <data name="Device_Use" xml:space="preserve">
+    <value>Použiť</value>
+  </data>
+  <data name="Device_Forget" xml:space="preserve">
+    <value>Zabudnúť</value>
+  </data>
+  <data name="Device_Reconnect" xml:space="preserve">
+    <value>Pripojiť znova</value>
+  </data>
+  <data name="Device_Help" xml:space="preserve">
+    <value>Spárujte iPhone v Nastaveniach Windows &gt; Bluetooth a zariadenia. Na iPhone otvorte Nastavenia &gt; Bluetooth, ťuknite na (i) pri tomto PC a zapnite Zobrazovať upozornenia a Zdieľať systémové upozornenia. Potom zvoľte Nájsť.</value>
+  </data>
+  <data name="Device_YourIphone" xml:space="preserve">
+    <value>váš iPhone</value>
+  </data>
+  <data name="Setting_Autostart" xml:space="preserve">
+    <value>Spúšťať so systémom Windows</value>
+  </data>
+  <data name="Setting_AutostartDisabledByUser" xml:space="preserve">
+    <value>Vypnuté v Správcovi úloh. Zapnutím tu sa znova povolí.</value>
+  </data>
+  <data name="Setting_StartMinimized" xml:space="preserve">
+    <value>Pri štarte zostať v oblasti oznámení</value>
+  </data>
+  <data name="Setting_Delay" xml:space="preserve">
+    <value>Oneskorenie Bluetooth po prihlásení</value>
+  </data>
+  <data name="Setting_DelayNone" xml:space="preserve">
+    <value>Žiadne</value>
+  </data>
+  <data name="Setting_DelaySeconds" xml:space="preserve">
+    <value>{0} s</value>
+  </data>
+  <data name="Setting_Previews" xml:space="preserve">
+    <value>Zobrazovať text v tomto okne</value>
+  </data>
+  <data name="Setting_IgnoreSilent" xml:space="preserve">
+    <value>Ignorovať tiché upozornenia</value>
+  </data>
+  <data name="Setting_Language" xml:space="preserve">
+    <value>Jazyk</value>
+  </data>
+  <data name="Setting_Theme" xml:space="preserve">
+    <value>Motív</value>
+  </data>
+  <data name="Choice_Auto" xml:space="preserve">
+    <value>Auto</value>
+  </data>
+  <data name="Lang_English" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Lang_Slovak" xml:space="preserve">
+    <value>Slovenčina</value>
+  </data>
+  <data name="Theme_Light" xml:space="preserve">
+    <value>Svetlý</value>
+  </data>
+  <data name="Theme_Dark" xml:space="preserve">
+    <value>Tmavý</value>
+  </data>
+  <data name="Filters_Categories" xml:space="preserve">
+    <value>Kategórie</value>
+  </data>
+  <data name="Filters_Apps" xml:space="preserve">
+    <value>Aplikácie</value>
+  </data>
+  <data name="Filters_AppsEmpty" xml:space="preserve">
+    <value>Aplikácie sa tu zobrazia po prvom upozornení.</value>
+  </data>
+  <data name="Category_Other" xml:space="preserve">
+    <value>Ostatné</value>
+  </data>
+  <data name="Category_IncomingCall" xml:space="preserve">
+    <value>Hovory</value>
+  </data>
+  <data name="Category_MissedCall" xml:space="preserve">
+    <value>Zmeškané hovory</value>
+  </data>
+  <data name="Category_Voicemail" xml:space="preserve">
+    <value>Hlasová schránka</value>
+  </data>
+  <data name="Category_Social" xml:space="preserve">
+    <value>Sociálne</value>
+  </data>
+  <data name="Category_Schedule" xml:space="preserve">
+    <value>Kalendár</value>
+  </data>
+  <data name="Category_Email" xml:space="preserve">
+    <value>E-mail</value>
+  </data>
+  <data name="Category_News" xml:space="preserve">
+    <value>Správy</value>
+  </data>
+  <data name="Category_HealthAndFitness" xml:space="preserve">
+    <value>Zdravie</value>
+  </data>
+  <data name="Category_BusinessAndFinance" xml:space="preserve">
+    <value>Financie</value>
+  </data>
+  <data name="Category_Location" xml:space="preserve">
+    <value>Poloha</value>
+  </data>
+  <data name="Category_Entertainment" xml:space="preserve">
+    <value>Zábava</value>
+  </data>
+  <data name="Footer_Logs" xml:space="preserve">
+    <value>Logy</value>
+  </data>
+  <data name="Footer_Exit" xml:space="preserve">
+    <value>Ukončiť</value>
+  </data>
+  <data name="Footer_Privacy" xml:space="preserve">
+    <value>Bez prístupu na sieť. Text upozornení sa nikdy neloguje.</value>
+  </data>
+  <data name="Test_Title" xml:space="preserve">
+    <value>IslandBridge</value>
+  </data>
+  <data name="Test_Message" xml:space="preserve">
+    <value>Toto je testovacie upozornenie.</value>
+  </data>
+  <data name="Filter_Paused" xml:space="preserve">
+    <value>pozastavené</value>
+  </data>
+  <data name="Filter_Silent" xml:space="preserve">
+    <value>tiché</value>
+  </data>
+  <data name="Filter_MutedApp" xml:space="preserve">
+    <value>aplikácia stlmená</value>
+  </data>
+  <data name="Filter_MutedCategory" xml:space="preserve">
+    <value>kategória stlmená</value>
+  </data>
+</root>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="IslandBridge.Controls.Segmented"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid x:Name="Host" ColumnSpacing="4" />
+</UserControl>
