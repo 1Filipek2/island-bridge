@@ -2,7 +2,7 @@
 // @id              dynamic-island-openmeteo
 // @name            Dynamic Island for Windows (Open-Meteo)
 // @description     Private fork of Dynamic Island 1.4.0 using Open-Meteo for weather. A living, breathing pill overlay inspired by iPhone's Dynamic Island. Reacts to media, downloads, clipboard, battery, and more.
-// @version         1.4.0-openmeteo.10
+// @version         1.4.0-openmeteo.12
 // @author          Himanshu
 // @github          https://github.com/devcode90
 // @include         windhawk.exe
@@ -406,6 +406,9 @@ We love community contributions! To ensure high-quality updates, please follow t
   - NotificationRespectDnD: true
     $name: Notifications respect Do Not Disturb
     $description: Suppresses Dynamic Island notification alerts when Windows Do Not Disturb is active.
+  - IslandBridgePath: '%LOCALAPPDATA%\Programs\IslandBridge\IslandBridge.exe'
+    $name: IslandBridge executable
+    $description: Only this program may send iPhone notifications to the island through the local pipe. Environment variables are expanded.
   - GitHubModule: true
     $name: Include GitHub in scroll loop
     $description: Adds a contribution graph tab between Weather and Hardware Monitor.
@@ -617,6 +620,7 @@ We love community contributions! To ensure high-quality updates, please follow t
 #include <cstdint>
 #include <cwchar>
 #include <cstring>
+#include <deque>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -1694,6 +1698,7 @@ HANDLE g_githubThread = nullptr;
 HANDLE g_lyricsThread = nullptr;
 HANDLE g_notificationThread = nullptr;
 HANDLE g_bluetoothThread = nullptr;
+HANDLE g_islandPipeThread = nullptr;
 std::atomic<bool> g_running = false;
 std::atomic<int> g_idleTab = 0;
 // True while a media pill exists, i.e. while the Lyrics tab can be shown.
@@ -24219,6 +24224,705 @@ DWORD WINAPI RenderThreadProc(void*) {
 
 
 
+namespace island_pipe
+{
+
+constexpr wchar_t pipe_name[] = L"\\\\.\\pipe\\DynamicIslandNotify";
+constexpr DWORD max_message_bytes = 4096;
+constexpr std::uint8_t protocol_version = 1;
+constexpr std::uint8_t kind_notification = 1;
+constexpr std::size_t header_bytes = 4;
+constexpr std::size_t field_count = 5;
+constexpr std::uint64_t rate_window_ms = 1000;
+constexpr int rate_limit = 10;
+constexpr std::size_t max_app_chars = 64;
+constexpr std::size_t max_title_chars = 120;
+constexpr std::size_t max_body_chars = 512;
+constexpr double display_seconds = 4.0;
+constexpr double display_gap_seconds = 0.3;
+constexpr std::size_t max_queued = 5;
+constexpr DWORD retry_wait_ms = 5000;
+constexpr wchar_t default_client_path[] = L"%LOCALAPPDATA%\\Programs\\IslandBridge\\IslandBridge.exe";
+
+constexpr std::array<std::size_t, field_count> max_field_bytes = {256, 256, 1024, 1024, 3072};
+
+struct PipeMessage
+{
+    std::uint8_t category = 0;
+    std::uint8_t flags = 0;
+    std::wstring app;
+    std::wstring bundle;
+    std::wstring title;
+    std::wstring subtitle;
+    std::wstring body;
+};
+
+class RateLimiter
+{
+public:
+    bool allow(std::uint64_t now_ms)
+    {
+        if (now_ms - window_start_ > rate_window_ms)
+        {
+            window_start_ = now_ms;
+            count_ = 0;
+        }
+
+        if (count_ >= rate_limit)
+        {
+            return false;
+        }
+
+        ++count_;
+        return true;
+    }
+
+private:
+    std::uint64_t window_start_ = 0;
+    int count_ = 0;
+};
+
+class OwnedHandle
+{
+public:
+    explicit OwnedHandle(HANDLE handle = nullptr) : handle_(handle)
+    {
+    }
+
+    ~OwnedHandle()
+    {
+        reset();
+    }
+
+    OwnedHandle(const OwnedHandle&) = delete;
+    OwnedHandle& operator = (const OwnedHandle&) = delete;
+
+    HANDLE get() const
+    {
+        return handle_;
+    }
+
+    bool valid() const
+    {
+        return handle_ != nullptr && handle_ != INVALID_HANDLE_VALUE;
+    }
+
+    void reset(HANDLE handle = nullptr)
+    {
+        if (valid())
+        {
+            CloseHandle(handle_);
+        }
+
+        handle_ = handle;
+    }
+
+private:
+    HANDLE handle_;
+};
+
+bool is_bidi_control(wchar_t ch)
+{
+    return (ch >= 0x202A && ch <= 0x202E) ||
+           (ch >= 0x2066 && ch <= 0x2069) ||
+           ch == 0x200E ||
+           ch == 0x200F ||
+           ch == 0x061C;
+}
+
+bool is_line_break(wchar_t ch)
+{
+    return ch == L'\r' || ch == L'\n' || ch == L'\t' || ch == 0x0085 || ch == 0x2028 || ch == 0x2029;
+}
+
+bool is_control(wchar_t ch)
+{
+    return ch < 0x20 || (ch >= 0x7F && ch <= 0x9F);
+}
+
+std::wstring sanitize(const std::wstring& text, std::size_t max_chars)
+{
+    std::wstring result;
+    result.reserve(std::min(text.size(), max_chars));
+    bool pending_space = false;
+
+    for (std::size_t i = 0; i < text.size(); ++i)
+    {
+        const wchar_t ch = text[i];
+
+        if (is_line_break(ch) || ch == L' ')
+        {
+            pending_space = !result.empty();
+            continue;
+        }
+
+        if (is_control(ch) || is_bidi_control(ch))
+        {
+            continue;
+        }
+
+        const bool high_surrogate = ch >= 0xD800 && ch <= 0xDBFF;
+        const bool has_low = high_surrogate && i + 1 < text.size() && text[i + 1] >= 0xDC00 && text[i + 1] <= 0xDFFF;
+
+        if ((ch >= 0xDC00 && ch <= 0xDFFF) || (high_surrogate && !has_low))
+        {
+            continue;
+        }
+
+        const std::size_t needed = (has_low ? 2 : 1) + (pending_space ? 1 : 0);
+
+        if (result.size() + needed > max_chars)
+        {
+            break;
+        }
+
+        if (pending_space)
+        {
+            result.push_back(L' ');
+            pending_space = false;
+        }
+
+        result.push_back(ch);
+
+        if (has_low)
+        {
+            result.push_back(text[++i]);
+        }
+    }
+
+    return result;
+}
+
+std::wstring utf8_to_wide(const std::uint8_t* data, std::size_t size)
+{
+    if (size == 0 || size > static_cast<std::size_t>(INT_MAX))
+    {
+        return std::wstring{};
+    }
+
+    const char* source = reinterpret_cast<const char*>(data);
+    const int length = static_cast<int>(size);
+    const int needed = MultiByteToWideChar(CP_UTF8, 0, source, length, nullptr, 0);
+
+    if (needed <= 0)
+    {
+        return std::wstring{};
+    }
+
+    std::wstring result(static_cast<std::size_t>(needed), L'\0');
+    const int written = MultiByteToWideChar(CP_UTF8, 0, source, length, result.data(), needed);
+    result.resize(written > 0 ? static_cast<std::size_t>(written) : 0);
+    return result;
+}
+
+std::uint16_t read_u16(const std::uint8_t* data)
+{
+    return static_cast<std::uint16_t>(data[0] | (data[1] << 8));
+}
+
+std::optional<PipeMessage> parse_message(const std::uint8_t* data, std::size_t size)
+{
+    if (data == nullptr || size < header_bytes + field_count * 2 || size > max_message_bytes)
+    {
+        return std::nullopt;
+    }
+
+    if (data[0] != protocol_version || data[1] != kind_notification)
+    {
+        return std::nullopt;
+    }
+
+    PipeMessage message;
+    message.category = data[2];
+    message.flags = data[3];
+
+    std::array<std::wstring*, field_count> fields = {&message.app, &message.bundle, &message.title, &message.subtitle, &message.body};
+    std::size_t offset = header_bytes;
+
+    for (std::size_t index = 0; index < field_count; ++index)
+    {
+        if (size - offset < 2)
+        {
+            return std::nullopt;
+        }
+
+        const std::size_t length = read_u16(data + offset);
+        offset += 2;
+
+        if (length > max_field_bytes[index] || length > size - offset)
+        {
+            return std::nullopt;
+        }
+
+        *fields[index] = utf8_to_wide(data + offset, length);
+        offset += length;
+    }
+
+    if (offset != size)
+    {
+        return std::nullopt;
+    }
+
+    return message;
+}
+
+std::wstring process_image_path(DWORD process_id)
+{
+    OwnedHandle process(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, process_id));
+
+    if (!process.valid())
+    {
+        return std::wstring{};
+    }
+
+    std::wstring path(MAX_PATH, L'\0');
+
+    for (int attempt = 0; attempt < 4; ++attempt)
+    {
+        DWORD length = static_cast<DWORD>(path.size());
+
+        if (QueryFullProcessImageNameW(process.get(), 0, path.data(), &length))
+        {
+            path.resize(length);
+            return path;
+        }
+
+        if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+        {
+            break;
+        }
+
+        path.resize(path.size() * 2);
+    }
+
+    return std::wstring{};
+}
+
+std::wstring expected_client_path()
+{
+    const std::wstring setting = GetStringSettingCopy(L"Modules.IslandBridgePath");
+    const std::wstring configured = setting.empty() ? std::wstring(default_client_path) : setting;
+
+    const DWORD needed = ExpandEnvironmentStringsW(configured.c_str(), nullptr, 0);
+
+    if (needed == 0)
+    {
+        return std::wstring{};
+    }
+
+    std::wstring expanded(needed, L'\0');
+    const DWORD written = ExpandEnvironmentStringsW(configured.c_str(), expanded.data(), needed);
+
+    if (written == 0 || written > needed)
+    {
+        return std::wstring{};
+    }
+
+    expanded.resize(written - 1);
+    return expanded;
+}
+
+bool is_trusted_client(HANDLE pipe)
+{
+    ULONG process_id = 0;
+
+    if (!GetNamedPipeClientProcessId(pipe, &process_id) || process_id == 0)
+    {
+        return false;
+    }
+
+    const std::wstring actual = process_image_path(process_id);
+    const std::wstring expected = expected_client_path();
+
+    if (actual.empty() || expected.empty())
+    {
+        return false;
+    }
+
+    return CompareStringOrdinal(actual.c_str(), static_cast<int>(actual.size()), expected.c_str(), static_cast<int>(expected.size()), TRUE) == CSTR_EQUAL;
+}
+
+std::wstring current_user_sid()
+{
+    HANDLE raw_token = nullptr;
+
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &raw_token))
+    {
+        return std::wstring{};
+    }
+
+    OwnedHandle token(raw_token);
+    DWORD size = 0;
+    GetTokenInformation(token.get(), TokenUser, nullptr, 0, &size);
+
+    if (size == 0)
+    {
+        return std::wstring{};
+    }
+
+    std::vector<std::uint8_t> buffer(size);
+
+    if (!GetTokenInformation(token.get(), TokenUser, buffer.data(), size, &size))
+    {
+        return std::wstring{};
+    }
+
+    const auto* user = reinterpret_cast<const TOKEN_USER*>(buffer.data());
+    LPWSTR sid_text = nullptr;
+
+    if (!ConvertSidToStringSidW(user->User.Sid, &sid_text))
+    {
+        return std::wstring{};
+    }
+
+    std::wstring result(sid_text);
+    LocalFree(sid_text);
+    return result;
+}
+
+HANDLE create_pipe()
+{
+    const std::wstring sid = current_user_sid();
+
+    if (sid.empty())
+    {
+        return INVALID_HANDLE_VALUE;
+    }
+
+    const std::wstring sddl = L"D:P(A;;GA;;;SY)(A;;GA;;;" + sid + L")";
+    PSECURITY_DESCRIPTOR descriptor = nullptr;
+
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(), SDDL_REVISION_1, &descriptor, nullptr))
+    {
+        return INVALID_HANDLE_VALUE;
+    }
+
+    SECURITY_ATTRIBUTES attributes = {};
+    attributes.nLength = sizeof(attributes);
+    attributes.lpSecurityDescriptor = descriptor;
+    attributes.bInheritHandle = FALSE;
+
+    const HANDLE pipe = CreateNamedPipeW(
+        pipe_name,
+        PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
+        PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
+        1,
+        0,
+        max_message_bytes,
+        0,
+        &attributes);
+
+    LocalFree(descriptor);
+    return pipe;
+}
+
+enum class WaitResult
+{
+    Completed,
+    Stopped,
+    Failed
+};
+
+WaitResult wait_for(HANDLE pipe, OVERLAPPED& overlapped, DWORD& transferred)
+{
+    const HANDLE waits[2] = {g_stopEvent, overlapped.hEvent};
+    const DWORD signaled = WaitForMultipleObjects(2, waits, FALSE, INFINITE);
+
+    if (signaled == WAIT_OBJECT_0)
+    {
+        CancelIoEx(pipe, &overlapped);
+        GetOverlappedResult(pipe, &overlapped, &transferred, TRUE);
+        return WaitResult::Stopped;
+    }
+
+    if (signaled != WAIT_OBJECT_0 + 1)
+    {
+        return WaitResult::Failed;
+    }
+
+    return GetOverlappedResult(pipe, &overlapped, &transferred, FALSE) ? WaitResult::Completed : WaitResult::Failed;
+}
+
+WaitResult connect_client(HANDLE pipe, OVERLAPPED& overlapped)
+{
+    ResetEvent(overlapped.hEvent);
+
+    if (ConnectNamedPipe(pipe, &overlapped))
+    {
+        return WaitResult::Completed;
+    }
+
+    const DWORD error = GetLastError();
+
+    if (error == ERROR_PIPE_CONNECTED)
+    {
+        return WaitResult::Completed;
+    }
+
+    if (error != ERROR_IO_PENDING)
+    {
+        return WaitResult::Failed;
+    }
+
+    DWORD transferred = 0;
+    return wait_for(pipe, overlapped, transferred);
+}
+
+bool deliver(const PipeMessage& message)
+{
+    const Settings settings = GetSettingsCopy();
+
+    if (settings.notificationRespectDnD && g_isDnDActive.load())
+    {
+        Wh_Log(L"Island pipe: skipped, Do Not Disturb active");
+        return false;
+    }
+
+    NotificationSnapshot snapshot;
+    snapshot.active = true;
+    snapshot.app = sanitize(message.app.empty() ? message.bundle : message.app, max_app_chars);
+
+    std::wstring heading = sanitize(message.title, max_title_chars);
+    const std::wstring subtitle = sanitize(message.subtitle, max_title_chars);
+    const std::wstring body = sanitize(message.body, max_body_chars);
+
+    if (!subtitle.empty())
+    {
+        heading = heading.empty() ? subtitle : heading + L" \u00B7 " + subtitle;
+    }
+
+    if (heading.empty())
+    {
+        heading = snapshot.app.empty() ? std::wstring(L"iPhone") : snapshot.app;
+    }
+
+    if (!body.empty())
+    {
+        heading += L" - " + body;
+    }
+
+    snapshot.title = sanitize(heading, max_title_chars);
+
+    if (!snapshot.app.empty())
+    {
+        snapshot.icon = FindAppIconByName(snapshot.app, 64);
+    }
+
+    snapshot.expiresAt = NowSeconds() + display_seconds;
+
+    {
+        std::lock_guard lock(g_stateMutex);
+        g_state.notification = std::move(snapshot);
+    }
+
+    Wh_Log(L"Island pipe: notification shown (category %u)", static_cast<unsigned>(message.category));
+    TriggerNudge();
+    return true;
+}
+
+class DisplayQueue
+{
+public:
+    void push(PipeMessage message)
+    {
+        if (pending_.size() >= max_queued)
+        {
+            pending_.pop_front();
+        }
+
+        pending_.push_back(std::move(message));
+        pump();
+    }
+
+    void pump()
+    {
+        while (!pending_.empty() && NowSeconds() >= busy_until_)
+        {
+            const PipeMessage next = std::move(pending_.front());
+            pending_.pop_front();
+
+            if (deliver(next))
+            {
+                busy_until_ = NowSeconds() + display_seconds + display_gap_seconds;
+            }
+        }
+    }
+
+    DWORD timeout_ms() const
+    {
+        if (pending_.empty())
+        {
+            return INFINITE;
+        }
+
+        const double remaining = busy_until_ - NowSeconds();
+        return remaining <= 0.0 ? 0 : static_cast<DWORD>(remaining * 1000.0) + 1;
+    }
+
+    std::size_t size() const
+    {
+        return pending_.size();
+    }
+
+private:
+    std::deque<PipeMessage> pending_;
+    double busy_until_ = 0.0;
+};
+
+WaitResult wait_with_queue(HANDLE pipe, OVERLAPPED& overlapped, DWORD& transferred, DisplayQueue& queue)
+{
+    const HANDLE waits[2] = {g_stopEvent, overlapped.hEvent};
+
+    while (true)
+    {
+        const DWORD signaled = WaitForMultipleObjects(2, waits, FALSE, queue.timeout_ms());
+
+        if (signaled == WAIT_TIMEOUT)
+        {
+            queue.pump();
+            continue;
+        }
+
+        if (signaled == WAIT_OBJECT_0)
+        {
+            CancelIoEx(pipe, &overlapped);
+            GetOverlappedResult(pipe, &overlapped, &transferred, TRUE);
+            return WaitResult::Stopped;
+        }
+
+        if (signaled != WAIT_OBJECT_0 + 1)
+        {
+            return WaitResult::Failed;
+        }
+
+        return GetOverlappedResult(pipe, &overlapped, &transferred, FALSE) ? WaitResult::Completed : WaitResult::Failed;
+    }
+}
+
+void serve_client(HANDLE pipe, OVERLAPPED& overlapped)
+{
+    std::array<std::uint8_t, max_message_bytes> buffer = {};
+    RateLimiter limiter;
+    DisplayQueue queue;
+
+    while (WaitForSingleObject(g_stopEvent, 0) == WAIT_TIMEOUT)
+    {
+        ResetEvent(overlapped.hEvent);
+        DWORD transferred = 0;
+        bool completed = ReadFile(pipe, buffer.data(), static_cast<DWORD>(buffer.size()), &transferred, &overlapped) != FALSE;
+
+        if (!completed)
+        {
+            const DWORD error = GetLastError();
+
+            if (error == ERROR_MORE_DATA)
+            {
+                Wh_Log(L"Island pipe: message over %u bytes, disconnecting client", max_message_bytes);
+                return;
+            }
+
+            if (error != ERROR_IO_PENDING)
+            {
+                return;
+            }
+
+            const WaitResult result = wait_with_queue(pipe, overlapped, transferred, queue);
+
+            if (result != WaitResult::Completed)
+            {
+                if (result == WaitResult::Failed && GetLastError() == ERROR_MORE_DATA)
+                {
+                    Wh_Log(L"Island pipe: message over %u bytes, disconnecting client", max_message_bytes);
+                }
+
+                return;
+            }
+        }
+
+        if (!limiter.allow(GetTickCount64()))
+        {
+            continue;
+        }
+
+        const std::optional<PipeMessage> message = parse_message(buffer.data(), transferred);
+
+        if (!message)
+        {
+            Wh_Log(L"Island pipe: invalid message (%u bytes) dropped", static_cast<unsigned>(transferred));
+            continue;
+        }
+
+        queue.push(std::move(*message));
+    }
+}
+
+DWORD WINAPI thread_proc(void*)
+{
+    OwnedHandle event(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+
+    if (!event.valid())
+    {
+        return 0;
+    }
+
+    while (WaitForSingleObject(g_stopEvent, 0) == WAIT_TIMEOUT)
+    {
+        OwnedHandle pipe(create_pipe());
+
+        if (!pipe.valid())
+        {
+            Wh_Log(L"Island pipe: cannot create the pipe (error %u)", GetLastError());
+
+            if (WaitForSingleObject(g_stopEvent, retry_wait_ms) != WAIT_TIMEOUT)
+            {
+                break;
+            }
+
+            continue;
+        }
+
+        Wh_Log(L"Island pipe: listening");
+
+        while (WaitForSingleObject(g_stopEvent, 0) == WAIT_TIMEOUT)
+        {
+            OVERLAPPED overlapped = {};
+            overlapped.hEvent = event.get();
+            const WaitResult connected = connect_client(pipe.get(), overlapped);
+
+            if (connected == WaitResult::Stopped)
+            {
+                break;
+            }
+
+            if (connected == WaitResult::Failed && WaitForSingleObject(g_stopEvent, 200) != WAIT_TIMEOUT)
+            {
+                break;
+            }
+
+            if (connected == WaitResult::Completed)
+            {
+                if (is_trusted_client(pipe.get()))
+                {
+                    Wh_Log(L"Island pipe: client connected");
+                    serve_client(pipe.get(), overlapped);
+                    Wh_Log(L"Island pipe: client disconnected");
+                }
+                else
+                {
+                    Wh_Log(L"Island pipe: rejected an untrusted client");
+                }
+            }
+
+            DisconnectNamedPipe(pipe.get());
+        }
+    }
+
+    return 0;
+}
+
+}
+
+
 bool StartThreads() {
     g_stopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
     g_settingsChangedEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
@@ -24244,6 +24948,7 @@ bool StartThreads() {
     g_notificationThread = CreateThread(nullptr, 0, NotificationThreadProc, nullptr, 0, nullptr);
 #endif
     g_bluetoothThread = CreateThread(nullptr, 0, BluetoothThreadProc, nullptr, 0, nullptr);
+    g_islandPipeThread = CreateThread(nullptr, 0, island_pipe::thread_proc, nullptr, 0, nullptr);
     SubscribeDndNotification();
 
     return true;
@@ -24261,7 +24966,7 @@ void StopThreads() {
         SetEvent(g_stopEvent);
     }
 
-    HANDLE handles[] = {g_renderThread, g_mediaThread, g_audioThread, g_weatherThread, g_githubThread, g_lyricsThread, g_notificationThread, g_keyboardThread, g_mouseThread, g_bluetoothThread};
+    HANDLE handles[] = {g_renderThread, g_mediaThread, g_audioThread, g_weatherThread, g_githubThread, g_lyricsThread, g_notificationThread, g_keyboardThread, g_mouseThread, g_bluetoothThread, g_islandPipeThread};
     for (HANDLE handle : handles) {
         if (handle) {
             WaitForSingleObject(handle, 3000);
@@ -24281,6 +24986,7 @@ void StopThreads() {
     g_mouseThread = nullptr;
     g_mouseThreadId = 0;
     g_bluetoothThread = nullptr;
+    g_islandPipeThread = nullptr;
 
     if (g_stopEvent) {
         CloseHandle(g_stopEvent);
