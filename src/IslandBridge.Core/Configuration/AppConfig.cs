@@ -16,6 +16,12 @@ public enum AppTheme
     Dark,
 }
 
+public enum CloseAction
+{
+    Tray,
+    Exit,
+}
+
 public sealed class AppConfig
 {
     public const int CurrentVersion = 1;
@@ -60,6 +66,7 @@ public sealed class AppConfig
 
         Appearance.Language = Enum.IsDefined(Appearance.Language) ? Appearance.Language : AppLanguage.System;
         Appearance.Theme = Enum.IsDefined(Appearance.Theme) ? Appearance.Theme : AppTheme.System;
+        Startup.CloseAction = Enum.IsDefined(Startup.CloseAction) ? Startup.CloseAction : CloseAction.Tray;
 
         Notifications.MutedApps = [.. (Notifications.MutedApps ?? [])
             .Where(app => !string.IsNullOrWhiteSpace(app) && app.Length <= AncsLimits.MaxAppIdentifierLength)
@@ -88,6 +95,8 @@ public sealed class DeviceConfig
 public sealed class StartupConfig
 {
     public bool StartMinimized { get; set; } = true;
+
+    public CloseAction CloseAction { get; set; } = CloseAction.Tray;
 
     public int DelaySeconds { get; set; }
 }

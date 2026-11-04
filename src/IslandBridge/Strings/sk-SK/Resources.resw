@@ -162,6 +162,21 @@
   <data name="Setting_StartMinimized" xml:space="preserve">
     <value>Pri štarte zostať v oblasti oznámení</value>
   </data>
+  <data name="Setting_CloseAction" xml:space="preserve">
+    <value>Tlačidlo zavrieť</value>
+  </data>
+  <data name="CloseAction_Tray" xml:space="preserve">
+    <value>Do oblasti oznámení</value>
+  </data>
+  <data name="CloseAction_Exit" xml:space="preserve">
+    <value>Ukončiť aplikáciu</value>
+  </data>
+  <data name="Caption_Minimize" xml:space="preserve">
+    <value>Minimalizovať</value>
+  </data>
+  <data name="Caption_Close" xml:space="preserve">
+    <value>Zavrieť</value>
+  </data>
   <data name="Setting_Delay" xml:space="preserve">
     <value>Oneskorenie Bluetooth po prihlásení</value>
   </data>

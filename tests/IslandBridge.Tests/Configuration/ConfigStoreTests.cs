@@ -19,6 +19,7 @@ public sealed class ConfigStoreTests : IDisposable
 
         Assert.Equal(ConfigLoadOutcome.Missing, store.LastOutcome);
         Assert.True(config.Startup.StartMinimized);
+        Assert.Equal(CloseAction.Tray, config.Startup.CloseAction);
         Assert.True(config.Notifications.IgnoreSilent);
         Assert.False(config.Notifications.ShowPreviews);
         Assert.True(config.Notifications.WindowsToasts);
@@ -32,7 +33,7 @@ public sealed class ConfigStoreTests : IDisposable
         {
             FirstRunCompleted = true,
             Device = { DeviceId = "BluetoothLE#BluetoothLE00:00:00:00:00:00-11:22:33:44:55:66", Name = "Phone" },
-            Startup = { StartMinimized = false, DelaySeconds = 30 },
+            Startup = { StartMinimized = false, DelaySeconds = 30, CloseAction = CloseAction.Exit },
             Notifications = { ShowPreviews = true, IgnoreSilent = false, WindowsToasts = false, MutedApps = ["com.example"], MutedCategories = [AncsCategory.News] },
             Appearance = { Language = AppLanguage.Slovak, Theme = AppTheme.Dark },
             AppNames = { ["net.whatsapp.WhatsApp"] = "WhatsApp" },
@@ -47,6 +48,7 @@ public sealed class ConfigStoreTests : IDisposable
         Assert.Equal("Phone", loaded.Device.Name);
         Assert.False(loaded.Startup.StartMinimized);
         Assert.Equal(30, loaded.Startup.DelaySeconds);
+        Assert.Equal(CloseAction.Exit, loaded.Startup.CloseAction);
         Assert.True(loaded.Notifications.ShowPreviews);
         Assert.False(loaded.Notifications.IgnoreSilent);
         Assert.False(loaded.Notifications.WindowsToasts);
@@ -82,6 +84,7 @@ public sealed class ConfigStoreTests : IDisposable
 
         Assert.Equal(ConfigLoadOutcome.Corrupt, store.LastOutcome);
         Assert.True(config.Startup.StartMinimized);
+        Assert.Equal(CloseAction.Tray, config.Startup.CloseAction);
         Assert.Equal(content, File.ReadAllText(Path.Combine(_directory, "config.bad.json")));
     }
 

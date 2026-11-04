@@ -37,9 +37,12 @@ public sealed partial class MainWindow : Window
 
     private readonly AppHost _host;
     private readonly long _requestedAt;
+    private readonly OverlappedPresenter _presenter = OverlappedPresenter.Create();
     private bool _ready;
     private bool _activatedOnce;
     private bool _closed;
+    private bool _minimized;
+    private bool _minimizeApplied;
 
     internal MainWindow(AppHost host, PointInt32? anchor, long requestedAt)
     {
@@ -66,6 +69,7 @@ public sealed partial class MainWindow : Window
         DelaySegments.SegmentSelected += OnDelaySelected;
         LanguageSegments.SegmentSelected += OnLanguageSelected;
         ThemeSegments.SegmentSelected += OnThemeSelected;
+        CloseActionSegments.SegmentSelected += OnCloseActionSelected;
         Activated += OnActivated;
         Closed += OnClosed;
         host.StatusChanged += OnHostStatusChanged;
@@ -77,8 +81,15 @@ public sealed partial class MainWindow : Window
 
     internal bool IsLightDismissed { get; private set; }
 
+    internal bool IsMinimized => _minimized || _presenter.State == OverlappedPresenterState.Minimized;
+
     internal void BringToFront()
     {
+        if (_presenter.State == OverlappedPresenterState.Minimized)
+        {
+            _presenter.Restore();
+        }
+
         Activate();
         PInvoke.SetForegroundWindow(WindowHandle);
     }
@@ -89,13 +100,12 @@ public sealed partial class MainWindow : Window
 
     private void ConfigureChrome()
     {
-        var presenter = OverlappedPresenter.Create();
-        presenter.IsResizable = false;
-        presenter.IsMaximizable = false;
-        presenter.IsMinimizable = false;
-        presenter.IsAlwaysOnTop = true;
-        presenter.SetBorderAndTitleBar(hasBorder: true, hasTitleBar: false);
-        AppWindow.SetPresenter(presenter);
+        _presenter.IsResizable = false;
+        _presenter.IsMaximizable = false;
+        _presenter.IsMinimizable = true;
+        _presenter.IsAlwaysOnTop = true;
+        _presenter.SetBorderAndTitleBar(hasBorder: true, hasTitleBar: false);
+        AppWindow.SetPresenter(_presenter);
         ExtendsContentIntoTitleBar = true;
 
         AppWindow.IsShownInSwitchers = false;
@@ -154,6 +164,9 @@ public sealed partial class MainWindow : Window
         AutostartLabel.Text = localizer["Setting_Autostart"];
         AutostartWarning.Text = localizer["Setting_AutostartDisabledByUser"];
         MinimizedLabel.Text = localizer["Setting_StartMinimized"];
+        CloseActionLabel.Text = localizer["Setting_CloseAction"];
+        ToolTipService.SetToolTip(MinimizeButton, localizer["Caption_Minimize"]);
+        ToolTipService.SetToolTip(CloseButton, localizer["Caption_Close"]);
         DelayLabel.Text = localizer["Setting_Delay"];
         AppearanceHeader.Text = localizer["Section_Appearance"];
         LanguageLabel.Text = localizer["Setting_Language"];
@@ -171,6 +184,7 @@ public sealed partial class MainWindow : Window
         DelaySegments.SetItems([.. AppConfig.AllowedStartupDelays.Select(delay => delay == 0 ? localizer["Setting_DelayNone"] : localizer.Format("Setting_DelaySeconds", delay))]);
         LanguageSegments.SetItems([localizer["Choice_Auto"], localizer["Lang_English"], localizer["Lang_Slovak"]]);
         ThemeSegments.SetItems([localizer["Choice_Auto"], localizer["Theme_Light"], localizer["Theme_Dark"]]);
+        CloseActionSegments.SetItems([localizer["CloseAction_Tray"], localizer["CloseAction_Exit"]]);
         BuildFilters();
     }
 
@@ -187,6 +201,7 @@ public sealed partial class MainWindow : Window
         DelaySegments.SelectedIndex = Math.Max(0, AppConfig.AllowedStartupDelays.ToList().IndexOf(config.Startup.DelaySeconds));
         LanguageSegments.SelectedIndex = (int)config.Appearance.Language;
         ThemeSegments.SelectedIndex = (int)config.Appearance.Theme;
+        CloseActionSegments.SelectedIndex = (int)config.Startup.CloseAction;
         RefreshAutostart();
         _ready = wasReady;
     }
@@ -321,7 +336,7 @@ public sealed partial class MainWindow : Window
     {
         if (args.WindowActivationState == WindowActivationState.Deactivated)
         {
-            if (_activatedOnce)
+            if (_activatedOnce && !_minimized)
             {
                 IsLightDismissed = true;
                 Close();
@@ -330,10 +345,57 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        LeaveMinimizedIfRestored();
+
         if (!_activatedOnce)
         {
             _activatedOnce = true;
             _host.Log.Info($"window shown in {Stopwatch.GetElapsedTime(_requestedAt).TotalMilliseconds:F0} ms");
+        }
+    }
+
+    private void OnMinimizeClick(object sender, RoutedEventArgs args)
+    {
+        _minimized = true;
+        AppWindow.IsShownInSwitchers = true;
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!_closed && _minimized)
+            {
+                _presenter.Minimize();
+                _minimizeApplied = true;
+            }
+        });
+    }
+
+    private void LeaveMinimizedIfRestored()
+    {
+        if (!_minimizeApplied || _presenter.State == OverlappedPresenterState.Minimized)
+        {
+            return;
+        }
+
+        _minimizeApplied = false;
+        _minimized = false;
+        AppWindow.IsShownInSwitchers = false;
+    }
+
+    private void OnCloseClick(object sender, RoutedEventArgs args)
+    {
+        if (_host.Config.Startup.CloseAction == CloseAction.Exit)
+        {
+            _host.RequestExit();
+            return;
+        }
+
+        Close();
+    }
+
+    private void OnCloseActionSelected(object? sender, SegmentSelectedEventArgs args)
+    {
+        if (_ready)
+        {
+            _host.UpdateConfig(config => config.Startup.CloseAction = (CloseAction)args.Index);
         }
     }
 
@@ -543,6 +605,7 @@ public sealed partial class MainWindow : Window
         DelaySegments.SegmentSelected -= OnDelaySelected;
         LanguageSegments.SegmentSelected -= OnLanguageSelected;
         ThemeSegments.SegmentSelected -= OnThemeSelected;
+        CloseActionSegments.SegmentSelected -= OnCloseActionSelected;
         Activated -= OnActivated;
         Closed -= OnClosed;
         _host.StatusChanged -= OnHostStatusChanged;

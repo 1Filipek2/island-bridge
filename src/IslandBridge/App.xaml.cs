@@ -29,7 +29,7 @@ public partial class App : Application
     {
         if (_window is { } existing)
         {
-            if (request.Toggle)
+            if (request.Toggle && !existing.IsMinimized)
             {
                 existing.Close();
             }
