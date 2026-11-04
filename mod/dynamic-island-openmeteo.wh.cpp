@@ -2,7 +2,7 @@
 // @id              dynamic-island-openmeteo
 // @name            Dynamic Island for Windows (Open-Meteo)
 // @description     Private fork of Dynamic Island 1.4.0 using Open-Meteo for weather. A living, breathing pill overlay inspired by iPhone's Dynamic Island. Reacts to media, downloads, clipboard, battery, and more.
-// @version         1.4.0-openmeteo.16
+// @version         1.4.0-openmeteo.17
 // @author          Himanshu
 // @github          https://github.com/devcode90
 // @include         windhawk.exe
@@ -1389,6 +1389,7 @@ constexpr float remove_margin = 7.0f;
 constexpr float hit_slop = 3.0f;
 constexpr float unread_dot_radius = 3.0f;
 constexpr float unread_dot_gap = 11.0f;
+constexpr float back_size = 24.0f;
 
 struct Incoming
 {
@@ -1399,14 +1400,35 @@ struct Incoming
     PixelsRef icon;
 };
 
+struct Entry
+{
+    std::uint64_t sequence = 0;
+    std::wstring preview;
+    std::wstring time;
+};
+
 struct Group
 {
     std::wstring key;
     std::wstring app;
-    std::wstring preview;
-    std::wstring time;
     PixelsRef icon;
-    std::vector<std::uint64_t> arrivals;
+    std::vector<Entry> entries;
+
+    const Entry& latest() const
+    {
+        return entries.back();
+    }
+};
+
+struct View
+{
+    std::wstring key;
+    std::size_t offset = 0;
+
+    bool open() const
+    {
+        return !key.empty();
+    }
 };
 
 class History
@@ -1429,7 +1451,7 @@ public:
         {
             if (groups_.size() >= max_apps)
             {
-                total_ -= groups_.back().arrivals.size();
+                total_ -= groups_.back().entries.size();
                 groups_.pop_back();
             }
 
@@ -1440,15 +1462,13 @@ public:
 
         Group& group = groups_.front();
         group.app = std::move(incoming.app);
-        group.preview = std::move(incoming.preview);
-        group.time = std::move(incoming.time);
 
         if (incoming.icon)
         {
             group.icon = std::move(incoming.icon);
         }
 
-        group.arrivals.push_back(sequence_);
+        group.entries.push_back(Entry{sequence_, std::move(incoming.preview), std::move(incoming.time)});
         ++total_;
 
         while (total_ > max_notifications)
@@ -1464,9 +1484,27 @@ public:
             return false;
         }
 
-        total_ -= groups_[index].arrivals.size();
+        total_ -= groups_[index].entries.size();
         groups_.erase(groups_.begin() + static_cast<std::ptrdiff_t>(index));
         return true;
+    }
+
+    bool remove(const std::wstring& key)
+    {
+        const auto found = std::find_if(groups_.begin(), groups_.end(), [&](const Group& group)
+        {
+            return group.key == key;
+        });
+        return found != groups_.end() && remove(static_cast<std::size_t>(found - groups_.begin()));
+    }
+
+    const Group* find(const std::wstring& key) const
+    {
+        const auto found = std::find_if(groups_.begin(), groups_.end(), [&](const Group& group)
+        {
+            return group.key == key;
+        });
+        return found == groups_.end() ? nullptr : &*found;
     }
 
     void clear()
@@ -1490,7 +1528,7 @@ private:
     {
         const auto oldest = std::min_element(groups_.begin(), groups_.end(), [](const Group& left, const Group& right)
         {
-            return left.arrivals.front() < right.arrivals.front();
+            return left.entries.front().sequence < right.entries.front().sequence;
         });
 
         if (oldest == groups_.end())
@@ -1499,10 +1537,10 @@ private:
             return;
         }
 
-        oldest->arrivals.erase(oldest->arrivals.begin());
+        oldest->entries.erase(oldest->entries.begin());
         --total_;
 
-        if (oldest->arrivals.empty())
+        if (oldest->entries.empty())
         {
             groups_.erase(oldest);
         }
@@ -1561,6 +1599,45 @@ bool remove_hit(float x, float y, float width, int row)
     const float center_x = width - pad_x - remove_margin - remove_size * 0.5f;
     const float center_y = list_top + static_cast<float>(row) * (row_height + row_gap) + row_height * 0.5f;
     return std::fabs(x - center_x) <= half && std::fabs(y - center_y) <= half;
+}
+
+bool back_hit(float x, float y, float width)
+{
+    const float right = width - pad_x - clear_size - 8.0f;
+    return x >= pad_x - hit_slop && x <= right && y >= clear_top - hit_slop && y <= clear_top + back_size + hit_slop;
+}
+
+std::size_t max_offset(std::size_t entry_count, int capacity)
+{
+    const std::size_t rows = capacity < 1 ? 1 : static_cast<std::size_t>(capacity);
+    return entry_count > rows ? entry_count - rows : 0;
+}
+
+std::size_t scrolled(std::size_t offset, int step, std::size_t entry_count, int capacity)
+{
+    const std::size_t limit = max_offset(entry_count, capacity);
+    const std::size_t current = offset < limit ? offset : limit;
+
+    if (step < 0)
+    {
+        const std::size_t back = static_cast<std::size_t>(-static_cast<long long>(step));
+        return current > back ? current - back : 0;
+    }
+
+    const std::size_t next = current + static_cast<std::size_t>(step);
+    return next < limit ? next : limit;
+}
+
+const Entry* entry_at(const Group& group, std::size_t offset, std::size_t row)
+{
+    const std::size_t index = offset + row;
+
+    if (index >= group.entries.size())
+    {
+        return nullptr;
+    }
+
+    return &group.entries[group.entries.size() - 1 - index];
 }
 
 }
@@ -1831,6 +1908,7 @@ struct SharedState {
     bool muted = false;
     std::vector<FileTrayItem> fileTrayItems;
     std::shared_ptr<const notification_center::History> notificationCenter;
+    notification_center::View notificationCenterView;
 };
 
 struct SpringValue {
@@ -1938,6 +2016,8 @@ std::atomic<int> g_hoveredFileTrayAction = -1;  // -2 = bin button, >=0 = cut bu
 std::atomic<int> g_hoveredNotificationRow = -1;
 std::atomic<int> g_hoveredNotificationAction = -1;
 std::atomic<bool> g_notificationCenterUnread{false};
+std::atomic<bool> g_notificationCenterDetailOpen{false};
+std::atomic<int> g_notificationCenterDetailRows{1};
 std::atomic<bool> g_trayDragOver{false};      // a file drag from outside is hovering the island
 std::atomic<bool> g_trayInternalDrag{false};  // a drag that started from the tray itself is running
 std::atomic<int> g_tabEdgeBump{0};            // +1 / -1: wheel or swipe pushed past the last / first tab
@@ -2598,38 +2678,103 @@ struct NotificationCenterHit {
     int action = -1;
 };
 
-NotificationCenterHit NotificationCenterHitTest(const MediaContentPoint& pt, int groupCount) {
+constexpr int kNotificationCenterBack = -3;
+constexpr int kNotificationCenterClear = -2;
+
+const notification_center::Group* OpenNotificationGroup(const SharedState& state) {
+    if (!state.notificationCenterView.open() || !state.notificationCenter) {
+        return nullptr;
+    }
+    return state.notificationCenter->find(state.notificationCenterView.key);
+}
+
+NotificationCenterHit NotificationCenterHitTest(const MediaContentPoint& pt) {
     NotificationCenterHit hit;
     if (!pt.valid || pt.height <= MediaLayout::kExpandedMinHeight) {
         return hit;
     }
+    std::lock_guard lock(g_stateMutex);
+    if (OpenNotificationGroup(g_state)) {
+        if (notification_center::clear_hit(pt.x, pt.y, pt.width)) {
+            hit.action = kNotificationCenterClear;
+        } else if (notification_center::back_hit(pt.x, pt.y, pt.width)) {
+            hit.action = kNotificationCenterBack;
+        }
+        return hit;
+    }
+    const int groupCount = g_state.notificationCenter ? static_cast<int>(g_state.notificationCenter->groups().size()) : 0;
     hit.row = notification_center::row_at(pt.x, pt.y, pt.width, pt.height, groupCount);
     if (groupCount > 0 && notification_center::clear_hit(pt.x, pt.y, pt.width)) {
-        hit.action = -2;
+        hit.action = kNotificationCenterClear;
     } else if (notification_center::remove_hit(pt.x, pt.y, pt.width, hit.row)) {
         hit.action = hit.row;
     }
     return hit;
 }
 
-int NotificationCenterGroupCount() {
-    std::lock_guard lock(g_stateMutex);
-    return g_state.notificationCenter ? static_cast<int>(g_state.notificationCenter->groups().size()) : 0;
+void SetNotificationCenterView(notification_center::View view) {
+    g_notificationCenterDetailOpen.store(view.open(), std::memory_order_relaxed);
+    g_state.notificationCenterView = std::move(view);
 }
 
-void ClearNotificationCenter(int row) {
+void CloseNotificationCenterDetail() {
+    if (!g_notificationCenterDetailOpen.load(std::memory_order_relaxed)) {
+        return;
+    }
     std::lock_guard lock(g_stateMutex);
-    if (!g_state.notificationCenter) {
+    SetNotificationCenterView({});
+}
+
+void HandleNotificationCenterClick(const NotificationCenterHit& hit) {
+    std::lock_guard lock(g_stateMutex);
+    const notification_center::History* history = g_state.notificationCenter.get();
+    if (!history) {
+        SetNotificationCenterView({});
         return;
     }
-    if (row < 0) {
+
+    if (const notification_center::Group* open = OpenNotificationGroup(g_state)) {
+        if (hit.action == kNotificationCenterClear) {
+            auto next = std::make_shared<notification_center::History>(*history);
+            next->remove(open->key);
+            g_state.notificationCenter = std::move(next);
+        }
+        if (hit.action == kNotificationCenterClear || hit.action == kNotificationCenterBack) {
+            SetNotificationCenterView({});
+        }
+        return;
+    }
+
+    if (hit.action == kNotificationCenterClear) {
         g_state.notificationCenter.reset();
-        return;
+        SetNotificationCenterView({});
+    } else if (hit.action >= 0) {
+        auto next = std::make_shared<notification_center::History>(*history);
+        if (next->remove(static_cast<std::size_t>(hit.action))) {
+            g_state.notificationCenter = std::move(next);
+        }
+    } else if (hit.row >= 0 && static_cast<std::size_t>(hit.row) < history->groups().size()) {
+        SetNotificationCenterView(notification_center::View{history->groups()[static_cast<std::size_t>(hit.row)].key, 0});
     }
-    auto next = std::make_shared<notification_center::History>(*g_state.notificationCenter);
-    if (next->remove(static_cast<std::size_t>(row))) {
-        g_state.notificationCenter = std::move(next);
+}
+
+bool ScrollNotificationCenterDetail(int step) {
+    if (!g_notificationCenterDetailOpen.load(std::memory_order_relaxed)) {
+        return false;
     }
+    std::lock_guard lock(g_stateMutex);
+    const notification_center::Group* open = OpenNotificationGroup(g_state);
+    if (!open) {
+        return false;
+    }
+    notification_center::View& view = g_state.notificationCenterView;
+    const std::size_t next = notification_center::scrolled(view.offset, step, open->entries.size(),
+                                                           g_notificationCenterDetailRows.load(std::memory_order_relaxed));
+    if (next != view.offset) {
+        view.offset = next;
+        g_layoutDirty = true;
+    }
+    return true;
 }
 
 // True when the point is over the expanded layout's album art.
@@ -14950,8 +15095,140 @@ class Renderer {
         boldTextFormat_->SetParagraphAlignment(paragraph_alignment);
     }
 
+    void DrawNotificationCenterBack(D2D1_RECT_F box, float scale, bool hovered) {
+        if (hovered) {
+            DrawCard(box, 7.0f * scale, true);
+        }
+        const float cx = (box.left + box.right) * 0.5f;
+        const float cy = (box.top + box.bottom) * 0.5f;
+        const float arm = 4.5f * scale;
+        const float stroke = 1.8f * scale;
+        textBrush_->SetOpacity(hovered ? 1.0f : 0.85f);
+        target_->DrawLine(D2D1::Point2F(cx + arm * 0.5f, cy - arm), D2D1::Point2F(cx - arm * 0.5f, cy),
+                          textBrush_.Get(), stroke);
+        target_->DrawLine(D2D1::Point2F(cx - arm * 0.5f, cy), D2D1::Point2F(cx + arm * 0.5f, cy + arm),
+                          textBrush_.Get(), stroke);
+    }
+
+    void DrawNotificationCenterDetail(const notification_center::Group& group, std::size_t offset,
+                                      D2D1_RECT_F rect, float scale) {
+        const int capacity = notification_center::visible_rows((rect.bottom - rect.top) / scale);
+        g_notificationCenterDetailRows.store(capacity, std::memory_order_relaxed);
+        const std::size_t rows = static_cast<std::size_t>(capacity);
+        const std::size_t count = group.entries.size();
+        const std::size_t limit = notification_center::max_offset(count, capacity);
+        const std::size_t first = std::min(offset, limit);
+        const int hoveredAction = g_hoveredNotificationAction.load(std::memory_order_relaxed);
+
+        const float padX = notification_center::pad_x * scale;
+        const float headTop = rect.top + notification_center::clear_top * scale;
+        const float clearSize = notification_center::clear_size * scale;
+        const float backSize = notification_center::back_size * scale;
+        const D2D1_RECT_F clearBox = D2D1::RectF(rect.right - padX - clearSize, headTop,
+                                                 rect.right - padX, headTop + clearSize);
+        const D2D1_RECT_F backBox = D2D1::RectF(rect.left + padX, headTop,
+                                                rect.left + padX + backSize, headTop + backSize);
+        DrawNotificationCenterBack(backBox, scale, hoveredAction == kNotificationCenterBack);
+
+        const float iconSize = 20.0f * scale;
+        const float iconTop = (backBox.top + backBox.bottom - iconSize) * 0.5f;
+        const D2D1_RECT_F badge = D2D1::RectF(backBox.right + 6.0f * scale, iconTop,
+                                              backBox.right + 6.0f * scale + iconSize, iconTop + iconSize);
+        DrawNotificationCenterIcon(group, badge, 6.0f * scale);
+
+        const float textTop = rect.top + 18.0f * scale;
+        const float textBottom = rect.top + 38.0f * scale;
+        float headingRight = clearBox.left - 8.0f * scale;
+
+        if (count > rows && smallTextFormat_) {
+            wchar_t rangeBuf[48] = {};
+            swprintf_s(rangeBuf, L"%zu\u2013%zu / %zu", first + 1, std::min(count, first + rows), count);
+            const D2D1_RECT_F rangeRect = D2D1::RectF(headingRight - 72.0f * scale, textTop, headingRight, textBottom);
+            smallTextFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
+            mutedBrush_->SetOpacity(0.75f);
+            target_->DrawTextW(rangeBuf, static_cast<UINT32>(wcslen(rangeBuf)), smallTextFormat_.Get(),
+                               rangeRect, mutedBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
+            smallTextFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
+            headingRight = rangeRect.left;
+        }
+
+        if (boldTextFormat_) {
+            std::wstring heading = group.app;
+            if (count > 1) {
+                heading += L" \u00B7 " + std::to_wstring(count);
+            }
+            const DWRITE_TEXT_ALIGNMENT alignment = boldTextFormat_->GetTextAlignment();
+            boldTextFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
+            textBrush_->SetOpacity(0.96f);
+            target_->DrawTextW(heading.c_str(), static_cast<UINT32>(heading.size()), boldTextFormat_.Get(),
+                               D2D1::RectF(badge.right + 8.0f * scale, textTop, headingRight - 6.0f * scale, textBottom),
+                               textBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
+            boldTextFormat_->SetTextAlignment(alignment);
+        }
+
+        DrawTrayBinButton(clearBox, true, hoveredAction == kNotificationCenterClear);
+
+        const float listTop = rect.top + notification_center::list_top * scale;
+        const float rowH = notification_center::row_height * scale;
+        const float rowGap = notification_center::row_gap * scale;
+        const float timeW = 56.0f * scale;
+
+        if (smallTextFormat_) {
+            const DWRITE_WORD_WRAPPING wrapping = smallTextFormat_->GetWordWrapping();
+            for (std::size_t index = 0; index < rows; ++index) {
+                const notification_center::Entry* entry = notification_center::entry_at(group, first, index);
+                if (!entry) {
+                    break;
+                }
+                const float rowTop = listTop + static_cast<float>(index) * (rowH + rowGap);
+                const D2D1_RECT_F row = D2D1::RectF(rect.left + padX, rowTop, rect.right - padX, rowTop + rowH);
+                DrawCard(row, 9.0f * scale, false);
+
+                const float textLeft = row.left + 10.0f * scale;
+                const float textRight = row.right - 10.0f * scale;
+
+                smallTextFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
+                mutedBrush_->SetOpacity(0.65f);
+                target_->DrawTextW(entry->time.c_str(), static_cast<UINT32>(entry->time.size()), smallTextFormat_.Get(),
+                                   D2D1::RectF(textRight - timeW, row.top + 3.0f * scale, textRight, row.top + 19.0f * scale),
+                                   mutedBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
+                smallTextFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
+
+                smallTextFormat_->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
+                textBrush_->SetOpacity(0.90f);
+                target_->DrawTextW(entry->preview.c_str(), static_cast<UINT32>(entry->preview.size()), smallTextFormat_.Get(),
+                                   D2D1::RectF(textLeft, row.top + 3.0f * scale, textRight - timeW - 4.0f * scale,
+                                               row.bottom - 2.0f * scale),
+                                   textBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
+                smallTextFormat_->SetWordWrapping(wrapping);
+            }
+        }
+
+        if (count > rows && limit > 0) {
+            const float trackTop = listTop;
+            const float trackHeight = static_cast<float>(rows) * (rowH + rowGap) - rowGap;
+            const float thumbHeight = std::max(10.0f * scale, trackHeight * static_cast<float>(rows) / static_cast<float>(count));
+            const float thumbTop = trackTop + (trackHeight - thumbHeight) * static_cast<float>(first) / static_cast<float>(limit);
+            const float trackX = rect.right - padX + 7.0f * scale;
+            const float thumbWidth = 3.0f * scale;
+            mutedBrush_->SetOpacity(0.55f);
+            target_->FillRoundedRectangle(
+                D2D1::RoundedRect(D2D1::RectF(trackX, thumbTop, trackX + thumbWidth, thumbTop + thumbHeight),
+                                  thumbWidth * 0.5f, thumbWidth * 0.5f),
+                mutedBrush_.Get());
+        }
+
+        textBrush_->SetOpacity(0.96f);
+        mutedBrush_->SetOpacity(0.75f);
+    }
+
     void DrawNotificationCenterDashboard(const SharedState& state, D2D1_RECT_F rect, float scale) {
         g_notificationCenterUnread.store(false, std::memory_order_relaxed);
+
+        if (const notification_center::Group* open = OpenNotificationGroup(state)) {
+            DrawNotificationCenterDetail(*open, state.notificationCenterView.offset, rect, scale);
+            return;
+        }
 
         const float padX = notification_center::pad_x * scale;
         const D2D1_RECT_F headerRect = D2D1::RectF(rect.left + padX, rect.top + 18.0f * scale,
@@ -15048,8 +15325,8 @@ class Renderer {
                 const float midY = (row.top + row.bottom) * 0.5f;
 
                 std::wstring heading = group.app;
-                if (group.arrivals.size() > 1) {
-                    heading += L" \u00B7 " + std::to_wstring(group.arrivals.size());
+                if (group.entries.size() > 1) {
+                    heading += L" \u00B7 " + std::to_wstring(group.entries.size());
                 }
                 textBrush_->SetOpacity(0.94f);
                 target_->DrawTextW(heading.c_str(), static_cast<UINT32>(heading.size()), smallTextFormat_.Get(),
@@ -15058,13 +15335,14 @@ class Renderer {
 
                 smallTextFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
                 mutedBrush_->SetOpacity(0.65f);
-                target_->DrawTextW(group.time.c_str(), static_cast<UINT32>(group.time.size()), smallTextFormat_.Get(),
+                const notification_center::Entry& latest = group.latest();
+                target_->DrawTextW(latest.time.c_str(), static_cast<UINT32>(latest.time.size()), smallTextFormat_.Get(),
                                    D2D1::RectF(textRight - timeW, row.top + 3.0f * scale, textRight, midY + 1.0f * scale),
                                    mutedBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
                 smallTextFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
 
                 mutedBrush_->SetOpacity(0.78f);
-                target_->DrawTextW(group.preview.c_str(), static_cast<UINT32>(group.preview.size()), smallTextFormat_.Get(),
+                target_->DrawTextW(latest.preview.c_str(), static_cast<UINT32>(latest.preview.size()), smallTextFormat_.Get(),
                                    D2D1::RectF(textLeft, midY, textRight, row.bottom - 2.0f * scale),
                                    mutedBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
             }
@@ -23082,7 +23360,8 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 }
 
                 if (currentTab == NotificationCenterTabIndex(g_settings) &&
-                    g_hoveredNotificationAction.load(std::memory_order_relaxed) != -1) {
+                    (g_hoveredNotificationAction.load(std::memory_order_relaxed) != -1 ||
+                     g_hoveredNotificationRow.load(std::memory_order_relaxed) >= 0)) {
                     SetCursor(LoadCursorW(nullptr, IDC_HAND));
                     return TRUE;
                 }
@@ -23265,8 +23544,7 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
             NotificationCenterHit centerHit;
             if (currentTab == NotificationCenterTabIndex(g_settings)) {
-                centerHit = NotificationCenterHitTest(MediaContentFromClient(xPos, yPos),
-                                                      NotificationCenterGroupCount());
+                centerHit = NotificationCenterHitTest(MediaContentFromClient(xPos, yPos));
             }
             const bool centerRowChanged = g_hoveredNotificationRow.exchange(centerHit.row) != centerHit.row;
             const bool centerActionChanged =
@@ -23432,9 +23710,9 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 const MediaContentPoint cp = MediaContentFromClient(xPos, yPos);
 
                 if (currentTab == NotificationCenterTabIndex(g_settings)) {
-                    const NotificationCenterHit hit = NotificationCenterHitTest(cp, NotificationCenterGroupCount());
-                    if (hit.action != -1) {
-                        ClearNotificationCenter(hit.action == -2 ? -1 : hit.action);
+                    const NotificationCenterHit hit = NotificationCenterHitTest(cp);
+                    if (hit.action != -1 || hit.row >= 0) {
+                        HandleNotificationCenterClick(hit);
                         g_hoveredNotificationRow = -1;
                         g_hoveredNotificationAction = -1;
                         g_layoutDirty = true;
@@ -23610,7 +23888,12 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 return 0;
             }
             s_lastWheelStep = wheelNow;
-            StepIdleTab(s_wheelAccum > 0 ? -1 : 1);  // wheel up = previous tab
+            const int wheelStep = s_wheelAccum > 0 ? -1 : 1;
+            const bool detailScrolled = NormalizedTabIndex(g_settings) == NotificationCenterTabIndex(g_settings) &&
+                                        ScrollNotificationCenterDetail(wheelStep);
+            if (!detailScrolled) {
+                StepIdleTab(wheelStep);  // wheel up = previous tab
+            }
             s_wheelAccum = 0;
             return 0;
         }
@@ -24074,6 +24357,10 @@ DWORD WINAPI RenderThreadProc(void*) {
 
         if (!hover && g_clickExpanded.load()) {
             g_clickExpanded = false;
+            needsRender = true;
+        }
+        if (!hover && g_notificationCenterDetailOpen.load(std::memory_order_relaxed)) {
+            CloseNotificationCenterDetail();
             needsRender = true;
         }
         if (!hover && g_hoveredMediaButton.load() != -1) {
