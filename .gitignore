@@ -27,3 +27,14 @@ TestResults/
 name.txt
 ver.txt
 .claude/settings.local.json
+
+*.dmp
+*.mdmp
+*.binlog
+*.etl
+*.tmp
+*~
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store
