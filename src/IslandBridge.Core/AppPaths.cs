@@ -9,4 +9,6 @@ public sealed record AppPaths(string DataDirectory)
     public string ConfigFile => Path.Combine(DataDirectory, "config.json");
 
     public string LogDirectory => Path.Combine(DataDirectory, "logs");
+
+    public string IconDirectory => Path.Combine(DataDirectory, "icons");
 }

@@ -31,6 +31,8 @@ public sealed class IslandProtocolTests
             offset += sizeof(ushort) + BinaryPrimitives.ReadUInt16LittleEndian(message.AsSpan(offset));
         }
 
+        offset += sizeof(ushort) + BinaryPrimitives.ReadUInt16LittleEndian(message.AsSpan(offset));
+
         Assert.Equal(message.Length, offset);
     }
 
@@ -38,7 +40,7 @@ public sealed class IslandProtocolTests
     public void Worst_case_stays_under_the_size_limit_and_field_caps()
     {
         var huge = string.Concat(Enumerable.Repeat("\U0001F600", 5000));
-        var message = IslandProtocol.Encode(Create(app: huge, bundle: huge, title: huge, subtitle: huge, body: huge));
+        var message = IslandProtocol.Encode(Create(app: huge, bundle: huge, title: huge, subtitle: huge, body: huge), new byte[IslandProtocol.MaxIconBytes]);
         var fields = Decode(message);
 
         Assert.True(message.Length <= IslandProtocol.MaxMessageBytes);
@@ -67,6 +69,25 @@ public sealed class IslandProtocolTests
         Assert.Equal("ab", fields[4]);
     }
 
+    [Fact]
+    public void Icon_is_the_last_field_and_empty_by_default()
+    {
+        byte[] icon = [0x89, 0x50, 0x4E, 0x47];
+        var withIcon = IslandProtocol.Encode(Create(), icon);
+        var withoutIcon = IslandProtocol.Encode(Create());
+
+        Assert.Equal(icon, ReadIcon(withIcon));
+        Assert.Empty(ReadIcon(withoutIcon));
+    }
+
+    [Fact]
+    public void Oversized_icon_is_dropped()
+    {
+        var message = IslandProtocol.Encode(Create(), new byte[IslandProtocol.MaxIconBytes + 1]);
+
+        Assert.Empty(ReadIcon(message));
+    }
+
     private static IslandNotification Create(
         string app = "App",
         string bundle = "com.example.app",
@@ -89,5 +110,20 @@ public sealed class IslandProtocolTests
         }
 
         return fields;
+    }
+
+    private static byte[] ReadIcon(byte[] message)
+    {
+        var offset = IslandProtocol.HeaderBytes;
+
+        for (var i = 0; i < IslandProtocol.FieldCount; i++)
+        {
+            offset += sizeof(ushort) + BinaryPrimitives.ReadUInt16LittleEndian(message.AsSpan(offset));
+        }
+
+        var length = BinaryPrimitives.ReadUInt16LittleEndian(message.AsSpan(offset));
+        offset += sizeof(ushort);
+        Assert.Equal(message.Length, offset + length);
+        return message[offset..(offset + length)];
     }
 }

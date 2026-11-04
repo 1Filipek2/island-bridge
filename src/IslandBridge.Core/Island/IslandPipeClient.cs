@@ -53,7 +53,7 @@ public sealed class IslandPipeClient : IAsyncDisposable
 
     public long Dropped { get; private set; }
 
-    public bool TrySend(IslandNotification notification) => _queue.Writer.TryWrite(IslandProtocol.Encode(notification));
+    public bool TrySend(IslandNotification notification, byte[]? icon = null) => _queue.Writer.TryWrite(IslandProtocol.Encode(notification, icon));
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {

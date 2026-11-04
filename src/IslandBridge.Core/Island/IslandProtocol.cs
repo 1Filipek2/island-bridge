@@ -8,8 +8,9 @@ namespace IslandBridge.Core.Island;
 public static class IslandProtocol
 {
     public const string PipeName = "DynamicIslandNotify";
-    public const int MaxMessageBytes = 4096;
-    public const byte Version = 1;
+    public const int MaxMessageBytes = 12288;
+    public const int MaxIconBytes = 8192;
+    public const byte Version = 2;
     public const byte KindNotification = 1;
     public const int HeaderBytes = 4;
     public const int FieldCount = 5;
@@ -18,9 +19,14 @@ public static class IslandProtocol
 
     public static ReadOnlySpan<int> MaxFieldChars => [64, 128, 120, 120, 512];
 
-    public static byte[] Encode(IslandNotification notification)
+    public static byte[] Encode(IslandNotification notification, ReadOnlySpan<byte> icon = default)
     {
         ArgumentNullException.ThrowIfNull(notification);
+
+        if (icon.Length > MaxIconBytes)
+        {
+            icon = default;
+        }
 
         string[] values =
         [
@@ -41,6 +47,8 @@ public static class IslandProtocol
             size += sizeof(ushort) + fields[index].Length;
         }
 
+        size += sizeof(ushort) + icon.Length;
+
         var message = new byte[size];
         message[0] = Version;
         message[1] = KindNotification;
@@ -55,6 +63,10 @@ public static class IslandProtocol
             field.CopyTo(message, offset);
             offset += field.Length;
         }
+
+        BinaryPrimitives.WriteUInt16LittleEndian(message.AsSpan(offset), (ushort)icon.Length);
+        offset += sizeof(ushort);
+        icon.CopyTo(message.AsSpan(offset));
 
         return message;
     }

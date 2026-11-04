@@ -3,10 +3,12 @@ using IslandBridge.Core;
 using IslandBridge.Core.Ancs;
 using IslandBridge.Core.Configuration;
 using IslandBridge.Core.Diagnostics;
+using IslandBridge.Core.Icons;
 using IslandBridge.Core.Island;
 using IslandBridge.Core.Notifications;
 using IslandBridge.Core.Startup;
 using IslandBridge.Core.Toasts;
+using IslandBridge.Icons;
 
 namespace IslandBridge;
 
@@ -59,6 +61,8 @@ internal sealed class AppHost : IAsyncDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private readonly IslandPipeClient _island;
     private readonly Task _islandTask;
+    private readonly ShellAppIconSource _iconSource;
+    private readonly IconResolver _icons;
     private CancellationTokenSource? _toastCancellation;
     private Task _toastTask = Task.CompletedTask;
     private ToastWatcherState _toastState;
@@ -83,6 +87,8 @@ internal sealed class AppHost : IAsyncDisposable
         _appNamesAtLastSave = _appNames.Count;
         Localizer = new Localizer(Config.Appearance.Language);
         _island = new IslandPipeClient(log);
+        _iconSource = new ShellAppIconSource(log);
+        _icons = new IconResolver(new IconCache(paths.IconDirectory, _timeProvider, log), _iconSource, log);
         _islandTask = Task.Run(() => _island.RunAsync(_lifetime.Token));
     }
 
@@ -337,7 +343,7 @@ internal sealed class AppHost : IAsyncDisposable
             Localizer["Test_Message"],
             DateTime.Now,
             Stopwatch.GetTimestamp());
-        Deliver(notification, FilterDecision.Deliver);
+        _ = Task.Run(() => Deliver(notification, FilterDecision.Deliver));
         Log.Info("test notification sent");
     }
 
@@ -410,6 +416,7 @@ internal sealed class AppHost : IAsyncDisposable
         }
 
         await _island.DisposeAsync().ConfigureAwait(false);
+        _iconSource.Dispose();
         _lifetime.Dispose();
 
         lock (_gate)
@@ -566,7 +573,7 @@ internal sealed class AppHost : IAsyncDisposable
 
     private void Deliver(IslandNotification notification, FilterDecision decision)
     {
-        if (decision == FilterDecision.Deliver && !_island.TrySend(notification))
+        if (decision == FilterDecision.Deliver && !_island.TrySend(notification, _icons.Resolve(notification, _lifetime.Token)))
         {
             Log.Warn("island queue rejected a notification");
         }
