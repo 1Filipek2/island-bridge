@@ -1,6 +1,6 @@
 using System.Buffers.Binary;
 using System.Text;
-using IslandBridge.Core.Ancs;
+using IslandBridge.Core.Notifications;
 using IslandBridge.Core.Text;
 
 namespace IslandBridge.Core.Island;
@@ -18,7 +18,7 @@ public static class IslandProtocol
 
     public static ReadOnlySpan<int> MaxFieldChars => [64, 128, 120, 120, 512];
 
-    public static byte[] Encode(PhoneNotification notification)
+    public static byte[] Encode(IslandNotification notification)
     {
         ArgumentNullException.ThrowIfNull(notification);
 

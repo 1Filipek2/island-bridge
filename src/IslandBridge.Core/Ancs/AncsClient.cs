@@ -1,19 +1,8 @@
 using System.Diagnostics;
 using System.Threading.Channels;
+using IslandBridge.Core.Notifications;
 
 namespace IslandBridge.Core.Ancs;
-
-public sealed record PhoneNotification(
-    uint Uid,
-    AncsCategory Category,
-    AncsEventFlags Flags,
-    string AppIdentifier,
-    string AppName,
-    string Title,
-    string Subtitle,
-    string Message,
-    DateTime? Date,
-    long ReceivedTimestamp);
 
 public sealed record AncsClientOptions
 {
@@ -32,7 +21,7 @@ public sealed class AncsClient : IDisposable
     private readonly AppNameCache _appNames;
     private readonly AncsRequester _requester;
     private readonly Channel<(NotificationSourceEvent Event, long ReceivedAt)> _events;
-    private readonly Channel<PhoneNotification> _notifications;
+    private readonly Channel<IslandNotification> _notifications;
     private readonly Lock _removedGate = new();
     private readonly HashSet<uint> _removed = [];
     private readonly Queue<uint> _removedOrder = new();
@@ -56,7 +45,7 @@ public sealed class AncsClient : IDisposable
         {
             FullMode = BoundedChannelFullMode.DropOldest,
         });
-        _notifications = Channel.CreateBounded<PhoneNotification>(new BoundedChannelOptions(options.OutputQueueCapacity)
+        _notifications = Channel.CreateBounded<IslandNotification>(new BoundedChannelOptions(options.OutputQueueCapacity)
         {
             FullMode = BoundedChannelFullMode.DropOldest,
             SingleReader = true,
@@ -66,7 +55,7 @@ public sealed class AncsClient : IDisposable
 
     public ConnectionSupervisor Supervisor { get; }
 
-    public ChannelReader<PhoneNotification> Notifications => _notifications.Reader;
+    public ChannelReader<IslandNotification> Notifications => _notifications.Reader;
 
     public long MalformedEvents => Interlocked.Read(ref _malformedEvents);
 
@@ -139,7 +128,7 @@ public sealed class AncsClient : IDisposable
             var value = attributes.Value!;
             var appName = await ResolveAppNameAsync(value.AppIdentifier, cancellationToken).ConfigureAwait(false);
 
-            _notifications.Writer.TryWrite(new PhoneNotification(
+            _notifications.Writer.TryWrite(new IslandNotification(
                 notification.Uid,
                 notification.Category,
                 notification.Flags,

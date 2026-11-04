@@ -15,7 +15,7 @@ public enum FilterDecision
 public static class NotificationFilter
 {
     public static FilterDecision Evaluate(
-        PhoneNotification notification,
+        IslandNotification notification,
         NotificationConfig config,
         DateTimeOffset now,
         DateTimeOffset? pausedUntil)

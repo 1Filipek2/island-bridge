@@ -1,7 +1,7 @@
 using System.IO.Pipes;
 using System.Threading.Channels;
-using IslandBridge.Core.Ancs;
 using IslandBridge.Core.Diagnostics;
+using IslandBridge.Core.Notifications;
 
 namespace IslandBridge.Core.Island;
 
@@ -53,7 +53,7 @@ public sealed class IslandPipeClient : IAsyncDisposable
 
     public long Dropped { get; private set; }
 
-    public bool TrySend(PhoneNotification notification) => _queue.Writer.TryWrite(IslandProtocol.Encode(notification));
+    public bool TrySend(IslandNotification notification) => _queue.Writer.TryWrite(IslandProtocol.Encode(notification));
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {

@@ -272,7 +272,7 @@ internal sealed class AppHost : IAsyncDisposable
 
     public void SendTestNotification()
     {
-        var notification = new PhoneNotification(
+        var notification = new IslandNotification(
             0,
             AncsCategory.Other,
             AncsEventFlags.None,
@@ -402,7 +402,7 @@ internal sealed class AppHost : IAsyncDisposable
         SetStatus(status, args.LastFailure);
     }
 
-    private void Deliver(PhoneNotification notification, FilterDecision decision)
+    private void Deliver(IslandNotification notification, FilterDecision decision)
     {
         if (decision == FilterDecision.Deliver && !_island.TrySend(notification))
         {

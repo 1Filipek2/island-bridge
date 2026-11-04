@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
 using IslandBridge.Core.Ancs;
+using IslandBridge.Core.Notifications;
 using Microsoft.Extensions.Time.Testing;
 
 namespace IslandBridge.Tests.Ancs;
@@ -182,7 +183,7 @@ public sealed class AncsClientTests
 
         public Task ReadyAsync() => _ready.Task.WaitAsync(WaitLimit);
 
-        public async Task<PhoneNotification> NextAsync()
+        public async Task<IslandNotification> NextAsync()
         {
             using var timeout = new CancellationTokenSource(WaitLimit);
             return await Client.Notifications.ReadAsync(timeout.Token);

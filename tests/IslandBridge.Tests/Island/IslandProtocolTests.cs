@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Text;
 using IslandBridge.Core.Ancs;
 using IslandBridge.Core.Island;
+using IslandBridge.Core.Notifications;
 
 namespace IslandBridge.Tests.Island;
 
@@ -66,7 +67,7 @@ public sealed class IslandProtocolTests
         Assert.Equal("ab", fields[4]);
     }
 
-    private static PhoneNotification Create(
+    private static IslandNotification Create(
         string app = "App",
         string bundle = "com.example.app",
         string title = "Title",

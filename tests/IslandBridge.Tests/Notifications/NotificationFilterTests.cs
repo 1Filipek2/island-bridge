@@ -42,7 +42,7 @@ public sealed class NotificationFilterTests
         Assert.Equal(FilterDecision.Deliver, NotificationFilter.Evaluate(Create(app: "com.Muted"), config, Now, null));
     }
 
-    private static PhoneNotification Create(
+    private static IslandNotification Create(
         string app = "com.example",
         AncsCategory category = AncsCategory.Social,
         AncsEventFlags flags = AncsEventFlags.None) =>

@@ -2,6 +2,7 @@ using System.IO.Pipes;
 using IslandBridge.Core.Ancs;
 using IslandBridge.Core.Diagnostics;
 using IslandBridge.Core.Island;
+using IslandBridge.Core.Notifications;
 
 namespace IslandBridge.Tests.Island;
 
@@ -103,7 +104,7 @@ public sealed class IslandPipeClientTests
         PipeTransmissionMode.Message,
         PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
 
-    private static PhoneNotification Create(string title) =>
+    private static IslandNotification Create(string title) =>
         new(1, AncsCategory.Social, AncsEventFlags.None, "com.example", "Example", title, string.Empty, "Body", null, 0);
 
     private static async Task<byte[]> ReadMessageAsync(NamedPipeServerStream server)
