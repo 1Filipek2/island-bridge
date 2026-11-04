@@ -2,7 +2,7 @@
 // @id              dynamic-island-openmeteo
 // @name            Dynamic Island for Windows (Open-Meteo)
 // @description     Private fork of Dynamic Island 1.4.0 using Open-Meteo for weather. A living, breathing pill overlay inspired by iPhone's Dynamic Island. Reacts to media, downloads, clipboard, battery, and more.
-// @version         1.4.0-openmeteo.13
+// @version         1.4.0-openmeteo.14
 // @author          Himanshu
 // @github          https://github.com/devcode90
 // @include         windhawk.exe
@@ -406,6 +406,9 @@ We love community contributions! To ensure high-quality updates, please follow t
   - NotificationRespectDnD: true
     $name: Notifications respect Do Not Disturb
     $description: Suppresses Dynamic Island notification alerts when Windows Do Not Disturb is active.
+  - WindowsToastListener: false
+    $name: Read Windows notifications in the mod
+    $description: Lets the mod read Windows notifications by itself. Leave it off when IslandBridge forwards them, otherwise every notification shows twice.
   - IslandBridgePath: '%LOCALAPPDATA%\Programs\IslandBridge\IslandBridge.exe'
     $name: IslandBridge executable
     $description: Only this program may send iPhone notifications to the island through the local pipe. Environment variables are expanded.
@@ -5719,6 +5722,41 @@ void UnsubscribeDndNotification() {
 }
 
 #if DYNAMIC_ISLAND_HAS_USER_NOTIFICATION_LISTENER
+DWORD WINAPI NotificationThreadProc(void*);
+
+namespace toast_listener
+{
+
+std::atomic<bool> enabled = false;
+
+bool should_run()
+{
+    return enabled.load() && WaitForSingleObject(g_stopEvent, 0) == WAIT_TIMEOUT;
+}
+
+void sync_thread()
+{
+    enabled = Wh_GetIntSetting(L"Modules.WindowsToastListener") != 0;
+
+    if (!enabled.load() || !g_running.load() || !g_stopEvent || WaitForSingleObject(g_stopEvent, 0) != WAIT_TIMEOUT)
+    {
+        return;
+    }
+
+    if (g_notificationThread && WaitForSingleObject(g_notificationThread, 0) == WAIT_OBJECT_0)
+    {
+        CloseHandle(g_notificationThread);
+        g_notificationThread = nullptr;
+    }
+
+    if (!g_notificationThread)
+    {
+        g_notificationThread = CreateThread(nullptr, 0, NotificationThreadProc, nullptr, 0, nullptr);
+    }
+}
+
+}
+
 DWORD WINAPI NotificationThreadProc(void*) {
     winrt::init_apartment(winrt::apartment_type::multi_threaded);
 
@@ -5755,12 +5793,10 @@ DWORD WINAPI NotificationThreadProc(void*) {
         }
     }
 
-    while (WaitForSingleObject(g_stopEvent, 0) == WAIT_TIMEOUT) {
+    while (toast_listener::should_run()) {
         try {
             auto listener = UserNotificationListener::Current();
-            Wh_Log(L"Notifications: requesting access");
             auto access = listener.RequestAccessAsync().get();
-            Wh_Log(L"Notifications: access status %d", (int)access);
             if (access != UserNotificationListenerAccessStatus::Allowed) {
                 if (!accessLogged) {
                     if (access == UserNotificationListenerAccessStatus::Denied) {
@@ -5785,7 +5821,7 @@ DWORD WINAPI NotificationThreadProc(void*) {
                 accessLogged = false;
             }
 
-            while (WaitForSingleObject(g_stopEvent, 0) == WAIT_TIMEOUT) {
+            while (toast_listener::should_run()) {
                 try {
                     auto notifications = listener.GetNotificationsAsync(NotificationKinds::Toast).get();
                     std::set<uint32_t> currentIds;
@@ -5815,9 +5851,7 @@ DWORD WINAPI NotificationThreadProc(void*) {
                             // Immediately mark as seen so we don't process it again
                             seenIds.insert(id);
 
-                            Wh_Log(L"Notifications: new toast id %u", id);
                             if (g_settings.notificationRespectDnD && g_isDnDActive.load()) {
-                                Wh_Log(L"Notifications: skipped, Do Not Disturb reported active");
                                 continue;
                             }
 
@@ -5826,17 +5860,14 @@ DWORD WINAPI NotificationThreadProc(void*) {
                             snapshot.expiresAt = NowSeconds() + 4.0;
                             winrt::Windows::ApplicationModel::AppInfo appInfo{nullptr};
                             winrt::Windows::ApplicationModel::AppDisplayInfo displayInfo{nullptr};
-                            const ULONGLONG appInfoStart = GetTickCount64();
                             try {
                                 appInfo = userNotification.AppInfo();
                                 displayInfo = appInfo.DisplayInfo();
                                 snapshot.app = displayInfo.DisplayName().c_str();
-                                Wh_Log(L"Notifications: app info in %llu ms", GetTickCount64() - appInfoStart);
                             } catch (const winrt::hresult_error& appInfoError) {
-                                Wh_Log(L"Notifications: app info failed (0x%08X) after %llu ms",
-                                       static_cast<unsigned>(appInfoError.to_abi()), GetTickCount64() - appInfoStart);
+                                Wh_Log(L"Notifications: app info failed (0x%08X)", static_cast<unsigned>(appInfoError.to_abi()));
                             } catch (...) {
-                                Wh_Log(L"Notifications: app info failed (unknown) after %llu ms", GetTickCount64() - appInfoStart);
+                                Wh_Log(L"Notifications: app info failed (unknown)");
                             }
 
                             // Filter out noisy background console/script engines like PowerShell that fire system toasts unexpectedly
@@ -5847,11 +5878,8 @@ DWORD WINAPI NotificationThreadProc(void*) {
                                 continue;
                             }
                             if (displayInfo) try {
-                                Wh_Log(L"Notifications: step logo");
                                 auto logo = displayInfo.GetLogo({32.0f, 32.0f});
-                                Wh_Log(L"Notifications: step logo read");
                                 std::vector<uint8_t> logoBytes = ReadWinRtStreamBytes(logo);
-                                Wh_Log(L"Notifications: step logo %zu bytes", logoBytes.size());
                                 if (!logoBytes.empty()) {
                                     BitmapPixels decoded;
                                     if (DecodeImageBytesToPixels(logoBytes, &decoded)) {
@@ -5862,11 +5890,9 @@ DWORD WINAPI NotificationThreadProc(void*) {
                             }
 
                             if (!snapshot.icon && !snapshot.app.empty()) {
-                                Wh_Log(L"Notifications: step icon by name");
                                 snapshot.icon = FindAppIconByName(snapshot.app, 64);
                             }
 
-                            Wh_Log(L"Notifications: step text");
                             auto notification = userNotification.Notification();
                             auto binding = notification.Visual().GetBinding(KnownNotificationBindings::ToastGeneric());
                             if (binding) {
@@ -5922,7 +5948,6 @@ DWORD WINAPI NotificationThreadProc(void*) {
 
                             // Start the 4 s display window only now; icon lookup above can take a while.
                             snapshot.expiresAt = NowSeconds() + 4.0;
-                            Wh_Log(L"Notifications: showing toast from %s", snapshot.app.c_str());
                             {
                                 std::lock_guard lock(g_stateMutex);
                                 g_state.notification = std::move(snapshot);
@@ -24948,7 +24973,7 @@ bool StartThreads() {
     g_keyboardThread = CreateThread(nullptr, 0, KeyboardThreadProc, nullptr, 0, &g_keyboardThreadId);
     g_mouseThread = CreateThread(nullptr, 0, MouseThreadProc, nullptr, 0, &g_mouseThreadId);
 #if DYNAMIC_ISLAND_HAS_USER_NOTIFICATION_LISTENER
-    g_notificationThread = CreateThread(nullptr, 0, NotificationThreadProc, nullptr, 0, nullptr);
+    toast_listener::sync_thread();
 #endif
     g_bluetoothThread = CreateThread(nullptr, 0, BluetoothThreadProc, nullptr, 0, nullptr);
     g_islandPipeThread = CreateThread(nullptr, 0, island_pipe::thread_proc, nullptr, 0, nullptr);
@@ -25026,6 +25051,9 @@ BOOL WhTool_ModInit() {
 
 void WhTool_ModSettingsChanged() {
     LoadSettings();
+#if DYNAMIC_ISLAND_HAS_USER_NOTIFICATION_LISTENER
+    toast_listener::sync_thread();
+#endif
 }
 
 void WhTool_ModUninit() {
