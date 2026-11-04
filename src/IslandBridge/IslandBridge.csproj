@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>IslandBridge</RootNamespace>
+    <AssemblyName>IslandBridge</AssemblyName>
+    <PublishAot>true</PublishAot>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <StackTraceSupport>false</StackTraceSupport>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <EventSourceSupport>false</EventSourceSupport>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="IslandBridge.Tests" />
+  </ItemGroup>
+</Project>

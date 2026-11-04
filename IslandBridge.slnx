@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/IslandBridge/IslandBridge.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/IslandBridge.Tests/IslandBridge.Tests.csproj" />
+  </Folder>
+</Solution>
