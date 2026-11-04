@@ -28,7 +28,8 @@ public sealed partial class MainWindow : Window
     private const int WidthDip = 380;
     private const int MaxHeightDip = 720;
     private const int EdgeMarginDip = 12;
-    private const int RecentShown = 5;
+    private const int RecentCollapsedCount = 1;
+    private const int RecentScrollGutter = 12;
 
     private static readonly Color Green = Color.FromArgb(255, 0x3F, 0xB9, 0x50);
     private static readonly Color Amber = Color.FromArgb(255, 0xE8, 0xA3, 0x17);
@@ -43,6 +44,7 @@ public sealed partial class MainWindow : Window
     private bool _closed;
     private bool _minimized;
     private bool _minimizeApplied;
+    private bool _recentExpanded;
 
     internal MainWindow(AppHost host, PointInt32? anchor, long requestedAt)
     {
@@ -153,7 +155,6 @@ public sealed partial class MainWindow : Window
         PreviewsLabel.Text = localizer["Setting_Previews"];
         WindowsToastsLabel.Text = localizer["Setting_WindowsToasts"];
         RecentHeader.Text = localizer["Section_Recent"];
-        TestButton.Content = localizer["Test_Button"];
         RecentEmpty.Text = localizer["Recent_Empty"];
         DeviceHeader.Text = localizer["Section_Device"];
         FindButton.Content = localizer["Device_Find"];
@@ -261,7 +262,20 @@ public sealed partial class MainWindow : Window
         RecentEmpty.Visibility = recent.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         RecentList.Children.Clear();
 
-        foreach (var item in recent.Take(RecentShown))
+        var expandable = recent.Count > RecentCollapsedCount;
+        var expanded = _recentExpanded && expandable;
+        RecentToggle.Visibility = expandable ? Visibility.Visible : Visibility.Collapsed;
+        RecentToggleText.Text = expanded ? localizer["Recent_ShowLess"] : localizer.Format("Recent_ShowAll", recent.Count);
+        RecentToggleIcon.Glyph = expanded ? "\uE70E" : "\uE70D";
+        RecentScroller.Padding = new Thickness(0, 0, expanded ? RecentScrollGutter : 0, 0);
+        RecentScroller.VerticalScrollBarVisibility = expanded ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
+
+        if (!expanded)
+        {
+            RecentScroller.ChangeView(null, 0, null, disableAnimation: true);
+        }
+
+        foreach (var item in expanded ? recent : recent.Take(RecentCollapsedCount))
         {
             var meta = item.ReceivedAt.ToString("HH:mm", CultureInfo.InvariantCulture);
 
@@ -501,7 +515,11 @@ public sealed partial class MainWindow : Window
         RefreshAutostart();
     }
 
-    private void OnTestClick(object sender, RoutedEventArgs args) => _host.SendTestNotification();
+    private void OnRecentToggleClick(object sender, RoutedEventArgs args)
+    {
+        _recentExpanded = !_recentExpanded;
+        UpdateRecent();
+    }
 
     private void OnReconnectClick(object sender, RoutedEventArgs args) => _host.StartBluetooth(TimeSpan.Zero);
 

@@ -99,10 +99,17 @@
                 <StackPanel Spacing="6">
                     <Grid>
                         <TextBlock x:Name="RecentHeader" Style="{StaticResource SectionHeader}" VerticalAlignment="Center" />
-                        <Button x:Name="TestButton" Style="{StaticResource SmallButton}" HorizontalAlignment="Right" Click="OnTestClick" />
+                        <Button x:Name="RecentToggle" Style="{StaticResource SmallButton}" HorizontalAlignment="Right" Visibility="Collapsed" Click="OnRecentToggleClick">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock x:Name="RecentToggleText" FontSize="12" VerticalAlignment="Center" />
+                                <FontIcon x:Name="RecentToggleIcon" Glyph="&#xE70D;" FontSize="10" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                     </Grid>
                     <TextBlock x:Name="RecentEmpty" FontSize="12" Opacity="0.6" />
-                    <StackPanel x:Name="RecentList" Spacing="4" />
+                    <ScrollViewer x:Name="RecentScroller" MaxHeight="264" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
+                        <StackPanel x:Name="RecentList" Spacing="4" />
+                    </ScrollViewer>
                 </StackPanel>
 
                 <StackPanel Spacing="6">
