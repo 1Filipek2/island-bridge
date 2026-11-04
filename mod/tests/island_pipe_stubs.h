@@ -13,13 +13,42 @@
 #include <string>
 #include <vector>
 
+struct BitmapPixels
+{
+    std::vector<std::uint8_t> bgra;
+    UINT width = 0;
+    UINT height = 0;
+};
+
 struct PixelsRef
 {
+    PixelsRef() = default;
+
+    explicit PixelsRef(BitmapPixels&& pixels)
+        : valid_(!pixels.bgra.empty())
+    {
+    }
+
     explicit operator bool() const
+    {
+        return valid_;
+    }
+
+    bool valid_ = false;
+};
+
+inline bool DecodeImageBytesToPixels(const std::vector<std::uint8_t>& bytes, BitmapPixels* pixels)
+{
+    if (bytes.size() < 2)
     {
         return false;
     }
-};
+
+    pixels->width = bytes[0];
+    pixels->height = bytes[1];
+    pixels->bgra.assign(static_cast<std::size_t>(pixels->width) * pixels->height * 4, 0);
+    return true;
+}
 
 struct NotificationSnapshot
 {

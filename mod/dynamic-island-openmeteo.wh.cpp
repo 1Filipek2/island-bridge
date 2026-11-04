@@ -2,7 +2,7 @@
 // @id              dynamic-island-openmeteo
 // @name            Dynamic Island for Windows (Open-Meteo)
 // @description     Private fork of Dynamic Island 1.4.0 using Open-Meteo for weather. A living, breathing pill overlay inspired by iPhone's Dynamic Island. Reacts to media, downloads, clipboard, battery, and more.
-// @version         1.4.0-openmeteo.14
+// @version         1.4.0-openmeteo.15
 // @author          Himanshu
 // @github          https://github.com/devcode90
 // @include         windhawk.exe
@@ -4967,6 +4967,24 @@ BOOL CALLBACK FindAppIconWindowProc(HWND hwnd, LPARAM lParam) {
     }
 
     return TRUE;
+}
+
+wchar_t notification_initial(const std::wstring& app)
+{
+    for (const wchar_t ch : app)
+    {
+        if (ch >= 0xD800 && ch <= 0xDFFF)
+        {
+            return 0;
+        }
+
+        if (std::iswalnum(ch))
+        {
+            return static_cast<wchar_t>(std::towupper(ch));
+        }
+    }
+
+    return 0;
 }
 
 PixelsRef FindAppIconByName(const std::wstring& appName, UINT size) {
@@ -19827,6 +19845,16 @@ class Renderer {
             ComPtr<ID2D1SolidColorBrush> badgeBorder;
             target_->CreateSolidColorBrush(D2D1::ColorF(1.0f, 1.0f, 1.0f, 0.95f), &badgeBorder);
             target_->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(dotX, dotY), dotR, dotR), badgeBorder.Get(), 0.9f);
+        } else if (const wchar_t initial = notification_initial(state.notification.app); initial != 0 && boldTextFormat_) {
+            const DWRITE_TEXT_ALIGNMENT text_alignment = boldTextFormat_->GetTextAlignment();
+            const DWRITE_PARAGRAPH_ALIGNMENT paragraph_alignment = boldTextFormat_->GetParagraphAlignment();
+            boldTextFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+            boldTextFormat_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+            textBrush_->SetOpacity(0.95f);
+            target_->DrawTextW(&initial, 1, boldTextFormat_.Get(), badge, textBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
+            boldTextFormat_->SetTextAlignment(text_alignment);
+            boldTextFormat_->SetParagraphAlignment(paragraph_alignment);
+            textBrush_->SetOpacity(0.90f);
         } else {
             const wchar_t* glyph = usingFluentIcons_ ? L"\uEA8F" : L"\uE7E7";
             textBrush_->SetOpacity(0.95f);
@@ -24256,8 +24284,11 @@ namespace island_pipe
 {
 
 constexpr wchar_t pipe_name[] = L"\\\\.\\pipe\\DynamicIslandNotify";
-constexpr DWORD max_message_bytes = 4096;
+constexpr DWORD max_message_bytes = 12288;
 constexpr std::uint8_t protocol_version = 1;
+constexpr std::uint8_t protocol_version_icon = 2;
+constexpr std::size_t max_icon_bytes = 8192;
+constexpr UINT max_icon_dimension = 256;
 constexpr std::uint8_t kind_notification = 1;
 constexpr std::size_t header_bytes = 4;
 constexpr std::size_t field_count = 5;
@@ -24283,6 +24314,7 @@ struct PipeMessage
     std::wstring title;
     std::wstring subtitle;
     std::wstring body;
+    std::vector<std::uint8_t> icon;
 };
 
 class RateLimiter
@@ -24455,7 +24487,9 @@ std::optional<PipeMessage> parse_message(const std::uint8_t* data, std::size_t s
         return std::nullopt;
     }
 
-    if (data[0] != protocol_version || data[1] != kind_notification)
+    const bool has_icon = data[0] == protocol_version_icon;
+
+    if ((data[0] != protocol_version && !has_icon) || data[1] != kind_notification)
     {
         return std::nullopt;
     }
@@ -24483,6 +24517,25 @@ std::optional<PipeMessage> parse_message(const std::uint8_t* data, std::size_t s
         }
 
         *fields[index] = utf8_to_wide(data + offset, length);
+        offset += length;
+    }
+
+    if (has_icon)
+    {
+        if (size - offset < 2)
+        {
+            return std::nullopt;
+        }
+
+        const std::size_t length = read_u16(data + offset);
+        offset += 2;
+
+        if (length > max_icon_bytes || length > size - offset)
+        {
+            return std::nullopt;
+        }
+
+        message.icon.assign(data + offset, data + offset + length);
         offset += length;
     }
 
@@ -24696,6 +24749,30 @@ WaitResult connect_client(HANDLE pipe, OVERLAPPED& overlapped)
     return wait_for(pipe, overlapped, transferred);
 }
 
+PixelsRef decode_icon(const std::vector<std::uint8_t>& bytes)
+{
+    if (bytes.empty() || bytes.size() > max_icon_bytes)
+    {
+        return PixelsRef{};
+    }
+
+    BitmapPixels decoded;
+
+    if (!DecodeImageBytesToPixels(bytes, &decoded))
+    {
+        return PixelsRef{};
+    }
+
+    const std::size_t expected = static_cast<std::size_t>(decoded.width) * decoded.height * 4;
+
+    if (decoded.width == 0 || decoded.height == 0 || decoded.width > max_icon_dimension || decoded.height > max_icon_dimension || decoded.bgra.size() != expected)
+    {
+        return PixelsRef{};
+    }
+
+    return PixelsRef(std::move(decoded));
+}
+
 bool deliver(const PipeMessage& message)
 {
     const Settings settings = GetSettingsCopy();
@@ -24730,8 +24807,9 @@ bool deliver(const PipeMessage& message)
     }
 
     snapshot.title = sanitize(heading, max_title_chars);
+    snapshot.icon = decode_icon(message.icon);
 
-    if (!snapshot.app.empty())
+    if (!snapshot.icon && !snapshot.app.empty())
     {
         snapshot.icon = FindAppIconByName(snapshot.app, 64);
     }
