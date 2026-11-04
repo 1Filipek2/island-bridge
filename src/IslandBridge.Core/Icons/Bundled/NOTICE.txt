@@ -1,0 +1,4 @@
+The brand glyphs used to render the PNG files in this folder come from Simple Icons 16.35.0
+(https://simpleicons.org), released under CC0 1.0. All brand names, logos and trademarks
+belong to their respective owners; their use here does not imply endorsement.
+Regenerate the PNG files with tools/build-icons.ps1 after editing brands.txt.

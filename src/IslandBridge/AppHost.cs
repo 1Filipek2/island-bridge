@@ -88,7 +88,7 @@ internal sealed class AppHost : IAsyncDisposable
         Localizer = new Localizer(Config.Appearance.Language);
         _island = new IslandPipeClient(log);
         _iconSource = new ShellAppIconSource(log);
-        _icons = new IconResolver(new IconCache(paths.IconDirectory, _timeProvider, log), _iconSource, log);
+        _icons = new IconResolver(new IconCache(paths.IconDirectory, _timeProvider, log), new ChainedIconSource(_iconSource, new BundledIconSource()), log);
         _islandTask = Task.Run(() => _island.RunAsync(_lifetime.Token));
     }
 

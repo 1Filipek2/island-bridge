@@ -189,6 +189,8 @@ internal sealed unsafe class ShellAppIconSource : IAppIconSource, IDisposable
 
     private void Run()
     {
+        Index();
+
         foreach (var item in _work.GetConsumingEnumerable())
         {
             try
