@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>IslandBridge.AncsSpike</RootNamespace>
+    <AssemblyName>AncsSpike</AssemblyName>
+    <PublishAot>true</PublishAot>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+  </PropertyGroup>
+</Project>
