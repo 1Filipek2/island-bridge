@@ -12,7 +12,6 @@
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\IslandBridge\IslandBridge.csproj" />
     <ProjectReference Include="..\..\src\IslandBridge.Core\IslandBridge.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
