@@ -21,6 +21,7 @@ public sealed class ConfigStoreTests : IDisposable
         Assert.True(config.Startup.StartMinimized);
         Assert.True(config.Notifications.IgnoreSilent);
         Assert.False(config.Notifications.ShowPreviews);
+        Assert.True(config.Notifications.WindowsToasts);
     }
 
     [Fact]
@@ -32,7 +33,7 @@ public sealed class ConfigStoreTests : IDisposable
             FirstRunCompleted = true,
             Device = { DeviceId = "BluetoothLE#BluetoothLE00:00:00:00:00:00-11:22:33:44:55:66", Name = "Phone" },
             Startup = { StartMinimized = false, DelaySeconds = 30 },
-            Notifications = { ShowPreviews = true, IgnoreSilent = false, MutedApps = ["com.example"], MutedCategories = [AncsCategory.News] },
+            Notifications = { ShowPreviews = true, IgnoreSilent = false, WindowsToasts = false, MutedApps = ["com.example"], MutedCategories = [AncsCategory.News] },
             Appearance = { Language = AppLanguage.Slovak, Theme = AppTheme.Dark },
             AppNames = { ["net.whatsapp.WhatsApp"] = "WhatsApp" },
         };
@@ -48,6 +49,7 @@ public sealed class ConfigStoreTests : IDisposable
         Assert.Equal(30, loaded.Startup.DelaySeconds);
         Assert.True(loaded.Notifications.ShowPreviews);
         Assert.False(loaded.Notifications.IgnoreSilent);
+        Assert.False(loaded.Notifications.WindowsToasts);
         Assert.Equal(["com.example"], loaded.Notifications.MutedApps);
         Assert.Equal([AncsCategory.News], loaded.Notifications.MutedCategories);
         Assert.Equal(AppLanguage.Slovak, loaded.Appearance.Language);
@@ -117,6 +119,7 @@ public sealed class ConfigStoreTests : IDisposable
         Assert.Equal(0, config.Startup.DelaySeconds);
         Assert.Equal(["a"], config.Notifications.MutedApps);
         Assert.Equal([AncsCategory.News], config.Notifications.MutedCategories);
+        Assert.True(config.Notifications.WindowsToasts);
         Assert.Equal(["good"], config.AppNames.Keys);
     }
 

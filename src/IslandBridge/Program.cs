@@ -62,6 +62,7 @@ internal static class Program
                 ui.Show();
             }
 
+            host.SyncWindowsToasts();
             host.StartBluetooth(arguments.BluetoothDelay(host.Config.Startup));
             TrayIcon.RunMessageLoop();
 

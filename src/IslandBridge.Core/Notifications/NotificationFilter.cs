@@ -38,7 +38,7 @@ public static class NotificationFilter
             return FilterDecision.MutedApp;
         }
 
-        if (config.MutedCategories.Contains(notification.Category))
+        if (notification.Origin == NotificationOrigin.Iphone && config.MutedCategories.Contains(notification.Category))
         {
             return FilterDecision.MutedCategory;
         }

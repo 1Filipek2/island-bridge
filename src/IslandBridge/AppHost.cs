@@ -6,6 +6,7 @@ using IslandBridge.Core.Diagnostics;
 using IslandBridge.Core.Island;
 using IslandBridge.Core.Notifications;
 using IslandBridge.Core.Startup;
+using IslandBridge.Core.Toasts;
 
 namespace IslandBridge;
 
@@ -34,6 +35,7 @@ internal sealed record RecentNotification(
     DateTimeOffset ReceivedAt,
     string AppName,
     AncsCategory Category,
+    NotificationOrigin Origin,
     string Title,
     string Message,
     FilterDecision Decision);
@@ -57,6 +59,9 @@ internal sealed class AppHost : IAsyncDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private readonly IslandPipeClient _island;
     private readonly Task _islandTask;
+    private CancellationTokenSource? _toastCancellation;
+    private Task _toastTask = Task.CompletedTask;
+    private ToastWatcherState _toastState;
 
     public AppHost(AppPaths paths, FileLog log)
     {
@@ -140,6 +145,17 @@ internal sealed class AppHost : IAsyncDisposable
 
     public PauseOption CurrentPause => PausedUntil is null ? PauseOption.None : _pauseOption;
 
+    public ToastWatcherState ToastState
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _toastState;
+            }
+        }
+    }
+
     public IReadOnlyList<RecentNotification> Recent
     {
         get
@@ -184,7 +200,45 @@ internal sealed class AppHost : IAsyncDisposable
         }
 
         Localizer.SetLanguage(Config.Appearance.Language);
+        SyncWindowsToasts();
         ConfigChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void SyncWindowsToasts()
+    {
+        CancellationTokenSource? stop = null;
+        CancellationTokenSource? start = null;
+
+        lock (_gate)
+        {
+            var enabled = Config.Notifications.WindowsToasts;
+
+            if (enabled && _toastCancellation is null)
+            {
+                _toastCancellation = start = new CancellationTokenSource();
+            }
+            else if (!enabled && _toastCancellation is not null)
+            {
+                stop = _toastCancellation;
+                _toastCancellation = null;
+            }
+        }
+
+        if (stop is not null)
+        {
+            Log.Info("windows toasts: disabled");
+            CancelQuietly(stop);
+        }
+
+        if (start is not null)
+        {
+            var previous = _toastTask;
+            _toastTask = Task.Run(async () =>
+            {
+                await previous.ConfigureAwait(false);
+                await RunWindowsToastsAsync(start).ConfigureAwait(false);
+            });
+        }
     }
 
     public void StartBluetooth(TimeSpan delay)
@@ -319,6 +373,28 @@ internal sealed class AppHost : IAsyncDisposable
         }
 
         cancellation?.Dispose();
+        CancellationTokenSource? toasts;
+
+        lock (_gate)
+        {
+            toasts = _toastCancellation;
+            _toastCancellation = null;
+        }
+
+        if (toasts is not null)
+        {
+            CancelQuietly(toasts);
+        }
+
+        try
+        {
+            await _toastTask.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            Log.Warn("windows toasts shutdown timed out");
+        }
+
         await _lifetime.CancelAsync().ConfigureAwait(false);
 
         try
@@ -382,6 +458,69 @@ internal sealed class AppHost : IAsyncDisposable
         }
     }
 
+    private async Task RunWindowsToastsAsync(CancellationTokenSource cancellation)
+    {
+        var cancellationToken = cancellation.Token;
+
+        try
+        {
+            var watcher = new ToastWatcher(new WnfToastSignal(), new WinRtToastStore(), _appNames, Log);
+            watcher.StateChanged += (_, _) => SetToastState(cancellation, watcher.State);
+            var run = watcher.RunAsync(cancellationToken);
+
+            try
+            {
+                await foreach (var notification in watcher.Notifications.ReadAllAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    var decision = NotificationFilter.Evaluate(notification, Config.Notifications, _timeProvider.GetUtcNow(), PausedUntil);
+                    Log.Info($"toast uid={notification.Uid} app={notification.AppIdentifier} {decision}");
+                    Deliver(notification, decision);
+                    PersistNewAppNames();
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
+
+            await run.ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            Log.Error($"windows toasts failed: {exception.GetType().Name} 0x{exception.HResult:X8}");
+            SetToastState(cancellation, ToastWatcherState.Unavailable);
+        }
+        finally
+        {
+            cancellation.Dispose();
+        }
+    }
+
+    private static void CancelQuietly(CancellationTokenSource cancellation)
+    {
+        try
+        {
+            cancellation.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    private void SetToastState(CancellationTokenSource owner, ToastWatcherState state)
+    {
+        lock (_gate)
+        {
+            if (_toastCancellation is not null && !ReferenceEquals(_toastCancellation, owner))
+            {
+                return;
+            }
+
+            _toastState = state;
+        }
+
+        StatusChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     private void OnSupervisorStateChanged(object? sender, ConnectionStateChangedEventArgs args)
     {
         var status = args.State switch
@@ -414,6 +553,7 @@ internal sealed class AppHost : IAsyncDisposable
             _timeProvider.GetLocalNow(),
             notification.AppName.Length > 0 ? notification.AppName : notification.AppIdentifier,
             notification.Category,
+            notification.Origin,
             showText ? notification.Title : string.Empty,
             showText ? notification.Message : string.Empty,
             decision);

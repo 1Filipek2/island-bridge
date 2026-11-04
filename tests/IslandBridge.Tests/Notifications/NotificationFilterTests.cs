@@ -42,9 +42,21 @@ public sealed class NotificationFilterTests
         Assert.Equal(FilterDecision.Deliver, NotificationFilter.Evaluate(Create(app: "com.Muted"), config, Now, null));
     }
 
+    [Fact]
+    public void Category_filter_applies_only_to_iphone_notifications()
+    {
+        var config = new NotificationConfig { MutedCategories = [AncsCategory.Other], MutedApps = ["Contoso.Muted!App"] };
+
+        Assert.Equal(FilterDecision.MutedCategory, NotificationFilter.Evaluate(Create(category: AncsCategory.Other), config, Now, null));
+        Assert.Equal(FilterDecision.Deliver, NotificationFilter.Evaluate(Create(category: AncsCategory.Other, origin: NotificationOrigin.Windows), config, Now, null));
+        Assert.Equal(FilterDecision.MutedApp, NotificationFilter.Evaluate(Create(app: "Contoso.Muted!App", origin: NotificationOrigin.Windows), config, Now, null));
+        Assert.Equal(FilterDecision.Paused, NotificationFilter.Evaluate(Create(origin: NotificationOrigin.Windows), config, Now, Now.AddMinutes(1)));
+    }
+
     private static IslandNotification Create(
         string app = "com.example",
         AncsCategory category = AncsCategory.Social,
-        AncsEventFlags flags = AncsEventFlags.None) =>
-        new(1, category, flags, app, "Example", "Title", string.Empty, "Message", null, 0);
+        AncsEventFlags flags = AncsEventFlags.None,
+        NotificationOrigin origin = NotificationOrigin.Iphone) =>
+        new(1, category, flags, app, "Example", "Title", string.Empty, "Message", null, 0, origin);
 }

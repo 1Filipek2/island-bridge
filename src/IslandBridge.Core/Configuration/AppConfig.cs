@@ -98,6 +98,8 @@ public sealed class NotificationConfig
 
     public bool IgnoreSilent { get; set; } = true;
 
+    public bool WindowsToasts { get; set; } = true;
+
     public List<string> MutedApps { get; set; } = [];
 
     public List<AncsCategory> MutedCategories { get; set; } = [];

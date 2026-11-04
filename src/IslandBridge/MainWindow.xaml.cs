@@ -7,6 +7,7 @@ using IslandBridge.Core.Configuration;
 using IslandBridge.Core.Diagnostics;
 using IslandBridge.Core.Notifications;
 using IslandBridge.Core.Startup;
+using IslandBridge.Core.Toasts;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -49,7 +50,7 @@ public sealed partial class MainWindow : Window
         ConfigureChrome();
         PlaceNear(anchor);
 
-        foreach (var toggle in new[] { IgnoreSilentSwitch, PreviewsSwitch, AutostartSwitch, MinimizedSwitch })
+        foreach (var toggle in new[] { IgnoreSilentSwitch, PreviewsSwitch, WindowsToastsSwitch, AutostartSwitch, MinimizedSwitch })
         {
             MakeCompact(toggle);
         }
@@ -140,6 +141,7 @@ public sealed partial class MainWindow : Window
         NotificationsHeader.Text = localizer["Section_Notifications"];
         IgnoreSilentLabel.Text = localizer["Setting_IgnoreSilent"];
         PreviewsLabel.Text = localizer["Setting_Previews"];
+        WindowsToastsLabel.Text = localizer["Setting_WindowsToasts"];
         RecentHeader.Text = localizer["Section_Recent"];
         TestButton.Content = localizer["Test_Button"];
         RecentEmpty.Text = localizer["Recent_Empty"];
@@ -179,6 +181,7 @@ public sealed partial class MainWindow : Window
         var config = _host.Config;
         IgnoreSilentSwitch.IsOn = config.Notifications.IgnoreSilent;
         PreviewsSwitch.IsOn = config.Notifications.ShowPreviews;
+        WindowsToastsSwitch.IsOn = config.Notifications.WindowsToasts;
         MinimizedSwitch.IsOn = config.Startup.StartMinimized;
         PauseSegments.SelectedIndex = (int)_host.CurrentPause;
         DelaySegments.SelectedIndex = Math.Max(0, AppConfig.AllowedStartupDelays.ToList().IndexOf(config.Startup.DelaySeconds));
@@ -220,6 +223,15 @@ public sealed partial class MainWindow : Window
         ForgetButton.IsEnabled = hasDevice;
         DeviceHelp.Visibility = hasDevice ? Visibility.Collapsed : Visibility.Visible;
 
+        var toastWarning = _host.Config.Notifications.WindowsToasts ? _host.ToastState switch
+        {
+            ToastWatcherState.AccessDenied => _host.Localizer["Setting_WindowsToastsDenied"],
+            ToastWatcherState.Unavailable => _host.Localizer["Setting_WindowsToastsUnavailable"],
+            _ => null,
+        } : null;
+        WindowsToastsWarning.Text = toastWarning ?? string.Empty;
+        WindowsToastsWarning.Visibility = toastWarning is null ? Visibility.Collapsed : Visibility.Visible;
+
         var wasReady = _ready;
         _ready = false;
         PauseSegments.SelectedIndex = (int)_host.CurrentPause;
@@ -245,7 +257,7 @@ public sealed partial class MainWindow : Window
 
             var body = showText
                 ? item.Title.Length > 0 && item.Message.Length > 0 ? $"{item.Title}: {item.Message}" : item.Title + item.Message
-                : localizer[$"Category_{item.Category}"];
+                : item.Origin == NotificationOrigin.Windows ? localizer["Origin_Windows"] : localizer[$"Category_{item.Category}"];
             RecentList.Children.Add(new Card(item.AppName, meta, body) { Opacity = item.Decision == FilterDecision.Deliver ? 1 : 0.55 });
         }
     }
@@ -380,6 +392,14 @@ public sealed partial class MainWindow : Window
         if (_ready)
         {
             _host.UpdateConfig(config => config.Notifications.ShowPreviews = PreviewsSwitch.IsOn);
+        }
+    }
+
+    private void OnWindowsToastsToggled(object sender, RoutedEventArgs args)
+    {
+        if (_ready)
+        {
+            _host.UpdateConfig(config => config.Notifications.WindowsToasts = WindowsToastsSwitch.IsOn);
         }
     }
 

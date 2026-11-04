@@ -69,6 +69,15 @@
                         <TextBlock x:Name="PreviewsLabel" Style="{StaticResource RowLabel}" />
                         <ToggleSwitch x:Name="PreviewsSwitch" Grid.Column="1" Toggled="OnPreviewsToggled" />
                     </Grid>
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="WindowsToastsLabel" Style="{StaticResource RowLabel}" />
+                        <ToggleSwitch x:Name="WindowsToastsSwitch" Grid.Column="1" Toggled="OnWindowsToastsToggled" />
+                    </Grid>
+                    <TextBlock x:Name="WindowsToastsWarning" FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource SystemFillColorCautionBrush}" Visibility="Collapsed" />
                 </StackPanel>
 
                 <StackPanel Spacing="6">
