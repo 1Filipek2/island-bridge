@@ -12,4 +12,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="IslandBridge.Tests" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\IslandBridge.Core\IslandBridge.Core.csproj" />
+  </ItemGroup>
 </Project>

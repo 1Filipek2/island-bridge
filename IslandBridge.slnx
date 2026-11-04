@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/IslandBridge.Core/IslandBridge.Core.csproj" />
     <Project Path="src/IslandBridge/IslandBridge.csproj" />
   </Folder>
   <Folder Name="/spikes/">

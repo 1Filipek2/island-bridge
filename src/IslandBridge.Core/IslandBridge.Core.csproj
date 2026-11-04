@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <RootNamespace>IslandBridge.Core</RootNamespace>
+    <AssemblyName>IslandBridge.Core</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="IslandBridge.Tests" />
+  </ItemGroup>
+</Project>
