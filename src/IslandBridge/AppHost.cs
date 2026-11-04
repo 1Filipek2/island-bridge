@@ -431,6 +431,13 @@ internal sealed class AppHost : IAsyncDisposable
             await using var link = new WinRtAncsLink(deviceId);
             using var client = new AncsClient(link, _appNames, _timeProvider, ReconnectBackoff.Default);
             client.Supervisor.StateChanged += OnSupervisorStateChanged;
+            client.Supervisor.StateChanged += (_, args) =>
+            {
+                if (args.State == ConnectionState.Ready)
+                {
+                    RefreshDeviceName(deviceId, link.DeviceName);
+                }
+            };
             var run = client.RunAsync(cancellationToken);
 
             await foreach (var notification in client.Notifications.ReadAllAsync(cancellationToken).ConfigureAwait(false))
@@ -519,6 +526,22 @@ internal sealed class AppHost : IAsyncDisposable
         }
 
         StatusChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void RefreshDeviceName(string deviceId, string? reportedName)
+    {
+        lock (_gate)
+        {
+            if (!string.Equals(Config.Device.DeviceId, deviceId, StringComparison.Ordinal) || !Config.Device.TryUpdateName(reportedName))
+            {
+                return;
+            }
+
+            SaveLocked();
+        }
+
+        Log.Info("device name updated");
+        ConfigChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnSupervisorStateChanged(object? sender, ConnectionStateChangedEventArgs args)

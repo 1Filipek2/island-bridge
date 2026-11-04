@@ -57,7 +57,7 @@ public sealed class AppConfig
             Device.DeviceId = null;
         }
 
-        Device.Name = Device.Name is { Length: > 0 } name ? Text.TextSanitizer.Sanitize(name, 64) : null;
+        Device.Name = Device.Name is { Length: > 0 } name ? Text.TextSanitizer.Sanitize(name, DeviceConfig.MaxNameLength) : null;
 
         if (!AllowedStartupDelays.Contains(Startup.DelaySeconds))
         {
@@ -87,9 +87,24 @@ public sealed class AppConfig
 
 public sealed class DeviceConfig
 {
+    public const int MaxNameLength = 64;
+
     public string? DeviceId { get; set; }
 
     public string? Name { get; set; }
+
+    public bool TryUpdateName(string? reportedName)
+    {
+        var clean = Text.TextSanitizer.Sanitize(reportedName ?? string.Empty, MaxNameLength);
+
+        if (clean.Length == 0 || string.Equals(clean, Name, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        Name = clean;
+        return true;
+    }
 }
 
 public sealed class StartupConfig
