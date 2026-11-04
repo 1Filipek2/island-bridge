@@ -5,9 +5,11 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <cmath>
 #include <climits>
 #include <cstdint>
 #include <deque>
+#include <iterator>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -38,6 +40,8 @@ struct PixelsRef
     bool valid_ = false;
 };
 
+#include "notification_center_under_test.h"
+
 inline bool DecodeImageBytesToPixels(const std::vector<std::uint8_t>& bytes, BitmapPixels* pixels)
 {
     if (bytes.size() < 2)
@@ -64,11 +68,13 @@ struct NotificationSnapshot
 struct SharedState
 {
     NotificationSnapshot notification;
+    std::shared_ptr<const notification_center::History> notificationCenter;
 };
 
 struct Settings
 {
     bool notificationRespectDnD = true;
+    bool notificationCenterModule = true;
 };
 
 inline Settings GetSettingsCopy()
@@ -100,6 +106,8 @@ inline void Wh_Log(const wchar_t*, ...)
 }
 
 inline std::atomic<bool> g_isDnDActive = false;
+inline std::atomic<bool> g_layoutDirty = false;
+inline std::atomic<bool> g_notificationCenterUnread = false;
 inline std::mutex g_stateMutex;
 inline SharedState g_state;
 inline HANDLE g_stopEvent = nullptr;

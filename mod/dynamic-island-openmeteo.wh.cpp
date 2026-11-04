@@ -2,7 +2,7 @@
 // @id              dynamic-island-openmeteo
 // @name            Dynamic Island for Windows (Open-Meteo)
 // @description     Private fork of Dynamic Island 1.4.0 using Open-Meteo for weather. A living, breathing pill overlay inspired by iPhone's Dynamic Island. Reacts to media, downloads, clipboard, battery, and more.
-// @version         1.4.0-openmeteo.15
+// @version         1.4.0-openmeteo.16
 // @author          Himanshu
 // @github          https://github.com/devcode90
 // @include         windhawk.exe
@@ -412,6 +412,9 @@ We love community contributions! To ensure high-quality updates, please follow t
   - IslandBridgePath: '%LOCALAPPDATA%\Programs\IslandBridge\IslandBridge.exe'
     $name: IslandBridge executable
     $description: Only this program may send iPhone notifications to the island through the local pipe. Environment variables are expanded.
+  - NotificationCenter: true
+    $name: Notification center card
+    $description: Adds a card to the scroll loop with recent notifications grouped by app. Kept in memory only (up to 50 notifications from 12 apps) and gone after a restart. Clearing it never touches the phone.
   - GitHubModule: true
     $name: Include GitHub in scroll loop
     $description: Adds a contribution graph tab between Weather and Hardware Monitor.
@@ -1264,6 +1267,7 @@ struct Settings {
     bool fileTrayModule = false;
     int fileTrayMaxItems = 10;
     bool fileTrayPersist = true;   // Modules.FileTrayPersist
+    bool notificationCenterModule = true;
 
     // ── Media auto-expand exclusions (#62) ───────────────────────────────────
     std::vector<std::wstring> mediaExpandBlocklist;
@@ -1367,6 +1371,199 @@ struct NotificationSnapshot {
     PixelsRef icon;
     double expiresAt = 0.0;
 };
+
+namespace notification_center
+{
+
+constexpr std::size_t max_notifications = 50;
+constexpr std::size_t max_apps = 12;
+constexpr float pad_x = 26.0f;
+constexpr float list_top = 46.0f;
+constexpr float list_bottom_inset = 14.0f;
+constexpr float row_height = 36.0f;
+constexpr float row_gap = 4.0f;
+constexpr float clear_size = 24.0f;
+constexpr float clear_top = 16.0f;
+constexpr float remove_size = 18.0f;
+constexpr float remove_margin = 7.0f;
+constexpr float hit_slop = 3.0f;
+constexpr float unread_dot_radius = 3.0f;
+constexpr float unread_dot_gap = 11.0f;
+
+struct Incoming
+{
+    std::wstring key;
+    std::wstring app;
+    std::wstring preview;
+    std::wstring time;
+    PixelsRef icon;
+};
+
+struct Group
+{
+    std::wstring key;
+    std::wstring app;
+    std::wstring preview;
+    std::wstring time;
+    PixelsRef icon;
+    std::vector<std::uint64_t> arrivals;
+};
+
+class History
+{
+public:
+    void record(Incoming incoming)
+    {
+        ++sequence_;
+
+        const auto found = std::find_if(groups_.begin(), groups_.end(), [&](const Group& group)
+        {
+            return group.key == incoming.key;
+        });
+
+        if (found != groups_.end())
+        {
+            std::rotate(groups_.begin(), found, found + 1);
+        }
+        else
+        {
+            if (groups_.size() >= max_apps)
+            {
+                total_ -= groups_.back().arrivals.size();
+                groups_.pop_back();
+            }
+
+            groups_.reserve(max_apps);
+            groups_.insert(groups_.begin(), Group{});
+            groups_.front().key = std::move(incoming.key);
+        }
+
+        Group& group = groups_.front();
+        group.app = std::move(incoming.app);
+        group.preview = std::move(incoming.preview);
+        group.time = std::move(incoming.time);
+
+        if (incoming.icon)
+        {
+            group.icon = std::move(incoming.icon);
+        }
+
+        group.arrivals.push_back(sequence_);
+        ++total_;
+
+        while (total_ > max_notifications)
+        {
+            drop_oldest();
+        }
+    }
+
+    bool remove(std::size_t index)
+    {
+        if (index >= groups_.size())
+        {
+            return false;
+        }
+
+        total_ -= groups_[index].arrivals.size();
+        groups_.erase(groups_.begin() + static_cast<std::ptrdiff_t>(index));
+        return true;
+    }
+
+    void clear()
+    {
+        groups_.clear();
+        total_ = 0;
+    }
+
+    const std::vector<Group>& groups() const
+    {
+        return groups_;
+    }
+
+    std::size_t total() const
+    {
+        return total_;
+    }
+
+private:
+    void drop_oldest()
+    {
+        const auto oldest = std::min_element(groups_.begin(), groups_.end(), [](const Group& left, const Group& right)
+        {
+            return left.arrivals.front() < right.arrivals.front();
+        });
+
+        if (oldest == groups_.end())
+        {
+            total_ = 0;
+            return;
+        }
+
+        oldest->arrivals.erase(oldest->arrivals.begin());
+        --total_;
+
+        if (oldest->arrivals.empty())
+        {
+            groups_.erase(oldest);
+        }
+    }
+
+    std::vector<Group> groups_;
+    std::size_t total_ = 0;
+    std::uint64_t sequence_ = 0;
+};
+
+constexpr int visible_rows(float content_height)
+{
+    const float span = content_height - list_bottom_inset - list_top + row_gap;
+    const int rows = static_cast<int>(span / (row_height + row_gap));
+    return rows < 1 ? 1 : rows;
+}
+
+int row_at(float x, float y, float width, float height, int row_count)
+{
+    if (row_count <= 0 || x < pad_x || x > width - pad_x || y < list_top || y > height - list_bottom_inset)
+    {
+        return -1;
+    }
+
+    const float stride = row_height + row_gap;
+    const int index = static_cast<int>((y - list_top) / stride);
+
+    if (y > list_top + static_cast<float>(index) * stride + row_height)
+    {
+        return -1;
+    }
+
+    if (index < 0 || index >= visible_rows(height) || index >= row_count)
+    {
+        return -1;
+    }
+
+    return index;
+}
+
+bool clear_hit(float x, float y, float width)
+{
+    const float right = width - pad_x;
+    const float left = right - clear_size;
+    return x >= left - hit_slop && x <= right + hit_slop && y >= clear_top - hit_slop && y <= clear_top + clear_size + hit_slop;
+}
+
+bool remove_hit(float x, float y, float width, int row)
+{
+    if (row < 0)
+    {
+        return false;
+    }
+
+    const float half = remove_size * 0.5f + hit_slop;
+    const float center_x = width - pad_x - remove_margin - remove_size * 0.5f;
+    const float center_y = list_top + static_cast<float>(row) * (row_height + row_gap) + row_height * 0.5f;
+    return std::fabs(x - center_x) <= half && std::fabs(y - center_y) <= half;
+}
+
+}
 
 struct VolumeSnapshot {
     bool active = false;
@@ -1633,6 +1830,7 @@ struct SharedState {
     std::array<float, kSpectrumBands> bands{};  // smoothed 0..1 magnitude per band (low -> high)
     bool muted = false;
     std::vector<FileTrayItem> fileTrayItems;
+    std::shared_ptr<const notification_center::History> notificationCenter;
 };
 
 struct SpringValue {
@@ -1737,6 +1935,9 @@ std::atomic<int> g_hoveredSourceSlot{-1};
 std::atomic<int> g_pressedSourceSlot{-1};
 std::atomic<int> g_hoveredFileTrayRow = -1;  // row index under the cursor on the File Tray card
 std::atomic<int> g_hoveredFileTrayAction = -1;  // -2 = bin button, >=0 = cut button of that row
+std::atomic<int> g_hoveredNotificationRow = -1;
+std::atomic<int> g_hoveredNotificationAction = -1;
+std::atomic<bool> g_notificationCenterUnread{false};
 std::atomic<bool> g_trayDragOver{false};      // a file drag from outside is hovering the island
 std::atomic<bool> g_trayInternalDrag{false};  // a drag that started from the tray itself is running
 std::atomic<int> g_tabEdgeBump{0};            // +1 / -1: wheel or swipe pushed past the last / first tab
@@ -1941,6 +2142,7 @@ int ActiveTabCount(const Settings& settings) {
     if (settings.githubModule) ++count;
     if (settings.hardwareMonitorModule) ++count;
     if (settings.fileTrayModule) ++count;
+    if (settings.notificationCenterModule) ++count;
     if (settings.lyrics && g_lyricsTabAvailable.load(std::memory_order_relaxed)) ++count;
     return count;
 }
@@ -1968,16 +2170,24 @@ int HardwareMonitorTabIndex(const Settings& settings) {
     if (!settings.hardwareMonitorModule) {
         return -1;
     }
-    return 2 + (settings.weather ? 1 : 0) + (settings.githubModule ? 1 : 0) + MediaTabIndex(settings);
+    return 2 + (settings.notificationCenterModule ? 1 : 0) + (settings.weather ? 1 : 0) +
+           (settings.githubModule ? 1 : 0) + MediaTabIndex(settings);
 }
 
 int FileTrayTabIndex(const Settings& settings) {
     if (!settings.fileTrayModule) {
         return -1;
     }
-    return 2 + (settings.weather ? 1 : 0) + (settings.githubModule ? 1 : 0) +
-           (settings.hardwareMonitorModule ? 1 : 0) +
+    return 2 + (settings.notificationCenterModule ? 1 : 0) + (settings.weather ? 1 : 0) +
+           (settings.githubModule ? 1 : 0) + (settings.hardwareMonitorModule ? 1 : 0) +
            MediaTabIndex(settings);
+}
+
+int NotificationCenterTabIndex(const Settings& settings) {
+    if (!settings.notificationCenterModule) {
+        return -1;
+    }
+    return 1 + MediaTabIndex(settings);
 }
 
 // Moves the dashboard one tab (+1 = next, -1 = previous). Clamped at both ends:
@@ -2381,6 +2591,45 @@ bool FileTrayRemoveHitTest(const MediaContentPoint& pt, int row) {
                           static_cast<float>(row) * (FileTrayLayout::kRowHeight + FileTrayLayout::kRowGap) +
                           FileTrayLayout::kRowHeight * 0.5f;
     return std::fabs(pt.x - centerX) <= half && std::fabs(pt.y - centerY) <= half;
+}
+
+struct NotificationCenterHit {
+    int row = -1;
+    int action = -1;
+};
+
+NotificationCenterHit NotificationCenterHitTest(const MediaContentPoint& pt, int groupCount) {
+    NotificationCenterHit hit;
+    if (!pt.valid || pt.height <= MediaLayout::kExpandedMinHeight) {
+        return hit;
+    }
+    hit.row = notification_center::row_at(pt.x, pt.y, pt.width, pt.height, groupCount);
+    if (groupCount > 0 && notification_center::clear_hit(pt.x, pt.y, pt.width)) {
+        hit.action = -2;
+    } else if (notification_center::remove_hit(pt.x, pt.y, pt.width, hit.row)) {
+        hit.action = hit.row;
+    }
+    return hit;
+}
+
+int NotificationCenterGroupCount() {
+    std::lock_guard lock(g_stateMutex);
+    return g_state.notificationCenter ? static_cast<int>(g_state.notificationCenter->groups().size()) : 0;
+}
+
+void ClearNotificationCenter(int row) {
+    std::lock_guard lock(g_stateMutex);
+    if (!g_state.notificationCenter) {
+        return;
+    }
+    if (row < 0) {
+        g_state.notificationCenter.reset();
+        return;
+    }
+    auto next = std::make_shared<notification_center::History>(*g_state.notificationCenter);
+    if (next->remove(static_cast<std::size_t>(row))) {
+        g_state.notificationCenter = std::move(next);
+    }
 }
 
 // True when the point is over the expanded layout's album art.
@@ -3088,6 +3337,7 @@ void LoadSettings() {
     next.fileTrayModule = Wh_GetIntSetting(L"Modules.FileTrayModule") != 0;
     next.fileTrayMaxItems = ClampInt(Wh_GetIntSetting(L"Modules.FileTrayMaxItems"), 1, 25);
     next.fileTrayPersist = Wh_GetIntSetting(L"Modules.FileTrayPersist") != 0;
+    next.notificationCenterModule = Wh_GetIntSetting(L"Modules.NotificationCenter") != 0;
 
     // ── Media auto-expand exclusions (#62) ───────────────────────────────────
     next.mediaExpandBlocklist.clear();
@@ -12107,8 +12357,21 @@ struct IdleStripMetrics {
     float weatherWidth = 0.0f;
     bool hasWeather = false;
     bool hasPrivacy = false;
+    bool hasUnread = false;
     float totalWidth = IdleStripLayout::kMinWidth;
 };
+
+bool NotificationCenterUnread(const Settings& settings) {
+    return settings.notificationCenterModule && g_notificationCenterUnread.load(std::memory_order_relaxed);
+}
+
+float IdleDotReserve(const IdleStripMetrics& metrics) {
+    if (!metrics.hasPrivacy && !metrics.hasUnread) {
+        return 0.0f;
+    }
+    return IdleStripLayout::kPrivacyReserve +
+           (metrics.hasPrivacy && metrics.hasUnread ? notification_center::unread_dot_gap : 0.0f);
+}
 
 // One visible character of the song title, used by the title-change animation.
 struct TitleGlyph {
@@ -12407,6 +12670,10 @@ class Renderer {
 
         artBitmap_.Reset();
         notificationIconBitmap_.Reset();
+        for (ComPtr<ID2D1Bitmap>& bitmap : notificationCenterBitmaps_) {
+            bitmap.Reset();
+        }
+        notificationCenterGenerations_.fill(0);
         mediaSourceIconBitmap_.Reset();
         clipboardIconBitmap_.Reset();
         clipboardImageBitmap_.Reset();
@@ -12417,6 +12684,7 @@ class Renderer {
         tintBrush_.Reset();
         shadowBrush_.Reset();
         micDotBrush_.Reset();
+        unreadDotBrush_.Reset();
         micGlowBrush_.Reset();
         camDotBrush_.Reset();
         camGlowBrush_.Reset();
@@ -12515,9 +12783,8 @@ class Renderer {
             total += IdleStripLayout::kSlotGap * 2.0f + IdleStripLayout::kDividerWidth +
                      metrics.weatherWidth;
         }
-        if (metrics.hasPrivacy) {
-            total += IdleStripLayout::kPrivacyReserve;
-        }
+        metrics.hasUnread = NotificationCenterUnread(settings);
+        total += IdleDotReserve(metrics);
 
         total = std::ceil(total / IdleStripLayout::kWidthQuantum) * IdleStripLayout::kWidthQuantum;
         metrics.totalWidth = Clamp(total, IdleStripLayout::kMinWidth, IdleStripLayout::kMaxWidth);
@@ -13438,13 +13705,29 @@ class Renderer {
 
         const bool mic = state.system.micActive && settings.privacyDots && settings.privacyDotsMic;
         const bool cam = state.system.cameraActive && settings.privacyDots && settings.privacyDotsCam;
-        if (!mic && !cam) return;
+        const bool unread = NotificationCenterUnread(settings);
+        if (!mic && !cam && !unread) return;
 
         const float dotR   = 4.0f;
         const float margin = 16.0f;
         const float dotY   = rect.top + (rect.bottom - rect.top) * 0.5f;
 
         const float x = rect.right - margin - dotR;
+
+        if (unread) {
+            D2D1_COLOR_F unreadColor = material_.accent;
+            unreadColor.a = settingsOpacity_;
+            if (!unreadDotBrush_) target_->CreateSolidColorBrush(unreadColor, &unreadDotBrush_);
+            else unreadDotBrush_->SetColor(unreadColor);
+
+            if (unreadDotBrush_) {
+                const float unreadX = (mic || cam) ? x - notification_center::unread_dot_gap : x;
+                target_->FillEllipse(D2D1::Ellipse(D2D1::Point2F(unreadX, dotY),
+                                                   notification_center::unread_dot_radius,
+                                                   notification_center::unread_dot_radius),
+                                     unreadDotBrush_.Get());
+            }
+        }
 
         if (cam) {
             D2D1_COLOR_F camColor = settings.privacyDotsCamHex;
@@ -14628,6 +14911,170 @@ class Renderer {
         mutedBrush_->SetOpacity(0.75f);
     }
 
+    std::size_t notification_center_slot(uint64_t generation) {
+        for (std::size_t slot = 0; slot < notificationCenterGenerations_.size(); ++slot) {
+            if (generation != 0 && notificationCenterGenerations_[slot] == generation && notificationCenterBitmaps_[slot]) {
+                return slot;
+            }
+        }
+        const std::size_t slot = notificationCenterNextSlot_;
+        notificationCenterNextSlot_ = (notificationCenterNextSlot_ + 1) % notificationCenterGenerations_.size();
+        notificationCenterGenerations_[slot] = 0;
+        return slot;
+    }
+
+    void DrawNotificationCenterIcon(const notification_center::Group& group, D2D1_RECT_F badge, float radius) {
+        ComPtr<ID2D1SolidColorBrush> plate;
+        if (SUCCEEDED(target_->CreateSolidColorBrush(material_.raisedStrong, &plate)) && plate) {
+            target_->FillRoundedRectangle(D2D1::RoundedRect(badge, radius, radius), plate.Get());
+        }
+
+        if (group.icon) {
+            const std::size_t slot = notification_center_slot(group.icon->generation);
+            DrawRoundedBitmapPixels(*group.icon, badge, radius, notificationCenterBitmaps_[slot],
+                                    notificationCenterGenerations_[slot], 1.0f);
+            return;
+        }
+
+        const wchar_t initial = notification_initial(group.app);
+        if (initial == 0 || !boldTextFormat_) {
+            return;
+        }
+        const DWRITE_TEXT_ALIGNMENT text_alignment = boldTextFormat_->GetTextAlignment();
+        const DWRITE_PARAGRAPH_ALIGNMENT paragraph_alignment = boldTextFormat_->GetParagraphAlignment();
+        boldTextFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+        boldTextFormat_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+        textBrush_->SetOpacity(0.95f);
+        target_->DrawTextW(&initial, 1, boldTextFormat_.Get(), badge, textBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        boldTextFormat_->SetTextAlignment(text_alignment);
+        boldTextFormat_->SetParagraphAlignment(paragraph_alignment);
+    }
+
+    void DrawNotificationCenterDashboard(const SharedState& state, D2D1_RECT_F rect, float scale) {
+        g_notificationCenterUnread.store(false, std::memory_order_relaxed);
+
+        const float padX = notification_center::pad_x * scale;
+        const D2D1_RECT_F headerRect = D2D1::RectF(rect.left + padX, rect.top + 18.0f * scale,
+                                                   rect.right - padX, rect.top + 38.0f * scale);
+        textBrush_->SetOpacity(0.96f);
+        if (boldTextFormat_) {
+            boldTextFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
+            const wchar_t* title = Loc(L"Notifications");
+            target_->DrawTextW(title, static_cast<UINT32>(wcslen(title)), boldTextFormat_.Get(),
+                               headerRect, textBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
+            boldTextFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+        }
+
+        const notification_center::History* history = state.notificationCenter.get();
+        const std::size_t groupCount = history ? history->groups().size() : 0;
+        const int capacity = notification_center::visible_rows((rect.bottom - rect.top) / scale);
+
+        const float clearSize = notification_center::clear_size * scale;
+        const float clearTop = rect.top + notification_center::clear_top * scale;
+        const D2D1_RECT_F clearBox = D2D1::RectF(rect.right - padX - clearSize, clearTop,
+                                                 rect.right - padX, clearTop + clearSize);
+
+        if (groupCount > 0 && smallTextFormat_) {
+            wchar_t countBuf[48] = {};
+            const int hidden = static_cast<int>(groupCount) - capacity;
+            if (hidden > 0) {
+                swprintf_s(countBuf, L"%zu \u00B7 +%d", history->total(), hidden);
+            } else {
+                swprintf_s(countBuf, L"%zu", history->total());
+            }
+            const D2D1_RECT_F countRect = D2D1::RectF(headerRect.left, headerRect.top,
+                                                      clearBox.left - 8.0f * scale, headerRect.bottom);
+            smallTextFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
+            mutedBrush_->SetOpacity(0.75f);
+            target_->DrawTextW(countBuf, static_cast<UINT32>(wcslen(countBuf)), smallTextFormat_.Get(),
+                               countRect, mutedBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
+            smallTextFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
+        }
+
+        DrawTrayBinButton(clearBox, groupCount > 0,
+                          g_hoveredNotificationAction.load(std::memory_order_relaxed) == -2);
+
+        const float listTop = rect.top + notification_center::list_top * scale;
+        const float listBottom = rect.bottom - notification_center::list_bottom_inset * scale;
+
+        if (groupCount == 0) {
+            if (textFormat_) {
+                const D2D1_RECT_F emptyRect = D2D1::RectF(rect.left + padX, listTop, rect.right - padX, listBottom);
+                textFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+                textFormat_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+                const wchar_t* hint = Loc(L"No notifications");
+                mutedBrush_->SetOpacity(0.80f);
+                target_->DrawTextW(hint, static_cast<UINT32>(wcslen(hint)), textFormat_.Get(),
+                                   emptyRect, mutedBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
+                textFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
+                textFormat_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+            }
+            mutedBrush_->SetOpacity(0.75f);
+            return;
+        }
+
+        const float rowH = notification_center::row_height * scale;
+        const float rowGap = notification_center::row_gap * scale;
+        const float removeSize = notification_center::remove_size * scale;
+        const float removeMargin = notification_center::remove_margin * scale;
+        const float removeSpace = removeSize + removeMargin + 4.0f * scale;
+        const float timeW = 56.0f * scale;
+        const int hoveredRow = g_hoveredNotificationRow.load(std::memory_order_relaxed);
+        const int hoveredAction = g_hoveredNotificationAction.load(std::memory_order_relaxed);
+
+        int drawn = 0;
+        for (const notification_center::Group& group : history->groups()) {
+            if (drawn >= capacity) {
+                break;
+            }
+            const float rowTop = listTop + static_cast<float>(drawn) * (rowH + rowGap);
+            const D2D1_RECT_F row = D2D1::RectF(rect.left + padX, rowTop, rect.right - padX, rowTop + rowH);
+            const bool hovered = hoveredRow == drawn;
+            DrawCard(row, 9.0f * scale, hovered);
+
+            const float iconSize = 24.0f * scale;
+            const float iconTop = (row.top + row.bottom - iconSize) * 0.5f;
+            const D2D1_RECT_F badge = D2D1::RectF(row.left + 7.0f * scale, iconTop,
+                                                  row.left + 7.0f * scale + iconSize, iconTop + iconSize);
+            DrawNotificationCenterIcon(group, badge, 7.0f * scale);
+
+            DrawTrayRemoveButton(D2D1::Point2F(row.right - removeMargin - removeSize * 0.5f,
+                                               (row.top + row.bottom) * 0.5f),
+                                 removeSize, hoveredAction == drawn, hovered);
+
+            if (smallTextFormat_) {
+                const float textLeft = badge.right + 9.0f * scale;
+                const float textRight = row.right - removeSpace;
+                const float midY = (row.top + row.bottom) * 0.5f;
+
+                std::wstring heading = group.app;
+                if (group.arrivals.size() > 1) {
+                    heading += L" \u00B7 " + std::to_wstring(group.arrivals.size());
+                }
+                textBrush_->SetOpacity(0.94f);
+                target_->DrawTextW(heading.c_str(), static_cast<UINT32>(heading.size()), smallTextFormat_.Get(),
+                                   D2D1::RectF(textLeft, row.top + 3.0f * scale, textRight - timeW, midY + 1.0f * scale),
+                                   textBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
+
+                smallTextFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
+                mutedBrush_->SetOpacity(0.65f);
+                target_->DrawTextW(group.time.c_str(), static_cast<UINT32>(group.time.size()), smallTextFormat_.Get(),
+                                   D2D1::RectF(textRight - timeW, row.top + 3.0f * scale, textRight, midY + 1.0f * scale),
+                                   mutedBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
+                smallTextFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
+
+                mutedBrush_->SetOpacity(0.78f);
+                target_->DrawTextW(group.preview.c_str(), static_cast<UINT32>(group.preview.size()), smallTextFormat_.Get(),
+                                   D2D1::RectF(textLeft, midY, textRight, row.bottom - 2.0f * scale),
+                                   mutedBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
+            }
+            ++drawn;
+        }
+
+        textBrush_->SetOpacity(0.96f);
+        mutedBrush_->SetOpacity(0.75f);
+    }
+
     // Load colour is *semantic*, not decorative: the accent while a component is
     // comfortable, amber under pressure, red when saturated. The previous design
     // assigned a fixed rainbow colour per metric, which carried no information
@@ -15699,8 +16146,7 @@ class Renderer {
 
             // The dot is anchored to the right edge by DrawPrivacyDots, so reserve
             // its lane rather than shrinking the text box out from under the clock.
-            const float privacyReserve =
-                idleMetrics.hasPrivacy ? IdleStripLayout::kPrivacyReserve * scale : 0.0f;
+            const float privacyReserve = IdleDotReserve(idleMetrics) * scale;
             const float innerLeft = rect.left + IdleStripLayout::kPadX * scale;
             const float innerRight =
                 rect.right - IdleStripLayout::kPadX * scale - privacyReserve;
@@ -15772,6 +16218,7 @@ class Renderer {
             // Expanded Mode. Order must match ActiveTabCount()/FileTrayTabIndex().
             std::vector<int> activeTabs;
             activeTabs.push_back(3); // Time (shown first when the island expands/on hover)
+            if (settings.notificationCenterModule) activeTabs.push_back(7);
             if (settings.weather) activeTabs.push_back(1); // Weather
             activeTabs.push_back(0); // Calendar
             if (settings.githubModule) activeTabs.push_back(5);
@@ -15798,6 +16245,7 @@ class Renderer {
                 else if (activeTabId == 5) DrawGitHubDashboard(state, fullRect, settings, scale);
                 else if (activeTabId == 2) DrawHardwareMonitorDashboard(state, fullRect, settings, scale);
                 else if (activeTabId == 4) DrawFileTrayDashboard(state, fullRect, settings, scale);
+                else if (activeTabId == 7) DrawNotificationCenterDashboard(state, fullRect, scale);
             });
 
             DrawTabPagination(fullRect, maxTabs);
@@ -16346,6 +16794,7 @@ class Renderer {
             const bool lyricsFirst = settings.lyricsPinnedFirst && settings.lyrics;
             if (lyricsFirst) activeTabs.push_back(5);  // Lyrics (pinned first)
             activeTabs.push_back(0); // Media
+            if (settings.notificationCenterModule) activeTabs.push_back(7);
             if (settings.weather) activeTabs.push_back(2); // Weather
             activeTabs.push_back(1); // Calendar
             if (settings.githubModule) activeTabs.push_back(6);
@@ -16602,6 +17051,8 @@ class Renderer {
                 DrawHardwareMonitorDashboard(state, rect, settings, 1.0f);
             } else if (activeTabId == 4) {
                 DrawFileTrayDashboard(state, rect, settings, 1.0f);
+            } else if (activeTabId == 7) {
+                DrawNotificationCenterDashboard(state, rect, 1.0f);
             } else if (activeTabId == 5) {
                 // Laid out at the final expanded size and pinned to the top, so growing
                 // the island only reveals the lyrics instead of sliding them around.
@@ -21119,6 +21570,7 @@ class Renderer {
     ComPtr<ID2D1SolidColorBrush> tintBrush_;
     ComPtr<ID2D1SolidColorBrush> shadowBrush_;
     ComPtr<ID2D1SolidColorBrush> micDotBrush_;
+    ComPtr<ID2D1SolidColorBrush> unreadDotBrush_;
     ComPtr<ID2D1SolidColorBrush> micGlowBrush_;
     ComPtr<ID2D1SolidColorBrush> camDotBrush_;
     ComPtr<ID2D1SolidColorBrush> camGlowBrush_;
@@ -21148,6 +21600,9 @@ class Renderer {
     uint64_t clipboardImageGeneration_ = 0;
     ComPtr<ID2D1Bitmap> fileTrayIconBitmap_;
     uint64_t fileTrayIconGeneration_ = 0;
+    std::array<ComPtr<ID2D1Bitmap>, notification_center::max_apps> notificationCenterBitmaps_;
+    std::array<uint64_t, notification_center::max_apps> notificationCenterGenerations_{};
+    std::size_t notificationCenterNextSlot_ = 0;
 
     // ── Lyrics tab state ─────────────────────────────────────────────────────
     KaraokeLayoutCache karaokeCache_;
@@ -22625,6 +23080,12 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     SetCursor(LoadCursorW(nullptr, IDC_HAND));
                     return TRUE;
                 }
+
+                if (currentTab == NotificationCenterTabIndex(g_settings) &&
+                    g_hoveredNotificationAction.load(std::memory_order_relaxed) != -1) {
+                    SetCursor(LoadCursorW(nullptr, IDC_HAND));
+                    return TRUE;
+                }
             }
             break;
 
@@ -22802,6 +23263,18 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 g_layoutDirty = true;
             }
 
+            NotificationCenterHit centerHit;
+            if (currentTab == NotificationCenterTabIndex(g_settings)) {
+                centerHit = NotificationCenterHitTest(MediaContentFromClient(xPos, yPos),
+                                                      NotificationCenterGroupCount());
+            }
+            const bool centerRowChanged = g_hoveredNotificationRow.exchange(centerHit.row) != centerHit.row;
+            const bool centerActionChanged =
+                g_hoveredNotificationAction.exchange(centerHit.action) != centerHit.action;
+            if (centerRowChanged || centerActionChanged) {
+                g_layoutDirty = true;
+            }
+
             // Pressed on a row and moved past the system drag threshold: pick the file up.
             if (s_trayPressActive) {
                 if (!(wParam & MK_LBUTTON)) {
@@ -22832,6 +23305,12 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 g_layoutDirty = true;
             }
             if (g_hoveredFileTrayAction.exchange(-1) != -1) {
+                g_layoutDirty = true;
+            }
+            if (g_hoveredNotificationRow.exchange(-1) != -1) {
+                g_layoutDirty = true;
+            }
+            if (g_hoveredNotificationAction.exchange(-1) != -1) {
                 g_layoutDirty = true;
             }
             return 0;
@@ -22951,6 +23430,17 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 const int currentTab = NormalizedTabIndex(g_settings);
 
                 const MediaContentPoint cp = MediaContentFromClient(xPos, yPos);
+
+                if (currentTab == NotificationCenterTabIndex(g_settings)) {
+                    const NotificationCenterHit hit = NotificationCenterHitTest(cp, NotificationCenterGroupCount());
+                    if (hit.action != -1) {
+                        ClearNotificationCenter(hit.action == -2 ? -1 : hit.action);
+                        g_hoveredNotificationRow = -1;
+                        g_hoveredNotificationAction = -1;
+                        g_layoutDirty = true;
+                        return 0;
+                    }
+                }
 
                 // File Tray: the bin clears the shelf, the cut button removes one file,
                 // and a plain click on a row opens it with its default app. (Dragging a
@@ -24295,6 +24785,7 @@ constexpr std::size_t field_count = 5;
 constexpr std::uint64_t rate_window_ms = 1000;
 constexpr int rate_limit = 10;
 constexpr std::size_t max_app_chars = 64;
+constexpr std::size_t max_key_chars = 128;
 constexpr std::size_t max_title_chars = 120;
 constexpr std::size_t max_body_chars = 512;
 constexpr double display_seconds = 4.0;
@@ -24773,19 +25264,21 @@ PixelsRef decode_icon(const std::vector<std::uint8_t>& bytes)
     return PixelsRef(std::move(decoded));
 }
 
-bool deliver(const PipeMessage& message)
+struct Prepared
 {
-    const Settings settings = GetSettingsCopy();
+    std::uint8_t category = 0;
+    std::wstring key;
+    std::wstring app;
+    std::wstring line;
+    PixelsRef icon;
+};
 
-    if (settings.notificationRespectDnD && g_isDnDActive.load())
-    {
-        Wh_Log(L"Island pipe: skipped, Do Not Disturb active");
-        return false;
-    }
-
-    NotificationSnapshot snapshot;
-    snapshot.active = true;
-    snapshot.app = sanitize(message.app.empty() ? message.bundle : message.app, max_app_chars);
+Prepared prepare(const PipeMessage& message)
+{
+    Prepared prepared;
+    prepared.category = message.category;
+    prepared.app = sanitize(message.app.empty() ? message.bundle : message.app, max_app_chars);
+    prepared.key = sanitize(message.bundle.empty() ? message.app : message.bundle, max_key_chars);
 
     std::wstring heading = sanitize(message.title, max_title_chars);
     const std::wstring subtitle = sanitize(message.subtitle, max_title_chars);
@@ -24798,7 +25291,7 @@ bool deliver(const PipeMessage& message)
 
     if (heading.empty())
     {
-        heading = snapshot.app.empty() ? std::wstring(L"iPhone") : snapshot.app;
+        heading = prepared.app.empty() ? std::wstring(L"iPhone") : prepared.app;
     }
 
     if (!body.empty())
@@ -24806,14 +25299,65 @@ bool deliver(const PipeMessage& message)
         heading += L" - " + body;
     }
 
-    snapshot.title = sanitize(heading, max_title_chars);
-    snapshot.icon = decode_icon(message.icon);
+    prepared.line = sanitize(heading, max_title_chars);
+    prepared.icon = decode_icon(message.icon);
 
-    if (!snapshot.icon && !snapshot.app.empty())
+    if (!prepared.icon && !prepared.app.empty())
     {
-        snapshot.icon = FindAppIconByName(snapshot.app, 64);
+        prepared.icon = FindAppIconByName(prepared.app, 64);
     }
 
+    if (prepared.app.empty())
+    {
+        prepared.app = L"iPhone";
+    }
+
+    return prepared;
+}
+
+std::wstring local_time_label()
+{
+    wchar_t buffer[32] = {};
+    const int written = GetTimeFormatEx(LOCALE_NAME_USER_DEFAULT, TIME_NOSECONDS, nullptr, nullptr, buffer, static_cast<int>(std::size(buffer)));
+    return written > 1 ? std::wstring(buffer, static_cast<std::size_t>(written - 1)) : std::wstring{};
+}
+
+void remember(const Prepared& prepared)
+{
+    if (!GetSettingsCopy().notificationCenterModule)
+    {
+        return;
+    }
+
+    notification_center::Incoming incoming{prepared.key, prepared.app, prepared.line, local_time_label(), prepared.icon};
+
+    {
+        std::lock_guard lock(g_stateMutex);
+        auto next = g_state.notificationCenter ? std::make_shared<notification_center::History>(*g_state.notificationCenter) : std::make_shared<notification_center::History>();
+        next->record(std::move(incoming));
+        g_state.notificationCenter = std::move(next);
+    }
+
+    g_notificationCenterUnread = true;
+    g_layoutDirty = true;
+    TriggerNudge();
+}
+
+bool deliver(const Prepared& prepared)
+{
+    const Settings settings = GetSettingsCopy();
+
+    if (settings.notificationRespectDnD && g_isDnDActive.load())
+    {
+        Wh_Log(L"Island pipe: skipped, Do Not Disturb active");
+        return false;
+    }
+
+    NotificationSnapshot snapshot;
+    snapshot.active = true;
+    snapshot.app = prepared.app;
+    snapshot.title = prepared.line;
+    snapshot.icon = prepared.icon;
     snapshot.expiresAt = NowSeconds() + display_seconds;
 
     {
@@ -24821,7 +25365,7 @@ bool deliver(const PipeMessage& message)
         g_state.notification = std::move(snapshot);
     }
 
-    Wh_Log(L"Island pipe: notification shown (category %u)", static_cast<unsigned>(message.category));
+    Wh_Log(L"Island pipe: notification shown (category %u)", static_cast<unsigned>(prepared.category));
     TriggerNudge();
     return true;
 }
@@ -24829,7 +25373,7 @@ bool deliver(const PipeMessage& message)
 class DisplayQueue
 {
 public:
-    void push(PipeMessage message)
+    void push(Prepared message)
     {
         if (pending_.size() >= max_queued)
         {
@@ -24844,7 +25388,7 @@ public:
     {
         while (!pending_.empty() && NowSeconds() >= busy_until_)
         {
-            const PipeMessage next = std::move(pending_.front());
+            Prepared next = std::move(pending_.front());
             pending_.pop_front();
 
             if (deliver(next))
@@ -24871,7 +25415,7 @@ public:
     }
 
 private:
-    std::deque<PipeMessage> pending_;
+    std::deque<Prepared> pending_;
     double busy_until_ = 0.0;
 };
 
@@ -24958,7 +25502,9 @@ void serve_client(HANDLE pipe, OVERLAPPED& overlapped)
             continue;
         }
 
-        queue.push(std::move(*message));
+        Prepared prepared = prepare(*message);
+        remember(prepared);
+        queue.push(std::move(prepared));
     }
 }
 
