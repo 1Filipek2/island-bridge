@@ -3,6 +3,7 @@ using IslandBridge.Core;
 using IslandBridge.Core.Ancs;
 using IslandBridge.Core.Configuration;
 using IslandBridge.Core.Diagnostics;
+using IslandBridge.Core.Island;
 using IslandBridge.Core.Notifications;
 using IslandBridge.Core.Startup;
 
@@ -53,6 +54,9 @@ internal sealed class AppHost : IAsyncDisposable
     private DateTimeOffset? _pausedUntil;
     private PauseOption _pauseOption;
     private int _appNamesAtLastSave;
+    private readonly CancellationTokenSource _lifetime = new();
+    private readonly IslandPipeClient _island;
+    private readonly Task _islandTask;
 
     public AppHost(AppPaths paths, FileLog log)
     {
@@ -73,6 +77,8 @@ internal sealed class AppHost : IAsyncDisposable
 
         _appNamesAtLastSave = _appNames.Count;
         Localizer = new Localizer(Config.Appearance.Language);
+        _island = new IslandPipeClient(log);
+        _islandTask = Task.Run(() => _island.RunAsync(_lifetime.Token));
     }
 
     public event EventHandler? StatusChanged;
@@ -313,6 +319,22 @@ internal sealed class AppHost : IAsyncDisposable
         }
 
         cancellation?.Dispose();
+        await _lifetime.CancelAsync().ConfigureAwait(false);
+
+        try
+        {
+            await _islandTask.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            Log.Warn("island pipe shutdown timed out");
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
+        await _island.DisposeAsync().ConfigureAwait(false);
+        _lifetime.Dispose();
 
         lock (_gate)
         {
@@ -382,6 +404,11 @@ internal sealed class AppHost : IAsyncDisposable
 
     private void Deliver(PhoneNotification notification, FilterDecision decision)
     {
+        if (decision == FilterDecision.Deliver && !_island.TrySend(notification))
+        {
+            Log.Warn("island queue rejected a notification");
+        }
+
         var showText = Config.Notifications.ShowPreviews;
         var recent = new RecentNotification(
             _timeProvider.GetLocalNow(),
