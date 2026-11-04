@@ -1,0 +1,65 @@
+instagram|Instagram|com.burbn.instagram
+whatsapp|WhatsApp|net.whatsapp.WhatsApp,net.whatsapp.WhatsAppSMB
+messenger|Messenger|com.facebook.Messenger
+gmail|Gmail|com.google.Gmail
+snapchat|Snapchat|com.toyopagroup.picaboo
+tiktok|TikTok|com.zhiliaoapp.musically
+telegram|Telegram|ph.telegra.Telegraph
+signal|Signal|org.whispersystems.signal
+discord|Discord|com.hammerandchisel.discord
+spotify|Spotify|com.spotify.client
+youtube|YouTube|com.google.ios.youtube
+x|X|com.atebits.Tweetie2
+facebook|Facebook|com.facebook.Facebook
+reddit|Reddit|com.reddit.Reddit
+threads|Threads|com.burbn.barcelona
+netflix|Netflix|com.netflix.Netflix
+twitch|Twitch|tv.twitch
+zoom|Zoom|us.zoom.videomeetings
+uber|Uber|com.ubercab.UberClient
+airbnb|Airbnb|com.airbnb.app
+revolut|Revolut|com.revolut.revolut
+paypal|PayPal|com.yourcompany.PPClient
+googlechrome|Chrome|com.google.chrome.ios
+googlemaps|Google Maps|com.google.Maps
+googlecalendar|Google Calendar|com.google.calendar
+googledrive|Google Drive|com.google.Drive
+googlemeet|Google Meet|com.google.meetings
+googlephotos|Google Photos|com.google.photos
+moodle|Moodle|com.moodle.moodlemobile
+imessage|Messages|com.apple.MobileSMS
+applemusic|Music|com.apple.Music
+icloud|iCloud|com.apple.icloud
+pinterest|Pinterest|pinterest
+tumblr|Tumblr|com.tumblr.tumblr
+viber|Viber|com.viber
+wechat|WeChat|com.tencent.xin
+line|LINE|jp.naver.line
+steam|Steam|com.valvesoftware.Steam
+github|GitHub|com.github.stormbreaker.prod
+notion|Notion|notion.id
+trello|Trello|com.fogcreek.trello
+dropbox|Dropbox|com.getdropbox.Dropbox
+bereal|BeReal|AlexisBarreyat.BeReal
+tinder|Tinder|com.cardify.tinder
+bookingdotcom|Booking.com|com.booking.BookingApp
+glovo|Glovo|
+duolingo|Duolingo|com.duolingo.DuolingoMobile
+ebay|eBay|com.ebay.iphone
+waze|Waze|com.waze.iphone
+shazam|Shazam|com.shazam.Shazam
+soundcloud|SoundCloud|com.soundcloud.TouchApp
+deezer|Deezer|com.deezer.Deezer
+strava|Strava|com.strava.stravaride
+wise|Wise|
+binance|Binance|
+coinbase|Coinbase|com.vilcsak.bitcoin2
+protonmail|Proton Mail|ch.protonmail.protonmail
+mastodon|Mastodon|org.joinmastodon.app
+bluesky|Bluesky|xyz.blueskyweb.app
+kick|Kick|
+zalando|Zalando|
+aliexpress|AliExpress|com.alibaba.iAliexpress
+vinted|Vinted|
+googlemessages|Messages by Google|
+clubhouse|Clubhouse|

@@ -8,4 +8,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="IslandBridge.Tests" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Icons\Bundled\*.png;Icons\Bundled\brands.txt" LogicalName="IslandBridge.Core.Icons.Bundled.%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>
