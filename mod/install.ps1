@@ -16,6 +16,17 @@ Copy-Item (Join-Path $out "32\$name") "$engineMods\32\"
 Copy-Item (Join-Path $PSScriptRoot 'dynamic-island-openmeteo.wh.cpp') "C:\ProgramData\Windhawk\ModsSource\$modId.wh.cpp" -Force
 
 $key = "HKLM:\SOFTWARE\Windhawk\Engine\Mods\$modId"
+$settingsKey = Join-Path $key 'Settings'
+if (-not (Test-Path $settingsKey)) {
+    New-Item $settingsKey -Force | Out-Null
+}
+$defaults = [ordered]@{ 'Modules.NotificationCenter' = 1 }
+foreach ($entry in $defaults.GetEnumerator()) {
+    if ($null -eq (Get-ItemProperty $settingsKey -Name $entry.Key -ErrorAction SilentlyContinue)) {
+        Set-ItemProperty $settingsKey $entry.Key $entry.Value -Type DWord
+        "Default written: $($entry.Key) = $($entry.Value)"
+    }
+}
 Set-ItemProperty $key LibraryFileName $name
 Set-ItemProperty $key Version $version
 Set-ItemProperty $key SettingsChangeTime ([int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) -Type DWord
