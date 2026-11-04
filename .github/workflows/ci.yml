@@ -1,0 +1,78 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+jobs:
+  app:
+    name: app (build, test, audit, AOT publish)
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - name: Check out (actions/checkout v7.0.1)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET from global.json (actions/setup-dotnet v6.0.0)
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
+        with:
+          global-json-file: global.json
+
+      - name: Restore with lock files
+        run: dotnet restore IslandBridge.slnx --locked-mode
+
+      - name: Build
+        run: dotnet build IslandBridge.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test --project tests/IslandBridge.Tests -c Release --no-build
+
+      - name: Check for vulnerable packages
+        shell: pwsh
+        run: |
+          $output = dotnet list IslandBridge.slnx package --vulnerable --include-transitive 2>&1 | Out-String
+          $output
+          if ($LASTEXITCODE -ne 0 -or $output -match 'has the following vulnerable packages') { exit 1 }
+
+      - name: Publish with Native AOT
+        shell: pwsh
+        run: |
+          $env:PATH += ";${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
+          dotnet publish src/IslandBridge -c Release -r win-x64 -o artifacts/publish
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $exe = Get-Item artifacts/publish/IslandBridge.exe
+          "IslandBridge.exe: {0:N1} MB, folder: {1:N1} MB" -f ($exe.Length / 1MB), ((Get-ChildItem artifacts/publish -Recurse -File | Measure-Object Length -Sum).Sum / 1MB)
+
+  mod:
+    name: mod (pipe parser tests with MSVC)
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - name: Check out (actions/checkout v7.0.1)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Build and run the parser tests and fuzzing
+        shell: cmd
+        run: |
+          for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSROOT=%%i"
+          call "%VSROOT%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
+          set MOD_TEST_COMPILER=msvc
+          "%ProgramFiles%\Git\bin\bash.exe" mod/test.sh
