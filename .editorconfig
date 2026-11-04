@@ -32,7 +32,7 @@ dotnet_style_qualification_for_property = false:warning
 dotnet_style_qualification_for_method = false:warning
 dotnet_style_qualification_for_event = false:warning
 dotnet_style_predefined_type_for_locals_parameters_members = true:warning
-dotnet_style_require_accessibility_modifiers = always:warning
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
 dotnet_style_readonly_field = true:warning
 
 dotnet_naming_rule.private_fields_underscore.severity = warning
@@ -46,3 +46,4 @@ dotnet_naming_style.underscore_camel.capitalization = camel_case
 dotnet_diagnostic.IDE0005.severity = warning
 dotnet_diagnostic.IDE0161.severity = error
 dotnet_diagnostic.CA1515.severity = none
+dotnet_diagnostic.CA1711.severity = none
