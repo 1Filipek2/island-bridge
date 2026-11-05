@@ -20,37 +20,44 @@
 
 namespace island
 {
-
-
-LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    static POINT s_touchStart = {0, 0};
-    static ULONGLONG s_touchStartTime = 0;
-    static bool s_trayPressActive = false;   // left button went down on a File Tray row
-    static POINT s_trayPressPt = {0, 0};
-    static std::wstring s_trayPressPath;
-    switch (msg) {
+LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param)
+{
+    static POINT s_touch_start = {0, 0};
+    static ULONGLONG s_touch_start_time = 0;
+    static bool s_tray_press_active = false;
+    static POINT s_tray_press_pt = {0, 0};
+    static std::wstring s_tray_press_path;
+    switch (msg)
+    {
         case WM_CREATE:
             AddClipboardFormatListener(hwnd);
-            if (g_shellHookMessage == 0) g_shellHookMessage = RegisterWindowMessageW(L"SHELLHOOK");
-            if (g_taskbarCreatedMessage == 0) g_taskbarCreatedMessage = RegisterWindowMessageW(L"TaskbarCreated");
-            RegisterShellHookWindow(hwnd);
-            // File Tray (#33). An OLE drop target (instead of DragAcceptFiles) so the
-            // island can react while a drag is still hovering. The module being off is
-            // handled inside TrayDropTarget::DragEnter.
+            if (g_shell_hook_message == 0)
             {
-                g_oleInitialized = SUCCEEDED(OleInitialize(nullptr));
-                ComPtr<IDropTarget> dropTarget;
-                dropTarget.Attach(new TrayDropTarget());
-                const HRESULT dropHr = RegisterDragDrop(hwnd, dropTarget.Get());
-                if (FAILED(dropHr)) {
-                    host::log(L"RegisterDragDrop failed (0x%08X).", static_cast<unsigned>(dropHr));
+                g_shell_hook_message = RegisterWindowMessageW(L"SHELLHOOK");
+            }
+            if (g_taskbar_created_message == 0)
+            {
+                g_taskbar_created_message = RegisterWindowMessageW(L"TaskbarCreated");
+            }
+            RegisterShellHookWindow(hwnd);
+            // File Tray: an OLE drop target (not DragAcceptFiles) so the island reacts while a drag hovers.
+            {
+                g_ole_initialized = SUCCEEDED(OleInitialize(nullptr));
+                ComPtr<IDropTarget> drop_target;
+                drop_target.Attach(new TrayDropTarget());
+                const HRESULT drop_hr = RegisterDragDrop(hwnd, drop_target.Get());
+                if (FAILED(drop_hr))
+                {
+                    host::log(L"RegisterDragDrop failed (0x%08X).", static_cast<unsigned>(drop_hr));
                 }
             }
             return 0;
 
-        case WM_DROPFILES: {
-            HDROP drop = reinterpret_cast<HDROP>(wParam);
-            if (!g_settings.fileTrayModule) {
+        case WM_DROPFILES:
+        {
+            HDROP drop = reinterpret_cast<HDROP>(w_param);
+            if (!g_settings.file_tray_module)
+            {
                 DragFinish(drop);
                 return 0;
             }
@@ -59,32 +66,34 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             std::vector<FileTrayItem> added;
             added.reserve(count);
 
-            for (UINT i = 0; i < count; ++i) {
+            for (UINT i = 0; i < count; ++i)
+            {
                 wchar_t path[MAX_PATH] = {};
-                if (DragQueryFileW(drop, i, path, ARRAYSIZE(path)) == 0) {
+                if (DragQueryFileW(drop, i, path, ARRAYSIZE(path)) == 0)
+                {
                     continue;
                 }
 
                 FileTrayItem item;
                 item.path = path;
 
-                // BaseNameFromPath instead of PathFindFileNameW so we do not
-                // pull in shlwapi just for this.
-                item.name = BaseNameFromPath(path);
-                if (item.name.empty()) {
+                item.name = base_name_from_path(path);
+                if (item.name.empty())
+                {
                     item.name = path;
                 }
 
                 WIN32_FILE_ATTRIBUTE_DATA attr = {};
-                if (GetFileAttributesExW(path, GetFileExInfoStandard, &attr)) {
-                    item.isDirectory = (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-                    item.sizeBytes = (static_cast<uint64_t>(attr.nFileSizeHigh) << 32) | attr.nFileSizeLow;
+                if (GetFileAttributesExW(path, GetFileExInfoStandard, &attr))
+                {
+                    item.is_directory = (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+                    item.size_bytes = (static_cast<std::uint64_t>(attr.nFileSizeHigh) << 32) | attr.nFileSizeLow;
                 }
 
-                // Grab the real Explorer icon so the shelf looks native.
                 SHFILEINFOW info = {};
-                if (SHGetFileInfoW(path, 0, &info, sizeof(info), SHGFI_ICON | SHGFI_SMALLICON) && info.hIcon) {
-                    item.icon = IconToPixelsRef(info.hIcon, 32);
+                if (SHGetFileInfoW(path, 0, &info, sizeof(info), SHGFI_ICON | SHGFI_SMALLICON) && info.hIcon)
+                {
+                    item.icon = icon_to_pixels_ref(info.hIcon, 32);
                     DestroyIcon(info.hIcon);
                 }
 
@@ -92,158 +101,177 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             }
             DragFinish(drop);
 
-            if (!added.empty()) {
-                std::lock_guard lock(g_stateMutex);
-                for (auto& item : added) {
-                    // Re-dropping a file promotes the existing entry instead of
-                    // creating a duplicate.
-                    auto existing = std::find_if(g_state.fileTrayItems.begin(), g_state.fileTrayItems.end(),
-                                                 [&](const FileTrayItem& other) {
+            if (!added.empty())
+            {
+                std::lock_guard lock(g_state_mutex);
+                for (auto& item : added)
+                {
+                    auto existing = std::find_if(g_state.file_tray_items.begin(), g_state.file_tray_items.end(),
+                                                 [&](const FileTrayItem& other)
+                                                 {
                                                      return _wcsicmp(other.path.c_str(), item.path.c_str()) == 0;
                                                  });
-                    if (existing != g_state.fileTrayItems.end()) {
-                        g_state.fileTrayItems.erase(existing);
+                    if (existing != g_state.file_tray_items.end())
+                    {
+                        g_state.file_tray_items.erase(existing);
                     }
-                    g_state.fileTrayItems.push_back(std::move(item));
+                    g_state.file_tray_items.push_back(std::move(item));
                 }
 
-                const size_t cap = static_cast<size_t>(std::max(1, g_settings.fileTrayMaxItems));
-                while (g_state.fileTrayItems.size() > cap) {
-                    g_state.fileTrayItems.erase(g_state.fileTrayItems.begin());
+                const std::size_t cap = static_cast<std::size_t>(std::max(1, g_settings.file_tray_max_items));
+                while (g_state.file_tray_items.size() > cap)
+                {
+                    g_state.file_tray_items.erase(g_state.file_tray_items.begin());
                 }
             }
 
-            // Jump to the shelf so the drop is visibly acknowledged.
-            const int trayTab = FileTrayTabIndex(g_settings);
-            if (trayTab >= 0) {
-                g_idleTab = trayTab;
+            const int tray_tab = file_tray_tab_index(g_settings);
+            if (tray_tab >= 0)
+            {
+                g_idle_tab = tray_tab;
             }
-            g_layoutDirty = true;
+            g_layout_dirty = true;
             return 0;
         }
 
         case WM_DESTROY:
             RevokeDragDrop(hwnd);
-            if (g_oleInitialized) {
+            if (g_ole_initialized)
+            {
                 OleUninitialize();
-                g_oleInitialized = false;
+                g_ole_initialized = false;
             }
             RemoveClipboardFormatListener(hwnd);
             DeregisterShellHookWindow(hwnd);
             return 0;
 
-        // Both of these touch the window from the thread that owns it, the only
-        // thread allowed to bind a hot key to it or reshape it.
-        case WM_APP_APPLY_HOTKEY:
-            ApplyHideShowHotkey();
+        // Hotkeys and the window shape must be changed from the thread that owns the window.
+        case wm_app_apply_hotkey:
+            apply_hide_show_hotkey();
             return 0;
 
-        case WM_APP_APPLY_BACKDROP:
-            ApplyBackdropMaterial(hwnd);
+        case wm_app_apply_backdrop:
+            apply_backdrop_material(hwnd);
             return 0;
 
-        case WM_APP_MOUSE_WAKE:
-            // No-op payload — its only job is to wake MsgWaitForMultipleObjects
-            // and get drained by the PeekMessage pump.
+        case wm_app_mouse_wake:
             return 0;
 
-        case WM_APP_CAPSLOCK: {
-            if (!g_settings.capsLock) return 0;
-            bool isNum = (wParam == VK_NUMLOCK);
-            bool capsOn = (lParam & 1) != 0;
-            bool numOn = (lParam & 2) != 0;
+        case wm_app_capslock:
+        {
+            if (!g_settings.caps_lock)
             {
-                std::lock_guard lock(g_stateMutex);
-                g_state.capsLock.active = true;
-                g_state.capsLock.capsOn = capsOn;
-                g_state.capsLock.numOn = numOn;
-                g_state.capsLock.isNumEvent = isNum;
-                g_state.capsLock.expiresAt = NowSeconds() + 2.5;
+                return 0;
             }
-            TriggerNudge();
+            bool is_num = (w_param == VK_NUMLOCK);
+            bool caps_on = (l_param & 1) != 0;
+            bool num_on = (l_param & 2) != 0;
+            {
+                std::lock_guard lock(g_state_mutex);
+                g_state.caps_lock.active = true;
+                g_state.caps_lock.caps_on = caps_on;
+                g_state.caps_lock.num_on = num_on;
+                g_state.caps_lock.is_num_event = is_num;
+                g_state.caps_lock.expires_at = now_seconds() + 2.5;
+            }
+            trigger_nudge();
             return 0;
         }
 
-        case WM_DEVICECHANGE: {
+        case WM_DEVICECHANGE:
+        {
             // DBT_DEVICEARRIVAL = 0x8000, DBT_DEVICEREMOVECOMPLETE = 0x8004
-            if (wParam == 0x8000 || wParam == 0x8004) {
-                bool arrived = (wParam == 0x8000);
-                std::wstring devName;
-                bool isBt = false;
+            if (w_param == 0x8000 || w_param == 0x8004)
+            {
+                bool arrived = (w_param == 0x8000);
+                std::wstring dev_name;
+                bool is_bt = false;
 
-                if (lParam) {
-                    auto* hdr = reinterpret_cast<DEV_BROADCAST_HDR*>(lParam);
-                    if (hdr->dbch_devicetype == DBT_DEVTYP_VOLUME) {
-                        devName = L"USB Drive";
-                    } else if (hdr->dbch_devicetype == DBT_DEVTYP_PORT) {
-                        devName = L"COM Device";
-                    } else {
-                        // Generic/Bluetooth OEM
-                        isBt = true;
-                        devName = L"Bluetooth Device";
+                if (l_param)
+                {
+                    auto* hdr = reinterpret_cast<DEV_BROADCAST_HDR*>(l_param);
+                    if (hdr->dbch_devicetype == DBT_DEVTYP_VOLUME)
+                    {
+                        dev_name = L"USB Drive";
+                    }
+                    else if (hdr->dbch_devicetype == DBT_DEVTYP_PORT)
+                    {
+                        dev_name = L"COM Device";
+                    }
+                    else
+                    {
+                        is_bt = true;
+                        dev_name = L"Bluetooth Device";
                     }
                 }
 
                 {
-                    std::lock_guard lock(g_stateMutex);
+                    std::lock_guard lock(g_state_mutex);
                     g_state.device.active = true;
-                    g_state.device.eventType = arrived ? DeviceEventType::Connected
-                                                       : DeviceEventType::Disconnected;
-                    g_state.device.deviceName = devName;
-                    g_state.device.isBluetoothLike = isBt;
-                    g_state.device.expiresAt = NowSeconds() + 3.0;
+                    g_state.device.event_type = arrived ? DeviceEventType::Connected : DeviceEventType::Disconnected;
+                    g_state.device.device_name = dev_name;
+                    g_state.device.is_bluetooth_like = is_bt;
+                    g_state.device.expires_at = now_seconds() + 3.0;
                 }
-                TriggerNudge();
+                trigger_nudge();
             }
             return 0;
         }
 
-        case WM_POWERBROADCAST: {
-            if (wParam == PBT_APMRESUMESUSPEND || wParam == PBT_APMRESUMEAUTOMATIC || wParam == PBT_APMRESUMECRITICAL) {
-                if (g_settingsChangedEvent) {
-                    SetEvent(g_settingsChangedEvent);
+        case WM_POWERBROADCAST:
+        {
+            if (w_param == PBT_APMRESUMESUSPEND || w_param == PBT_APMRESUMEAUTOMATIC ||
+                w_param == PBT_APMRESUMECRITICAL)
+            {
+                if (g_settings_changed_event)
+                {
+                    SetEvent(g_settings_changed_event);
                 }
                 {
-                    std::lock_guard lock(g_stateMutex);
-                    g_state.weather.lastUpdated = 0.0;
+                    std::lock_guard lock(g_state_mutex);
+                    g_state.weather.last_updated = 0.0;
                 }
-                TriggerNudge();
+                trigger_nudge();
             }
             return TRUE;
         }
 
         case WM_CLIPBOARDUPDATE:
-            if (g_settings.clipboard) {
-                CaptureClipboard(hwnd);
+            if (g_settings.clipboard)
+            {
+                capture_clipboard(hwnd);
             }
             return 0;
 
-
-
-        case WM_NCHITTEST: {
-            POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+        case WM_NCHITTEST:
+        {
+            POINT pt = {GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param)};
             ScreenToClient(hwnd, &pt);
 
-            // The window is now a big transparent stage, so only the pill itself
-            // is clickable; everything else falls through to the windows below.
-            if (g_pillClientRect.valid) {
-                const PillClientRect& r = g_pillClientRect;
-                if (pt.x < r.left || pt.x > r.right || pt.y < r.top || pt.y > r.bottom) {
+            // The window is a large transparent stage: only the pill is clickable.
+            if (g_pill_client_rect.valid)
+            {
+                const PillClientRect& r = g_pill_client_rect;
+                if (pt.x < r.left || pt.x > r.right || pt.y < r.top || pt.y > r.bottom)
+                {
                     return HTTRANSPARENT;
                 }
                 return HTCLIENT;
             }
 
-            RECT clientRect = {};
-            GetClientRect(hwnd, &clientRect);
+            RECT client_rect = {};
+            GetClientRect(hwnd, &client_rect);
 
-            const int minX = static_cast<int>(kRenderPadX);
-            const int maxX = clientRect.right - static_cast<int>(kRenderPadX);
-            const int minY = (g_settings.notchStyle || g_settings.borderMergedMode) ? 0 : static_cast<int>(kRenderPadY);
-            const int maxY = clientRect.bottom - static_cast<int>(kRenderPadY);
+            const int min_x = static_cast<int>(render_pad_x);
+            const int max_x = client_rect.right - static_cast<int>(render_pad_x);
+            const int min_y =
+                (g_settings.notch_style || g_settings.border_merged_mode) ? 0 : static_cast<int>(render_pad_y);
+            const int max_y = client_rect.bottom - static_cast<int>(render_pad_y);
 
-            if (maxX > minX && maxY > minY) {
-                if (pt.x < minX || pt.x > maxX || pt.y < minY || pt.y > maxY) {
+            if (max_x > min_x && max_y > min_y)
+            {
+                if (pt.x < min_x || pt.x > max_x || pt.y < min_y || pt.y > max_y)
+                {
                     return HTTRANSPARENT;
                 }
             }
@@ -251,34 +279,43 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
 
         case WM_KEYDOWN:
-            if (HandleLookupKeyDown(hwnd, wParam)) return 0;
+            if (handle_lookup_key_down(hwnd, w_param))
+            {
+                return 0;
+            }
             break;
 
         case WM_CHAR:
-            if (HandleLookupChar(static_cast<wchar_t>(wParam))) return 0;
+            if (handle_lookup_char(static_cast<wchar_t>(w_param)))
+            {
+                return 0;
+            }
             break;
 
         case WM_KILLFOCUS:
-            // Clicked another window / Alt+Tab / Win key: the search is over.
-            if (g_lookupUi.open) {
-                CloseLookupPanel(hwnd);
+            if (g_lookup_ui.open)
+            {
+                close_lookup_panel(hwnd);
             }
             return 0;
 
-        case WM_APP_LAYOUT_CHANGED:
-            g_layoutDirty = true;
+        case wm_app_layout_changed:
+            g_layout_dirty = true;
             return 0;
 
         case WM_SETCURSOR:
-            if (LOWORD(lParam) == HTCLIENT) {
-                if (g_lookupUi.open) {
+            if (LOWORD(l_param) == HTCLIENT)
+            {
+                if (g_lookup_ui.open)
+                {
                     POINT cp;
                     GetCursorPos(&cp);
                     ScreenToClient(hwnd, &cp);
-                    SetCursor(LoadCursorW(nullptr, LookupCursorAt(cp.x, cp.y)));
+                    SetCursor(LoadCursorW(nullptr, lookup_cursor_at(cp.x, cp.y)));
                     return TRUE;
                 }
-                if (g_scrubbing.load()) {
+                if (g_scrubbing.load())
+                {
                     SetCursor(LoadCursorW(nullptr, IDC_HAND));
                     return TRUE;
                 }
@@ -287,37 +324,39 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 GetCursorPos(&pt);
                 ScreenToClient(hwnd, &pt);
 
-                bool mediaActive = false;
+                bool media_active = false;
                 {
-                    std::lock_guard lock(g_stateMutex);
-                    mediaActive = g_settings.media && g_state.media.available;
+                    std::lock_guard lock(g_state_mutex);
+                    media_active = g_settings.media && g_state.media.available;
                 }
 
-                const int currentTab = NormalizedTabIndex(g_settings);
-                if (mediaActive && currentTab == 0) {
-                    const MediaContentPoint cp = MediaContentFromClient(pt.x, pt.y);
-                    const bool hoverClickable = MediaArtHitTest(cp) ||
-                                               MediaTransportHitTest(cp) != -1 ||
-                                               MediaScrubFractionFromContent(cp) >= 0.0f ||
-                                               g_hoveredSourceSlot.load(std::memory_order_relaxed) >= 0 ||
-                                               (g_settings.mediaTabLyrics && MediaLyricsButtonHitTest(cp));
-                    if (hoverClickable) {
+                const int current_tab = normalized_tab_index(g_settings);
+                if (media_active && current_tab == 0)
+                {
+                    const MediaContentPoint cp = media_content_from_client(pt.x, pt.y);
+                    const bool hover_clickable = media_art_hit_test(cp) || media_transport_hit_test(cp) != -1 ||
+                                                 media_scrub_fraction_from_content(cp) >= 0.0f ||
+                                                 g_hovered_source_slot.load(std::memory_order_relaxed) >= 0 ||
+                                                 (g_settings.media_tab_lyrics && media_lyrics_button_hit_test(cp));
+                    if (hover_clickable)
+                    {
                         SetCursor(LoadCursorW(nullptr, IDC_HAND));
                         return TRUE;
                     }
                 }
 
-                // A File Tray row under the cursor is clickable (opens the file).
-                if (g_settings.fileTrayModule && currentTab == FileTrayTabIndex(g_settings) &&
-                    (g_hoveredFileTrayRow.load(std::memory_order_relaxed) >= 0 ||
-                     g_hoveredFileTrayAction.load(std::memory_order_relaxed) != -1)) {
+                if (g_settings.file_tray_module && current_tab == file_tray_tab_index(g_settings) &&
+                    (g_hovered_file_tray_row.load(std::memory_order_relaxed) >= 0 ||
+                     g_hovered_file_tray_action.load(std::memory_order_relaxed) != -1))
+                {
                     SetCursor(LoadCursorW(nullptr, IDC_HAND));
                     return TRUE;
                 }
 
-                if (currentTab == NotificationCenterTabIndex(g_settings) &&
-                    (g_hoveredNotificationAction.load(std::memory_order_relaxed) != -1 ||
-                     g_hoveredNotificationRow.load(std::memory_order_relaxed) >= 0)) {
+                if (current_tab == notification_center_tab_index(g_settings) &&
+                    (g_hovered_notification_action.load(std::memory_order_relaxed) != -1 ||
+                     g_hovered_notification_row.load(std::memory_order_relaxed) >= 0))
+                {
                     SetCursor(LoadCursorW(nullptr, IDC_HAND));
                     return TRUE;
                 }
@@ -325,199 +364,224 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             break;
 
         case WM_LBUTTONDOWN:
+        {
+            int x_pos = GET_X_LPARAM(l_param);
+            int y_pos = GET_Y_LPARAM(l_param);
+
+            s_touch_start.x = x_pos;
+            s_touch_start.y = y_pos;
+            s_touch_start_time = GetTickCount64();
+
+            if (g_lookup_ui.open)
             {
-                int xPos = GET_X_LPARAM(lParam);
-                int yPos = GET_Y_LPARAM(lParam);
+                s_tray_press_active = false;
+                return 0;
+            }
 
-                s_touchStart.x = xPos;
-                s_touchStart.y = yPos;
-                s_touchStartTime = GetTickCount64();
-
-                if (g_lookupUi.open) {
-                    s_trayPressActive = false;
-                    return 0;  // handled on button-up by HandleLookupClick
-                }
-
-                // File Tray: remember a press on a row so moving the mouse picks it up
-                // for dragging, while a plain click still opens it.
-                s_trayPressActive = false;
-                if (g_settings.fileTrayModule &&
-                    NormalizedTabIndex(g_settings) == FileTrayTabIndex(g_settings)) {
-                    const MediaContentPoint tcp = MediaContentFromClient(xPos, yPos);
-                    std::lock_guard lock(g_stateMutex);
-                    const int count = static_cast<int>(g_state.fileTrayItems.size());
-                    const int row = FileTrayRowAtContentPoint(tcp, count);
-                    if (row >= 0 && !FileTrayRemoveHitTest(tcp, row)) {
-                        s_trayPressActive = true;
-                        s_trayPressPt.x = xPos;
-                        s_trayPressPt.y = yPos;
-                        s_trayPressPath =
-                            g_state.fileTrayItems[static_cast<size_t>(count - 1 - row)].path;
-                    }
-                }
-
-                bool mediaActive = false;
+            s_tray_press_active = false;
+            if (g_settings.file_tray_module && normalized_tab_index(g_settings) == file_tray_tab_index(g_settings))
+            {
+                const MediaContentPoint tcp = media_content_from_client(x_pos, y_pos);
+                std::lock_guard lock(g_state_mutex);
+                const int count = static_cast<int>(g_state.file_tray_items.size());
+                const int row = file_tray_row_at_content_point(tcp, count);
+                if (row >= 0 && !file_tray_remove_hit_test(tcp, row))
                 {
-                    std::lock_guard lock(g_stateMutex);
-                    mediaActive = g_settings.media && g_state.media.available;
-                }
-
-                const int currentTab = NormalizedTabIndex(g_settings);
-                if (mediaActive && currentTab == 0) {
-                    const MediaContentPoint cp = MediaContentFromClient(xPos, yPos);
-
-                    // Source dock: remember the held slot for its press animation.
-                    {
-                        const DockHit dock = ResolveSourceDockHit(cp);
-                        if (dock.slot >= 0) {
-                            g_pressedSourceSlot = dock.slot;
-                            g_layoutDirty = true;
-                            return 0;
-                        }
-                    }
-
-                    const int cmd = MediaTransportHitTest(cp);
-                    if (cmd != -1) {
-                        g_pressedMediaButton = cmd;
-                        SetCapture(hwnd);
-                        g_layoutDirty = true;
-                        return 0;
-                    }
-
-                    const float fraction = MediaScrubFractionFromContent(cp);
-                    if (fraction >= 0.0f) {
-                        g_scrubDragFraction.store(fraction, std::memory_order_relaxed);
-                        g_scrubbing = true;
-                        g_lastLiveSeekTime = 0.0;
-                        SetCapture(hwnd);
-                        g_layoutDirty = true;
-                        return 0;
-                    }
+                    s_tray_press_active = true;
+                    s_tray_press_pt.x = x_pos;
+                    s_tray_press_pt.y = y_pos;
+                    s_tray_press_path = g_state.file_tray_items[static_cast<std::size_t>(count - 1 - row)].path;
                 }
             }
-            break;
 
-        case WM_MOUSEMOVE: {
+            bool media_active = false;
+            {
+                std::lock_guard lock(g_state_mutex);
+                media_active = g_settings.media && g_state.media.available;
+            }
+
+            const int current_tab = normalized_tab_index(g_settings);
+            if (media_active && current_tab == 0)
+            {
+                const MediaContentPoint cp = media_content_from_client(x_pos, y_pos);
+
+                {
+                    const DockHit dock = resolve_source_dock_hit(cp);
+                    if (dock.slot >= 0)
+                    {
+                        g_pressed_source_slot = dock.slot;
+                        g_layout_dirty = true;
+                        return 0;
+                    }
+                }
+
+                const int cmd = media_transport_hit_test(cp);
+                if (cmd != -1)
+                {
+                    g_pressed_media_button = cmd;
+                    SetCapture(hwnd);
+                    g_layout_dirty = true;
+                    return 0;
+                }
+
+                const float fraction = media_scrub_fraction_from_content(cp);
+                if (fraction >= 0.0f)
+                {
+                    g_scrub_drag_fraction.store(fraction, std::memory_order_relaxed);
+                    g_scrubbing = true;
+                    g_last_live_seek_time = 0.0;
+                    SetCapture(hwnd);
+                    g_layout_dirty = true;
+                    return 0;
+                }
+            }
+        }
+        break;
+
+        case WM_MOUSEMOVE:
+        {
             TRACKMOUSEEVENT tme = {};
             tme.cbSize = sizeof(TRACKMOUSEEVENT);
             tme.dwFlags = TME_LEAVE;
             tme.hwndTrack = hwnd;
             TrackMouseEvent(&tme);
 
-            const int xPos = GET_X_LPARAM(lParam);
-            const int yPos = GET_Y_LPARAM(lParam);
+            const int x_pos = GET_X_LPARAM(l_param);
+            const int y_pos = GET_Y_LPARAM(l_param);
 
-            if (g_lookupUi.open) {
-                HandleLookupMouseMove(xPos, yPos);
+            if (g_lookup_ui.open)
+            {
+                handle_lookup_mouse_move(x_pos, y_pos);
                 return 0;
             }
 
-            if (g_scrubbing.load()) {
-                const MediaContentPoint cp = MediaContentFromClient(xPos, yPos);
-                const float fraction = MediaScrubFractionUnbounded(cp);
-                if (fraction < 0.0f) {
+            if (g_scrubbing.load())
+            {
+                const MediaContentPoint cp = media_content_from_client(x_pos, y_pos);
+                const float fraction = media_scrub_fraction_unbounded(cp);
+                if (fraction < 0.0f)
+                {
                     return 0;
                 }
-                g_scrubDragFraction.store(fraction, std::memory_order_relaxed);
-                g_layoutDirty = true;
+                g_scrub_drag_fraction.store(fraction, std::memory_order_relaxed);
+                g_layout_dirty = true;
 
-                const double now = NowSeconds();
-                if (now - g_lastLiveSeekTime.load(std::memory_order_relaxed) >= 0.15) {
-                    g_lastLiveSeekTime.store(now, std::memory_order_relaxed);
-                    int64_t endTicks = 0;
+                const double now = now_seconds();
+                if (now - g_last_live_seek_time.load(std::memory_order_relaxed) >= 0.15)
+                {
+                    g_last_live_seek_time.store(now, std::memory_order_relaxed);
+                    std::int64_t end_ticks = 0;
                     {
-                        std::lock_guard lock(g_stateMutex);
-                        endTicks = g_state.media.endTicks;
+                        std::lock_guard lock(g_state_mutex);
+                        end_ticks = g_state.media.end_ticks;
                     }
-                    if (endTicks > 0) {
-                        SeekMediaToTicks(static_cast<int64_t>(fraction * endTicks));
+                    if (end_ticks > 0)
+                    {
+                        seek_media_to_ticks(static_cast<std::int64_t>(fraction * end_ticks));
                     }
                 }
                 return 0;
             }
 
             int hovered = -1;
-            bool mediaActive = false;
+            bool media_active = false;
             {
-                std::lock_guard lock(g_stateMutex);
-                mediaActive = g_settings.media && g_state.media.available;
+                std::lock_guard lock(g_state_mutex);
+                media_active = g_settings.media && g_state.media.available;
             }
-            const int currentTab = NormalizedTabIndex(g_settings);
+            const int current_tab = normalized_tab_index(g_settings);
 
-            int hoveredSlot = -1;
-            if (mediaActive && currentTab == 0) {
-                const MediaContentPoint mediaPt = MediaContentFromClient(xPos, yPos);
-                hoveredSlot = ResolveSourceDockHit(mediaPt).slot;
-                // The dock's right edge overlaps the prev button's slop; the dock wins.
-                hovered = hoveredSlot >= 0 ? -1 : MediaTransportHitTest(mediaPt);
+            int hovered_slot = -1;
+            if (media_active && current_tab == 0)
+            {
+                const MediaContentPoint media_pt = media_content_from_client(x_pos, y_pos);
+                hovered_slot = resolve_source_dock_hit(media_pt).slot;
+                hovered = hovered_slot >= 0 ? -1 : media_transport_hit_test(media_pt);
             }
 
-            if (g_hoveredMediaButton.exchange(hovered) != hovered) {
-                g_layoutDirty = true;
+            if (g_hovered_media_button.exchange(hovered) != hovered)
+            {
+                g_layout_dirty = true;
             }
-            if (g_hoveredSourceSlot.exchange(hoveredSlot) != hoveredSlot) {
-                g_layoutDirty = true;
+            if (g_hovered_source_slot.exchange(hovered_slot) != hovered_slot)
+            {
+                g_layout_dirty = true;
             }
             {
-                bool onLyricsBtn = false;
-                if (g_settings.mediaTabLyrics && mediaActive && currentTab == 0) {
-                    onLyricsBtn = MediaLyricsButtonHitTest(MediaContentFromClient(xPos, yPos));
-                }
-                if (g_hoveredLyricsBtn.exchange(onLyricsBtn) != onLyricsBtn) {
-                    g_layoutDirty = true;
-                }
-            }
-
-            // File Tray hover: row highlight plus the bin / cut buttons.
-            int hoveredRow = -1;
-            int hoveredAction = -1;
-            if (g_settings.fileTrayModule && currentTab == FileTrayTabIndex(g_settings)) {
-                size_t trayCount = 0;
+                bool on_lyrics_btn = false;
+                if (g_settings.media_tab_lyrics && media_active && current_tab == 0)
                 {
-                    std::lock_guard lock(g_stateMutex);
-                    trayCount = g_state.fileTrayItems.size();
+                    on_lyrics_btn = media_lyrics_button_hit_test(media_content_from_client(x_pos, y_pos));
                 }
-                const MediaContentPoint trayPt = MediaContentFromClient(xPos, yPos);
-                hoveredRow = FileTrayRowAtContentPoint(trayPt, static_cast<int>(trayCount));
-                if (trayCount > 0 && FileTrayClearHitTest(trayPt)) {
-                    hoveredAction = -2;
-                } else if (FileTrayPasteHitTest(trayPt)) {
-                    hoveredAction = -3;
-                } else if (hoveredRow >= 0 && FileTrayRemoveHitTest(trayPt, hoveredRow)) {
-                    hoveredAction = hoveredRow;
+                if (g_hovered_lyrics_btn.exchange(on_lyrics_btn) != on_lyrics_btn)
+                {
+                    g_layout_dirty = true;
                 }
             }
-            bool trayHoverChanged = false;
-            if (g_hoveredFileTrayRow.exchange(hoveredRow) != hoveredRow) {
-                trayHoverChanged = true;
+
+            int hovered_row = -1;
+            int hovered_action = -1;
+            if (g_settings.file_tray_module && current_tab == file_tray_tab_index(g_settings))
+            {
+                std::size_t tray_count = 0;
+                {
+                    std::lock_guard lock(g_state_mutex);
+                    tray_count = g_state.file_tray_items.size();
+                }
+                const MediaContentPoint tray_pt = media_content_from_client(x_pos, y_pos);
+                hovered_row = file_tray_row_at_content_point(tray_pt, static_cast<int>(tray_count));
+                if (tray_count > 0 && file_tray_clear_hit_test(tray_pt))
+                {
+                    hovered_action = -2;
+                }
+                else if (file_tray_paste_hit_test(tray_pt))
+                {
+                    hovered_action = -3;
+                }
+                else if (hovered_row >= 0 && file_tray_remove_hit_test(tray_pt, hovered_row))
+                {
+                    hovered_action = hovered_row;
+                }
             }
-            if (g_hoveredFileTrayAction.exchange(hoveredAction) != hoveredAction) {
-                trayHoverChanged = true;
+            bool tray_hover_changed = false;
+            if (g_hovered_file_tray_row.exchange(hovered_row) != hovered_row)
+            {
+                tray_hover_changed = true;
             }
-            if (trayHoverChanged) {
-                g_layoutDirty = true;
+            if (g_hovered_file_tray_action.exchange(hovered_action) != hovered_action)
+            {
+                tray_hover_changed = true;
+            }
+            if (tray_hover_changed)
+            {
+                g_layout_dirty = true;
             }
 
-            NotificationCenterHit centerHit;
-            if (currentTab == NotificationCenterTabIndex(g_settings)) {
-                centerHit = NotificationCenterHitTest(MediaContentFromClient(xPos, yPos));
+            NotificationCenterHit center_hit;
+            if (current_tab == notification_center_tab_index(g_settings))
+            {
+                center_hit = notification_center_hit_test(media_content_from_client(x_pos, y_pos));
             }
-            const bool centerRowChanged = g_hoveredNotificationRow.exchange(centerHit.row) != centerHit.row;
-            const bool centerActionChanged =
-                g_hoveredNotificationAction.exchange(centerHit.action) != centerHit.action;
-            if (centerRowChanged || centerActionChanged) {
-                g_layoutDirty = true;
+            const bool center_row_changed = g_hovered_notification_row.exchange(center_hit.row) != center_hit.row;
+            const bool center_action_changed =
+                g_hovered_notification_action.exchange(center_hit.action) != center_hit.action;
+            if (center_row_changed || center_action_changed)
+            {
+                g_layout_dirty = true;
             }
 
-            // Pressed on a row and moved past the system drag threshold: pick the file up.
-            if (s_trayPressActive) {
-                if (!(wParam & MK_LBUTTON)) {
-                    s_trayPressActive = false;
-                } else if (abs(xPos - s_trayPressPt.x) >= GetSystemMetrics(SM_CXDRAG) ||
-                           abs(yPos - s_trayPressPt.y) >= GetSystemMetrics(SM_CYDRAG)) {
-                    s_trayPressActive = false;
-                    const std::wstring dragPath = s_trayPressPath;
-                    StartFileTrayDrag(dragPath);
+            if (s_tray_press_active)
+            {
+                if (!(w_param & MK_LBUTTON))
+                {
+                    s_tray_press_active = false;
+                }
+                else if (std::abs(x_pos - s_tray_press_pt.x) >= GetSystemMetrics(SM_CXDRAG) ||
+                         std::abs(y_pos - s_tray_press_pt.y) >= GetSystemMetrics(SM_CYDRAG))
+                {
+                    s_tray_press_active = false;
+                    const std::wstring drag_path = s_tray_press_path;
+                    start_file_tray_drag(drag_path);
                     return 0;
                 }
             }
@@ -525,389 +589,462 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
 
         case WM_MOUSELEAVE:
-            if (g_hoveredSourceSlot.exchange(-1) != -1 || g_pressedSourceSlot.exchange(-1) != -1) {
-                g_layoutDirty = true;
+            if (g_hovered_source_slot.exchange(-1) != -1 || g_pressed_source_slot.exchange(-1) != -1)
+            {
+                g_layout_dirty = true;
             }
-            if (g_hoveredMediaButton.exchange(-1) != -1) {
-                g_layoutDirty = true;
+            if (g_hovered_media_button.exchange(-1) != -1)
+            {
+                g_layout_dirty = true;
             }
-            if (g_hoveredLyricsBtn.exchange(false)) {
-                g_layoutDirty = true;
+            if (g_hovered_lyrics_btn.exchange(false))
+            {
+                g_layout_dirty = true;
             }
-            s_trayPressActive = false;
-            if (g_hoveredFileTrayRow.exchange(-1) != -1) {
-                g_layoutDirty = true;
+            s_tray_press_active = false;
+            if (g_hovered_file_tray_row.exchange(-1) != -1)
+            {
+                g_layout_dirty = true;
             }
-            if (g_hoveredFileTrayAction.exchange(-1) != -1) {
-                g_layoutDirty = true;
+            if (g_hovered_file_tray_action.exchange(-1) != -1)
+            {
+                g_layout_dirty = true;
             }
-            if (g_hoveredNotificationRow.exchange(-1) != -1) {
-                g_layoutDirty = true;
+            if (g_hovered_notification_row.exchange(-1) != -1)
+            {
+                g_layout_dirty = true;
             }
-            if (g_hoveredNotificationAction.exchange(-1) != -1) {
-                g_layoutDirty = true;
+            if (g_hovered_notification_action.exchange(-1) != -1)
+            {
+                g_layout_dirty = true;
             }
             return 0;
 
         case WM_CAPTURECHANGED:
-            if (reinterpret_cast<HWND>(lParam) != hwnd) {
-                if (g_scrubbing.exchange(false)) {
-                    g_layoutDirty = true;
+            if (reinterpret_cast<HWND>(l_param) != hwnd)
+            {
+                if (g_scrubbing.exchange(false))
+                {
+                    g_layout_dirty = true;
                 }
-                if (g_pressedMediaButton.exchange(-1) != -1) {
-                    g_layoutDirty = true;
+                if (g_pressed_media_button.exchange(-1) != -1)
+                {
+                    g_layout_dirty = true;
                 }
-                if (g_hoveredMediaButton.exchange(-1) != -1) {
-                    g_layoutDirty = true;
+                if (g_hovered_media_button.exchange(-1) != -1)
+                {
+                    g_layout_dirty = true;
                 }
             }
             return 0;
 
         case WM_LBUTTONUP:
+        {
+            if (g_scrubbing.load())
             {
-                if (g_scrubbing.load()) {
-                    g_scrubbing = false;
-                    ReleaseCapture();
+                g_scrubbing = false;
+                ReleaseCapture();
 
-                    const float finalFraction = Clamp(g_scrubDragFraction.load(std::memory_order_relaxed), 0.0f, 1.0f);
-                    int64_t endTicks = 0;
-                    {
-                        std::lock_guard lock(g_stateMutex);
-                        endTicks = g_state.media.endTicks;
-                    }
-                    if (endTicks > 0) {
-                        const int64_t targetTicks = static_cast<int64_t>(finalFraction * endTicks);
-                        SeekMediaToTicks(targetTicks);
-                        std::lock_guard lock(g_stateMutex);
-                        g_state.media.positionTicks = targetTicks;
-                        g_state.media.lastUpdatedTicks = GetTickCount64();
-                    }
-                    g_layoutDirty = true;
-                    return 0;
-                }
-
-                if (g_pressedMediaButton.load() != -1) {
-                    g_pressedMediaButton = -1;
-                    ReleaseCapture();
-                    g_layoutDirty = true;
-                }
-                if (g_pressedSourceSlot.exchange(-1) != -1) {
-                    g_layoutDirty = true;
-                }
-
-                int xPos = GET_X_LPARAM(lParam);
-                int yPos = GET_Y_LPARAM(lParam);
-
-                ULONGLONG now = GetTickCount64();
-                if (s_touchStartTime > 0 && (now - s_touchStartTime) < 500) {
-                    const int dx = xPos - s_touchStart.x;
-                    const int dy = yPos - s_touchStart.y;
-                    const int travel = abs(dy) > abs(dx) ? dy : dx;  // dominant axis wins
-                    if (abs(travel) > 40) {
-                        // Swipe up / left -> next tab, down / right -> previous tab
-                        if (ActiveTabCount(GetSettingsCopy()) > 1) {
-                            StepIdleTab(travel > 0 ? -1 : 1);
-                        }
-                        s_touchStartTime = 0;
-                        return 0; // Consume swipe gesture
-                    }
-                }
-                s_touchStartTime = 0;
-
-                bool mediaActive = false;
-                if (HandleLookupClick(xPos, yPos)) {
-                    return 0;
-                }
-                std::vector<IslandKind> kinds;
+                const float final_fraction = clamp(g_scrub_drag_fraction.load(std::memory_order_relaxed), 0.0f, 1.0f);
+                std::int64_t end_ticks = 0;
                 {
-                    std::lock_guard lock(g_stateMutex);
-                    mediaActive = g_settings.media && g_state.media.available;
-                    kinds = ChooseActivities(g_state, g_settings, NowSeconds());
+                    std::lock_guard lock(g_state_mutex);
+                    end_ticks = g_state.media.end_ticks;
                 }
+                if (end_ticks > 0)
+                {
+                    const std::int64_t target_ticks = static_cast<std::int64_t>(final_fraction * end_ticks);
+                    seek_media_to_ticks(target_ticks);
+                    std::lock_guard lock(g_state_mutex);
+                    g_state.media.position_ticks = target_ticks;
+                    g_state.media.last_updated_ticks = GetTickCount64();
+                }
+                g_layout_dirty = true;
+                return 0;
+            }
 
-                // Clicking an active transient notification or clipboard card immediately dismisses it cleanly.
-                // In a split layout (kinds.size() > 1), don't dismiss if clicking on the secondary pill on the right.
-                const bool onSecondarySplit = (kinds.size() > 1 && g_pillClientRect.valid &&
-                                               xPos > (g_pillClientRect.left + (g_pillClientRect.right - g_pillClientRect.left) * 0.5f));
-                if (!kinds.empty() && !onSecondarySplit &&
-                    (kinds[0] == IslandKind::Notification || kinds[0] == IslandKind::Clipboard)) {
+            if (g_pressed_media_button.load() != -1)
+            {
+                g_pressed_media_button = -1;
+                ReleaseCapture();
+                g_layout_dirty = true;
+            }
+            if (g_pressed_source_slot.exchange(-1) != -1)
+            {
+                g_layout_dirty = true;
+            }
+
+            int x_pos = GET_X_LPARAM(l_param);
+            int y_pos = GET_Y_LPARAM(l_param);
+
+            ULONGLONG now = GetTickCount64();
+            if (s_touch_start_time > 0 && (now - s_touch_start_time) < 500)
+            {
+                const int dx = x_pos - s_touch_start.x;
+                const int dy = y_pos - s_touch_start.y;
+                const int travel = std::abs(dy) > std::abs(dx) ? dy : dx;
+                if (std::abs(travel) > 40)
+                {
+                    if (active_tab_count(get_settings_copy()) > 1)
                     {
-                        std::lock_guard lock(g_stateMutex);
-                        if (kinds[0] == IslandKind::Notification) {
-                            g_state.notification.active = false;
-                            g_state.notification.expiresAt = 0.0;
-                        } else if (kinds[0] == IslandKind::Clipboard) {
-                            g_state.clipboard.active = false;
-                            g_state.clipboard.expiresAt = 0.0;
-                        }
+                        step_idle_tab(travel > 0 ? -1 : 1);
                     }
-                    g_clickExpanded = false;
-                    g_layoutDirty = true;
-                    TriggerNudge();
+                    s_touch_start_time = 0;
                     return 0;
                 }
-                const bool gameMetricsPresent =
-                    !kinds.empty() && kinds[0] == IslandKind::Idle &&
-                    (g_settings.gameOverlay || g_gameOverlayPinned.load());
+            }
+            s_touch_start_time = 0;
 
-                bool expanded = g_pinnedExpanded.load() || g_clickExpanded.load();
-                if (!gameMetricsPresent && !g_settings.expandOnHover && !expanded) {
-                    g_clickExpanded = true;
-                    g_layoutDirty = true;
-                    return 0; // consumed click to expand
-                }
+            bool media_active = false;
+            if (handle_lookup_click(x_pos, y_pos))
+            {
+                return 0;
+            }
+            std::vector<IslandKind> kinds;
+            {
+                std::lock_guard lock(g_state_mutex);
+                media_active = g_settings.media && g_state.media.available;
+                kinds = choose_activities(g_state, g_settings, now_seconds());
+            }
 
-                RECT clientRect;
-                GetClientRect(hwnd, &clientRect);
-                const float height = static_cast<float>(clientRect.bottom - clientRect.top);
-
-                const int currentTab = NormalizedTabIndex(g_settings);
-
-                const MediaContentPoint cp = MediaContentFromClient(xPos, yPos);
-
-                if (currentTab == NotificationCenterTabIndex(g_settings)) {
-                    const NotificationCenterHit hit = NotificationCenterHitTest(cp);
-                    if (hit.action != -1 || hit.row >= 0) {
-                        HandleNotificationCenterClick(hit);
-                        g_hoveredNotificationRow = -1;
-                        g_hoveredNotificationAction = -1;
-                        g_layoutDirty = true;
-                        return 0;
-                    }
-                }
-
-                // File Tray: the bin clears the shelf, the cut button removes one file,
-                // and a plain click on a row opens it with its default app. (Dragging a
-                // row out is started from WM_MOUSEMOVE.)
-                if (g_settings.fileTrayModule && currentTab == FileTrayTabIndex(g_settings)) {
-                    const bool wasPressed = s_trayPressActive;
-                    s_trayPressActive = false;
-
-                    if (FileTrayPasteHitTest(cp)) {
-                        PasteIntoFileTray(hwnd);
-                        g_layoutDirty = true;
-                        return 0;
-                    }
-
-                    std::wstring toOpen;
-                    std::wstring toCopy;
-                    bool changed = false;
+            const bool on_secondary_split =
+                (kinds.size() > 1 && g_pill_client_rect.valid &&
+                 x_pos > (g_pill_client_rect.left + (g_pill_client_rect.right - g_pill_client_rect.left) * 0.5f));
+            if (!kinds.empty() && !on_secondary_split &&
+                (kinds[0] == IslandKind::Notification || kinds[0] == IslandKind::Clipboard))
+            {
+                {
+                    std::lock_guard lock(g_state_mutex);
+                    if (kinds[0] == IslandKind::Notification)
                     {
-                        std::lock_guard lock(g_stateMutex);
-                        const int count = static_cast<int>(g_state.fileTrayItems.size());
-                        if (count > 0 && FileTrayClearHitTest(cp)) {
-                            g_state.fileTrayItems.clear();
-                            changed = true;
-                        } else {
-                            const int row = FileTrayRowAtContentPoint(cp, count);
-                            if (row >= 0) {
-                                // Rows render newest-first, so map back from the end.
-                                const size_t index = static_cast<size_t>(count - 1 - row);
-                                if (FileTrayRemoveHitTest(cp, row)) {
-                                    g_state.fileTrayItems.erase(
-                                        g_state.fileTrayItems.begin() + static_cast<std::ptrdiff_t>(index));
-                                    changed = true;
-                                } else if (wasPressed) {
-                                    const FileTrayItem& clicked = g_state.fileTrayItems[index];
-                                    if (clicked.isText) {
-                                        toCopy = clicked.text;
-                                    } else {
-                                        toOpen = clicked.path;
-                                    }
+                        g_state.notification.active = false;
+                        g_state.notification.expires_at = 0.0;
+                    }
+                    else if (kinds[0] == IslandKind::Clipboard)
+                    {
+                        g_state.clipboard.active = false;
+                        g_state.clipboard.expires_at = 0.0;
+                    }
+                }
+                g_click_expanded = false;
+                g_layout_dirty = true;
+                trigger_nudge();
+                return 0;
+            }
+            const bool game_metrics_present = !kinds.empty() && kinds[0] == IslandKind::Idle &&
+                                              (g_settings.game_overlay || g_game_overlay_pinned.load());
+
+            bool expanded = g_pinned_expanded.load() || g_click_expanded.load();
+            if (!game_metrics_present && !g_settings.expand_on_hover && !expanded)
+            {
+                g_click_expanded = true;
+                g_layout_dirty = true;
+                return 0;
+            }
+
+            RECT client_rect;
+            GetClientRect(hwnd, &client_rect);
+            const float height = static_cast<float>(client_rect.bottom - client_rect.top);
+
+            const int current_tab = normalized_tab_index(g_settings);
+
+            const MediaContentPoint cp = media_content_from_client(x_pos, y_pos);
+
+            if (current_tab == notification_center_tab_index(g_settings))
+            {
+                const NotificationCenterHit hit = notification_center_hit_test(cp);
+                if (hit.action != -1 || hit.row >= 0)
+                {
+                    handle_notification_center_click(hit);
+                    g_hovered_notification_row = -1;
+                    g_hovered_notification_action = -1;
+                    g_layout_dirty = true;
+                    return 0;
+                }
+            }
+
+            if (g_settings.file_tray_module && current_tab == file_tray_tab_index(g_settings))
+            {
+                const bool was_pressed = s_tray_press_active;
+                s_tray_press_active = false;
+
+                if (file_tray_paste_hit_test(cp))
+                {
+                    paste_into_file_tray(hwnd);
+                    g_layout_dirty = true;
+                    return 0;
+                }
+
+                std::wstring to_open;
+                std::wstring to_copy;
+                bool changed = false;
+                {
+                    std::lock_guard lock(g_state_mutex);
+                    const int count = static_cast<int>(g_state.file_tray_items.size());
+                    if (count > 0 && file_tray_clear_hit_test(cp))
+                    {
+                        g_state.file_tray_items.clear();
+                        changed = true;
+                    }
+                    else
+                    {
+                        const int row = file_tray_row_at_content_point(cp, count);
+                        if (row >= 0)
+                        {
+                            const std::size_t index = static_cast<std::size_t>(count - 1 - row);
+                            if (file_tray_remove_hit_test(cp, row))
+                            {
+                                g_state.file_tray_items.erase(g_state.file_tray_items.begin() +
+                                                              static_cast<std::ptrdiff_t>(index));
+                                changed = true;
+                            }
+                            else if (was_pressed)
+                            {
+                                const FileTrayItem& clicked = g_state.file_tray_items[index];
+                                if (clicked.is_text)
+                                {
+                                    to_copy = clicked.text;
+                                }
+                                else
+                                {
+                                    to_open = clicked.path;
                                 }
                             }
                         }
                     }
-                    if (changed) {
-                        SaveFileTray();
-                        g_hoveredFileTrayRow = -1;
-                        g_hoveredFileTrayAction = -1;
-                        g_layoutDirty = true;
+                }
+                if (changed)
+                {
+                    save_file_tray();
+                    g_hovered_file_tray_row = -1;
+                    g_hovered_file_tray_action = -1;
+                    g_layout_dirty = true;
+                    return 0;
+                }
+                if (!to_copy.empty())
+                {
+                    copy_text_to_clipboard(hwnd, to_copy);
+                    return 0;
+                }
+                if (!to_open.empty())
+                {
+                    SHELLEXECUTEINFOW sei = {sizeof(sei)};
+                    sei.fMask = SEE_MASK_FLAG_NO_UI;
+                    sei.lpFile = to_open.c_str();
+                    sei.nShow = SW_SHOWNORMAL;
+                    ShellExecuteExW(&sei);
+                    return 0;
+                }
+                return 0;
+            }
+
+            if (media_active && current_tab == 0)
+            {
+                {
+                    const DockHit dock = resolve_source_dock_hit(cp);
+                    if (dock.slot >= 0)
+                    {
+                        if (dock.overflow)
+                        {
+                            POINT sp = {x_pos, y_pos};
+                            ClientToScreen(hwnd, &sp);
+                            show_media_source_popup(hwnd, sp);
+                        }
+                        else if (!dock.is_active)
+                        {
+                            request_media_source_switch(dock.aumid);
+                        }
+                        g_layout_dirty = true;
                         return 0;
                     }
-                    if (!toCopy.empty()) {
-                        CopyTextToClipboard(hwnd, toCopy);
-                        return 0;
-                    }
-                    if (!toOpen.empty()) {
-                        SHELLEXECUTEINFOW sei = {sizeof(sei)};
-                        sei.fMask = SEE_MASK_FLAG_NO_UI;
-                        sei.lpFile = toOpen.c_str();
-                        sei.nShow = SW_SHOWNORMAL;
-                        ShellExecuteExW(&sei);
-                        return 0;
-                    }
-                    // A click on the empty shelf should not fall through to
-                    // "focus the media app".
+                }
+
+                if (g_settings.media_tab_lyrics && media_lyrics_button_hit_test(cp))
+                {
+                    g_immersive_lyrics.store(!g_immersive_lyrics.load());
+                    g_layout_dirty = true;
                     return 0;
                 }
 
-                if (mediaActive && currentTab == 0) {
-                    // Source dock: "+N" opens the list, another slot switches to it.
+                const int cmd = media_transport_hit_test(cp);
+                if (cmd != -1)
+                {
+                    if (cmd == 0)
                     {
-                        const DockHit dock = ResolveSourceDockHit(cp);
-                        if (dock.slot >= 0) {
-                            if (dock.overflow) {
-                                POINT sp = {xPos, yPos};
-                                ClientToScreen(hwnd, &sp);
-                                ShowMediaSourcePopup(hwnd, sp);
-                            } else if (!dock.isActive) {
-                                RequestMediaSourceSwitch(dock.aumid);
-                            }
-                            g_layoutDirty = true;
-                            return 0;
-                        }
+                        g_skip_trigger_prev.fetch_add(1);
                     }
-
-                    if (g_settings.mediaTabLyrics && MediaLyricsButtonHitTest(cp)) {
-                        g_immersiveLyrics.store(!g_immersiveLyrics.load());
-                        g_layoutDirty = true;
-                        return 0;
+                    else if (cmd == 2)
+                    {
+                        g_skip_trigger_next.fetch_add(1);
                     }
-
-                    const int cmd = MediaTransportHitTest(cp);
-                    if (cmd != -1) {
-                        if (cmd == 0) g_skipTriggerPrev.fetch_add(1);
-                        else if (cmd == 2) g_skipTriggerNext.fetch_add(1);
-                        g_layoutDirty = true;
-                        SendMediaTransportCommand(cmd);
-                        return 0;
-                    }
-
-                    // A release over the scrubber that never went through the
-                    // drag path (press started elsewhere) is swallowed rather
-                    // than falling through to "open the app". The actual seek
-                    // is handled by the g_scrubbing branch above.
-                    if (MediaScrubFractionFromContent(cp) >= 0.0f) {
-                        return 0;
-                    }
+                    g_layout_dirty = true;
+                    send_media_transport_command(cmd);
+                    return 0;
                 }
 
-                if (height > 50.0f) {
-                    if (mediaActive) {
-                        if (currentTab == 0) {
-                            OpenRelevantApp();
-                        }
-                    } else if (kinds.empty() || kinds[0] != IslandKind::Idle) {
-                        HandleStatusClickAtPoint(hwnd, lParam);
-                    }
-                } else {
-                    if (mediaActive) {
-                        OpenRelevantApp();
-                    } else {
-                        HandleStatusClickAtPoint(hwnd, lParam);
-                    }
+                // A release over the scrubber that did not start a drag is swallowed (no "open the app").
+                if (media_scrub_fraction_from_content(cp) >= 0.0f)
+                {
+                    return 0;
                 }
             }
+
+            if (height > 50.0f)
+            {
+                if (media_active)
+                {
+                    if (current_tab == 0)
+                    {
+                        open_relevant_app();
+                    }
+                }
+                else if (kinds.empty() || kinds[0] != IslandKind::Idle)
+                {
+                    handle_status_click_at_point(hwnd, l_param);
+                }
+            }
+            else
+            {
+                if (media_active)
+                {
+                    open_relevant_app();
+                }
+                else
+                {
+                    handle_status_click_at_point(hwnd, l_param);
+                }
+            }
+        }
             return 0;
 
         case WM_MBUTTONUP:
-            ToggleEndpointMute();
+            toggle_endpoint_mute();
             return 0;
 
-        case WM_LBUTTONDBLCLK: {
-            const bool nextVal = !g_pinnedExpanded.load();
-            g_pinnedExpanded.store(nextVal);
-            host::set_int_value(L"PinnedExpanded", nextVal ? 1 : 0);
+        case WM_LBUTTONDBLCLK:
+        {
+            const bool next_val = !g_pinned_expanded.load();
+            g_pinned_expanded.store(next_val);
+            host::set_int_value(L"PinnedExpanded", next_val ? 1 : 0);
             return 0;
         }
 
-        case WM_MOUSEWHEEL: {
-            // Delta is accumulated rather than dropped inside a debounce window, so
-            // every notch counts and touchpads (many small deltas) work properly.
-            // The spring is interruptible, so a step never has to wait for the
-            // previous one to finish.
-            static int s_wheelAccum = 0;
-            static ULONGLONG s_lastWheelEvent = 0;
-            static ULONGLONG s_lastWheelStep = 0;
+        case WM_MOUSEWHEEL:
+        {
+            // Wheel delta is accumulated, so every notch counts and touchpads work.
+            static int s_wheel_accum = 0;
+            static ULONGLONG s_last_wheel_event = 0;
+            static ULONGLONG s_last_wheel_step = 0;
 
-            const ULONGLONG wheelNow = GetTickCount64();
-            const int delta = GET_WHEEL_DELTA_WPARAM(wParam);
-            if (delta == 0) return 0;
-
-            // New gesture (pause, or direction change): forget the leftover.
-            if (wheelNow - s_lastWheelEvent > 220 ||
-                (s_wheelAccum != 0 && ((delta > 0) != (s_wheelAccum > 0)))) {
-                s_wheelAccum = 0;
-            }
-            s_lastWheelEvent = wheelNow;
-            s_wheelAccum += delta;
-
-            if (abs(s_wheelAccum) < WHEEL_DELTA) return 0;
-
-            // Rate limit so a free-spinning wheel or touchpad inertia can't race
-            // through every tab. At most one notch is held pending, never a backlog.
-            const bool precise = abs(delta) < WHEEL_DELTA;
-            const ULONGLONG cooldown = precise ? 200 : 85;
-            if (wheelNow - s_lastWheelStep < cooldown) {
-                s_wheelAccum = s_wheelAccum > 0 ? WHEEL_DELTA : -WHEEL_DELTA;
+            const ULONGLONG wheel_now = GetTickCount64();
+            const int delta = GET_WHEEL_DELTA_WPARAM(w_param);
+            if (delta == 0)
+            {
                 return 0;
             }
-            s_lastWheelStep = wheelNow;
-            const int wheelStep = s_wheelAccum > 0 ? -1 : 1;
-            const bool detailScrolled = NormalizedTabIndex(g_settings) == NotificationCenterTabIndex(g_settings) &&
-                                        ScrollNotificationCenterDetail(wheelStep);
-            if (!detailScrolled) {
-                StepIdleTab(wheelStep);  // wheel up = previous tab
+
+            if (wheel_now - s_last_wheel_event > 220 || (s_wheel_accum != 0 && ((delta > 0) != (s_wheel_accum > 0))))
+            {
+                s_wheel_accum = 0;
             }
-            s_wheelAccum = 0;
+            s_last_wheel_event = wheel_now;
+            s_wheel_accum += delta;
+
+            if (std::abs(s_wheel_accum) < WHEEL_DELTA)
+            {
+                return 0;
+            }
+
+            // At most one notch is held pending, so inertia cannot race through every tab.
+            const bool precise = std::abs(delta) < WHEEL_DELTA;
+            const ULONGLONG cooldown = precise ? 200 : 85;
+            if (wheel_now - s_last_wheel_step < cooldown)
+            {
+                s_wheel_accum = s_wheel_accum > 0 ? WHEEL_DELTA : -WHEEL_DELTA;
+                return 0;
+            }
+            s_last_wheel_step = wheel_now;
+            const int wheel_step = s_wheel_accum > 0 ? -1 : 1;
+            const bool detail_scrolled =
+                normalized_tab_index(g_settings) == notification_center_tab_index(g_settings) &&
+                scroll_notification_center_detail(wheel_step);
+            if (!detail_scrolled)
+            {
+                step_idle_tab(wheel_step); // wheel up = previous tab
+            }
+            s_wheel_accum = 0;
             return 0;
         }
 
-        case WM_RBUTTONUP: {
-            POINT pt = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        case WM_RBUTTONUP:
+        {
+            POINT pt = {GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param)};
             ClientToScreen(hwnd, &pt);
-            ShowContextMenu(hwnd, pt);
+            show_context_menu(hwnd, pt);
             return 0;
         }
 
         case WM_DPICHANGED:
-        case WM_DISPLAYCHANGE: {
-            g_layoutDirty = true;
-            PostMessageW(hwnd, WM_APP_NEW_EVENT, 0, 0);
+        case WM_DISPLAYCHANGE:
+        {
+            g_layout_dirty = true;
+            PostMessageW(hwnd, wm_app_new_event, 0, 0);
             return 0;
         }
 
-        case WM_HOTKEY: {
-            if (wParam == ID_LOOKUP_HOTKEY) {
-                StartQuickLookup(hwnd);
+        case WM_HOTKEY:
+        {
+            if (w_param == id_lookup_hotkey)
+            {
+                start_quick_lookup(hwnd);
                 return 0;
             }
-            if (wParam == ID_HIDE_SHOW_HOTKEY) {
-                if (g_isFullscreen.load(std::memory_order_relaxed)) {
-                    g_fullscreenOverrideVisible = !g_fullscreenOverrideVisible.load();
-                    g_autoHiddenParked = false;
-                    g_layoutDirty = true;
-                    if (g_fullscreenOverrideVisible.load()) {
-                        g_manuallyHidden = false;
+            if (w_param == id_hide_show_hotkey)
+            {
+                if (g_is_fullscreen.load(std::memory_order_relaxed))
+                {
+                    g_fullscreen_override_visible = !g_fullscreen_override_visible.load();
+                    g_auto_hidden_parked = false;
+                    g_layout_dirty = true;
+                    if (g_fullscreen_override_visible.load())
+                    {
+                        g_manually_hidden = false;
                         host::set_int_value(L"ManuallyHidden", 0);
-                        g_hotkeyUnhideUntil.store(NowSeconds() + (g_settings.autoHideIdleSeconds > 0 ? g_settings.autoHideIdleSeconds : 6.0));
+                        g_hotkey_unhide_until.store(now_seconds() + (g_settings.auto_hide_idle_seconds > 0
+                                                                         ? g_settings.auto_hide_idle_seconds
+                                                                         : 6.0));
                         ShowWindow(hwnd, SW_SHOWNOACTIVATE);
-                        PostMessageW(hwnd, WM_APP_NEW_EVENT, 0, 0);
+                        PostMessageW(hwnd, wm_app_new_event, 0, 0);
                     }
-                } else {
-                    bool isCurrentlyHidden = g_manuallyHidden.load() || g_autoHiddenParked.load();
-                    if (hwnd && !IsWindowVisible(hwnd)) {
-                        isCurrentlyHidden = true;
+                }
+                else
+                {
+                    bool is_currently_hidden = g_manually_hidden.load() || g_auto_hidden_parked.load();
+                    if (hwnd && !IsWindowVisible(hwnd))
+                    {
+                        is_currently_hidden = true;
                     }
-                    if (isCurrentlyHidden) {
-                        // User wants to reveal / unhide
-                        g_manuallyHidden = false;
+                    if (is_currently_hidden)
+                    {
+                        g_manually_hidden = false;
                         host::set_int_value(L"ManuallyHidden", 0);
-                        g_autoHiddenParked = false;
-                        g_fullscreenOverrideVisible = true;
-                        g_hotkeyUnhideUntil.store(NowSeconds() + (g_settings.autoHideIdleSeconds > 0 ? g_settings.autoHideIdleSeconds : 6.0));
-                        g_layoutDirty = true;
+                        g_auto_hidden_parked = false;
+                        g_fullscreen_override_visible = true;
+                        g_hotkey_unhide_until.store(now_seconds() + (g_settings.auto_hide_idle_seconds > 0
+                                                                         ? g_settings.auto_hide_idle_seconds
+                                                                         : 6.0));
+                        g_layout_dirty = true;
                         ShowWindow(hwnd, SW_SHOWNOACTIVATE);
-                        PostMessageW(hwnd, WM_APP_NEW_EVENT, 0, 0);
-                    } else {
-                        // User wants to manually hide
-                        g_manuallyHidden = true;
+                        PostMessageW(hwnd, wm_app_new_event, 0, 0);
+                    }
+                    else
+                    {
+                        g_manually_hidden = true;
                         host::set_int_value(L"ManuallyHidden", 1);
-                        g_hotkeyUnhideUntil.store(0.0);
-                        g_fullscreenOverrideVisible = false;
-                        g_layoutDirty = true;
-                        PostMessageW(hwnd, WM_APP_NEW_EVENT, 0, 0);
+                        g_hotkey_unhide_until.store(0.0);
+                        g_fullscreen_override_visible = false;
+                        g_layout_dirty = true;
+                        PostMessageW(hwnd, wm_app_new_event, 0, 0);
                     }
                 }
             }
@@ -915,22 +1052,24 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
     }
 
-    if (msg == g_shellHookMessage && g_shellHookMessage != 0) {
-        if (wParam == HSHELL_WINDOWCREATED) {
-            CaptureShellNotification(reinterpret_cast<HWND>(lParam));
+    if (msg == g_shell_hook_message && g_shell_hook_message != 0)
+    {
+        if (w_param == HSHELL_WINDOWCREATED)
+        {
+            capture_shell_notification(reinterpret_cast<HWND>(l_param));
         }
         return 0;
     }
 
-    if (msg == g_taskbarCreatedMessage && g_taskbarCreatedMessage != 0) {
+    if (msg == g_taskbar_created_message && g_taskbar_created_message != 0)
+    {
         host::log(L"TaskbarCreated received; re-registering shell hook window.");
         DeregisterShellHookWindow(hwnd);
         RegisterShellHookWindow(hwnd);
         return 0;
     }
 
-    return DefWindowProcW(hwnd, msg, wParam, lParam);
+    return DefWindowProcW(hwnd, msg, w_param, l_param);
 }
-
 
 }

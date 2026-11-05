@@ -18,10 +18,7 @@ constexpr std::array<std::size_t, field_count> max_field_bytes = {256, 256, 1024
 
 bool is_bidi_control(wchar_t ch)
 {
-    return (ch >= 0x202A && ch <= 0x202E) ||
-           (ch >= 0x2066 && ch <= 0x2069) ||
-           ch == 0x200E ||
-           ch == 0x200F ||
+    return (ch >= 0x202A && ch <= 0x202E) || (ch >= 0x2066 && ch <= 0x2069) || ch == 0x200E || ch == 0x200F ||
            ch == 0x061C;
 }
 
@@ -40,7 +37,6 @@ bool is_control(wchar_t ch)
 
 namespace island_pipe
 {
-
 
 std::wstring sanitize(const std::wstring& text, std::size_t max_chars)
 {
@@ -102,7 +98,6 @@ namespace island_pipe
 namespace
 {
 
-
 std::wstring utf8_to_wide(const std::uint8_t* data, std::size_t size)
 {
     if (size == 0 || size > static_cast<std::size_t>(INT_MAX))
@@ -136,7 +131,6 @@ std::uint16_t read_u16(const std::uint8_t* data)
 namespace island_pipe
 {
 
-
 std::optional<PipeMessage> parse_message(const std::uint8_t* data, std::size_t size)
 {
     if (data == nullptr || size < header_bytes + field_count * 2 || size > max_message_bytes)
@@ -155,7 +149,8 @@ std::optional<PipeMessage> parse_message(const std::uint8_t* data, std::size_t s
     message.category = data[2];
     message.flags = data[3];
 
-    std::array<std::wstring*, field_count> fields = {&message.app, &message.bundle, &message.title, &message.subtitle, &message.body};
+    std::array<std::wstring*, field_count> fields = {&message.app, &message.bundle, &message.title, &message.subtitle,
+                                                     &message.body};
     std::size_t offset = header_bytes;
 
     for (std::size_t index = 0; index < field_count; ++index)
@@ -213,14 +208,15 @@ PixelsRef decode_icon(const std::vector<std::uint8_t>& bytes)
 
     BitmapPixels decoded;
 
-    if (!DecodeImageBytesToPixels(bytes, &decoded))
+    if (!decode_image_bytes_to_pixels(bytes, &decoded))
     {
         return PixelsRef{};
     }
 
     const std::size_t expected = static_cast<std::size_t>(decoded.width) * decoded.height * 4;
 
-    if (decoded.width == 0 || decoded.height == 0 || decoded.width > max_icon_dimension || decoded.height > max_icon_dimension || decoded.bgra.size() != expected)
+    if (decoded.width == 0 || decoded.height == 0 || decoded.width > max_icon_dimension ||
+        decoded.height > max_icon_dimension || decoded.bgra.size() != expected)
     {
         return PixelsRef{};
     }

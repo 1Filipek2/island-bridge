@@ -3,7 +3,7 @@
 namespace island
 {
 
-bool DecodeImageBytesToPixels(const std::vector<uint8_t>& bytes, BitmapPixels* pixels)
+bool decode_image_bytes_to_pixels(const std::vector<std::uint8_t>& bytes, BitmapPixels* pixels)
 {
     if (bytes.size() < 2)
     {

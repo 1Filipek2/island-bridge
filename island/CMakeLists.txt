@@ -13,6 +13,8 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
+option(ISLAND_PCH "Use the precompiled header" ON)
+
 set(ISLAND_VERSION "1.0.0-dev" CACHE STRING "Version string reported by the island")
 
 add_library(island_options INTERFACE)
@@ -73,7 +75,9 @@ add_library(island_modules OBJECT
 
 target_link_libraries(island_modules PRIVATE island_options)
 target_compile_options(island_modules PRIVATE /W3)
-target_precompile_headers(island_modules PRIVATE src/core/common.h)
+if(ISLAND_PCH)
+    target_precompile_headers(island_modules PRIVATE src/core/common.h)
+endif()
 
 add_executable(IslandBridge.Island WIN32
     src/main.cpp

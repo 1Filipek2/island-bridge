@@ -2,11 +2,11 @@
 
 #include "core/common.h"
 #include "core/pixels.h"
+
 namespace island
 {
 namespace notification_center
 {
-
 
 constexpr std::size_t max_notifications = 50;
 constexpr std::size_t max_apps = 12;
@@ -70,10 +70,11 @@ public:
     {
         ++sequence_;
 
-        const auto found = std::find_if(groups_.begin(), groups_.end(), [&](const Group& group)
-        {
-            return group.key == incoming.key;
-        });
+        const auto found = std::find_if(groups_.begin(), groups_.end(),
+                                        [&](const Group& group)
+                                        {
+                                            return group.key == incoming.key;
+                                        });
 
         if (found != groups_.end())
         {
@@ -123,19 +124,21 @@ public:
 
     bool remove(const std::wstring& key)
     {
-        const auto found = std::find_if(groups_.begin(), groups_.end(), [&](const Group& group)
-        {
-            return group.key == key;
-        });
+        const auto found = std::find_if(groups_.begin(), groups_.end(),
+                                        [&](const Group& group)
+                                        {
+                                            return group.key == key;
+                                        });
         return found != groups_.end() && remove(static_cast<std::size_t>(found - groups_.begin()));
     }
 
     const Group* find(const std::wstring& key) const
     {
-        const auto found = std::find_if(groups_.begin(), groups_.end(), [&](const Group& group)
-        {
-            return group.key == key;
-        });
+        const auto found = std::find_if(groups_.begin(), groups_.end(),
+                                        [&](const Group& group)
+                                        {
+                                            return group.key == key;
+                                        });
         return found == groups_.end() ? nullptr : &*found;
     }
 
@@ -158,10 +161,11 @@ public:
 private:
     void drop_oldest()
     {
-        const auto oldest = std::min_element(groups_.begin(), groups_.end(), [](const Group& left, const Group& right)
-        {
-            return left.entries.front().sequence < right.entries.front().sequence;
-        });
+        const auto oldest = std::min_element(groups_.begin(), groups_.end(),
+                                             [](const Group& left, const Group& right)
+                                             {
+                                                 return left.entries.front().sequence < right.entries.front().sequence;
+                                             });
 
         if (oldest == groups_.end())
         {
@@ -189,6 +193,7 @@ constexpr int visible_rows(float content_height)
     const int rows = static_cast<int>(span / (row_height + row_gap));
     return rows < 1 ? 1 : rows;
 }
+
 int row_at(float x, float y, float width, float height, int row_count);
 bool clear_hit(float x, float y, float width);
 bool remove_hit(float x, float y, float width, int row);

@@ -1,10 +1,11 @@
 #pragma once
 
 #include "core/common.h"
+
 namespace island
 {
 
-void SubscribeDndNotification();
-void UnsubscribeDndNotification();
+void subscribe_dnd_notification();
+void unsubscribe_dnd_notification();
 
 }

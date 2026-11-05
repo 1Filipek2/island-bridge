@@ -81,7 +81,8 @@ constexpr std::array<SettingDefault, 105> setting_table = {
     SettingDefault{L"Modules.GameOverlay", SettingKind::Number, 0, L""},
     SettingDefault{L"Modules.ShowMetricText", SettingKind::Number, 0, L""},
     SettingDefault{L"Modules.Weather", SettingKind::Number, 1, L""},
-    SettingDefault{L"Modules.WeatherCities", SettingKind::Text, 0, L"London|51.50735|-0.12776;New York|40.71278|-74.00597"},
+    SettingDefault{L"Modules.WeatherCities", SettingKind::Text, 0,
+                   L"London|51.50735|-0.12776;New York|40.71278|-74.00597"},
     SettingDefault{L"Modules.WeatherFahrenheit", SettingKind::Number, 0, L""},
     SettingDefault{L"Modules.MediaTabLyrics", SettingKind::Number, 0, L""},
     SettingDefault{L"Modules.LyricsVisualizer", SettingKind::Number, 1, L""},
@@ -125,10 +126,11 @@ std::span<const SettingDefault> setting_defaults()
 
 const SettingDefault* find_setting_default(std::wstring_view name)
 {
-    const auto found = std::find_if(setting_table.begin(), setting_table.end(), [&](const SettingDefault& entry)
-    {
-        return entry.name == name;
-    });
+    const auto found = std::find_if(setting_table.begin(), setting_table.end(),
+                                    [&](const SettingDefault& entry)
+                                    {
+                                        return entry.name == name;
+                                    });
     return found == setting_table.end() ? nullptr : &*found;
 }
 

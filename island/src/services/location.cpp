@@ -99,22 +99,22 @@ void open_privacy_settings()
 
 std::optional<geo::Point> current_point()
 {
-    using namespace winrt::Windows::Devices::Geolocation;
+    namespace geolocation = winrt::Windows::Devices::Geolocation;
 
     try
     {
-        const GeolocationAccessStatus access = Geolocator::RequestAccessAsync().get();
+        const geolocation::GeolocationAccessStatus access = geolocation::Geolocator::RequestAccessAsync().get();
 
-        if (access != GeolocationAccessStatus::Allowed)
+        if (access != geolocation::GeolocationAccessStatus::Allowed)
         {
             publish(Status::Denied);
             return std::nullopt;
         }
 
-        Geolocator locator;
-        locator.DesiredAccuracy(PositionAccuracy::Default);
-        const Geoposition position = locator.GetGeopositionAsync(maximum_age, locate_timeout).get();
-        const BasicGeoposition coordinate = position.Coordinate().Point().Position();
+        geolocation::Geolocator locator;
+        locator.DesiredAccuracy(geolocation::PositionAccuracy::Default);
+        const geolocation::Geoposition position = locator.GetGeopositionAsync(maximum_age, locate_timeout).get();
+        const geolocation::BasicGeoposition coordinate = position.Coordinate().Point().Position();
         const geo::Point point{coordinate.Latitude, coordinate.Longitude};
 
         if (!geo::valid(point))
@@ -139,7 +139,7 @@ std::optional<geo::Point> current_point()
 std::optional<std::wstring> place_name(geo::Point point)
 {
     const std::wstring path = geo::reverse_path(point, user_language());
-    const HttpResult result = HttpGetEx(nominatim_host, path.c_str(), true, user_agent);
+    const HttpResult result = http_get_ex(nominatim_host, path.c_str(), true, user_agent);
 
     if (!result.ok || result.status != 200)
     {
@@ -168,35 +168,37 @@ void fix_access(void* refresh_event)
         return;
     }
 
-    std::thread([value, refresh_event]
-    {
-        if (value == Status::Denied)
+    std::thread(
+        [value, refresh_event]
         {
-            open_privacy_settings();
-
-            for (const DWORD delay_ms : settings_recheck_ms)
+            if (value == Status::Denied)
             {
-                Sleep(delay_ms);
+                open_privacy_settings();
 
-                if (refresh_event)
+                for (const DWORD delay_ms : settings_recheck_ms)
+                {
+                    Sleep(delay_ms);
+
+                    if (refresh_event)
+                    {
+                        SetEvent(static_cast<HANDLE>(refresh_event));
+                    }
+                }
+            }
+            else
+            {
+                const bool enabled = enable_service();
+                host::log(L"Location: enabling the service %s", enabled ? L"succeeded" : L"failed");
+
+                if (enabled && refresh_event)
                 {
                     SetEvent(static_cast<HANDLE>(refresh_event));
                 }
             }
-        }
-        else
-        {
-            const bool enabled = enable_service();
-            host::log(L"Location: enabling the service %s", enabled ? L"succeeded" : L"failed");
 
-            if (enabled && refresh_event)
-            {
-                SetEvent(static_cast<HANDLE>(refresh_event));
-            }
-        }
-
-        fixing = false;
-    }).detach();
+            fixing = false;
+        })
+        .detach();
 }
 
 }

@@ -14,7 +14,6 @@ namespace island_pipe
 namespace
 {
 
-
 std::wstring process_image_path(DWORD process_id)
 {
     OwnedHandle process(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, process_id));
@@ -87,7 +86,8 @@ bool is_trusted_client(HANDLE pipe)
         return false;
     }
 
-    return CompareStringOrdinal(actual.c_str(), static_cast<int>(actual.size()), expected.c_str(), static_cast<int>(expected.size()), TRUE) == CSTR_EQUAL;
+    return CompareStringOrdinal(actual.c_str(), static_cast<int>(actual.size()), expected.c_str(),
+                                static_cast<int>(expected.size()), TRUE) == CSTR_EQUAL;
 }
 
 std::wstring current_user_sid()
@@ -150,15 +150,10 @@ HANDLE create_pipe()
     attributes.lpSecurityDescriptor = descriptor;
     attributes.bInheritHandle = FALSE;
 
-    const HANDLE pipe = CreateNamedPipeW(
-        pipe_name,
-        PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
-        PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
-        1,
-        0,
-        max_message_bytes,
-        0,
-        &attributes);
+    const HANDLE pipe =
+        CreateNamedPipeW(pipe_name, PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
+                         PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS, 1, 0,
+                         max_message_bytes, 0, &attributes);
 
     LocalFree(descriptor);
     return pipe;
@@ -173,7 +168,7 @@ enum class WaitResult
 
 WaitResult wait_for(HANDLE pipe, OVERLAPPED& overlapped, DWORD& transferred)
 {
-    const HANDLE waits[2] = {g_stopEvent, overlapped.hEvent};
+    const HANDLE waits[2] = {g_stop_event, overlapped.hEvent};
     const DWORD signaled = WaitForMultipleObjects(2, waits, FALSE, INFINITE);
 
     if (signaled == WAIT_OBJECT_0)
@@ -256,7 +251,7 @@ Prepared prepare(const PipeMessage& message)
 
     if (!prepared.icon && !prepared.app.empty())
     {
-        prepared.icon = FindAppIconByName(prepared.app, 64);
+        prepared.icon = find_app_icon_by_name(prepared.app, 64);
     }
 
     if (prepared.app.empty())
@@ -270,36 +265,40 @@ Prepared prepare(const PipeMessage& message)
 std::wstring local_time_label()
 {
     wchar_t buffer[32] = {};
-    const int written = GetTimeFormatEx(LOCALE_NAME_USER_DEFAULT, TIME_NOSECONDS, nullptr, nullptr, buffer, static_cast<int>(std::size(buffer)));
+    const int written = GetTimeFormatEx(LOCALE_NAME_USER_DEFAULT, TIME_NOSECONDS, nullptr, nullptr, buffer,
+                                        static_cast<int>(std::size(buffer)));
     return written > 1 ? std::wstring(buffer, static_cast<std::size_t>(written - 1)) : std::wstring{};
 }
 
 void remember(const Prepared& prepared)
 {
-    if (!GetSettingsCopy().notificationCenterModule)
+    if (!get_settings_copy().notification_center_module)
     {
         return;
     }
 
-    notification_center::Incoming incoming{prepared.key, prepared.app, prepared.line, local_time_label(), prepared.icon};
+    notification_center::Incoming incoming{prepared.key, prepared.app, prepared.line, local_time_label(),
+                                           prepared.icon};
 
     {
-        std::lock_guard lock(g_stateMutex);
-        auto next = g_state.notificationCenter ? std::make_shared<notification_center::History>(*g_state.notificationCenter) : std::make_shared<notification_center::History>();
+        std::lock_guard lock(g_state_mutex);
+        auto next = g_state.notification_center
+                        ? std::make_shared<notification_center::History>(*g_state.notification_center)
+                        : std::make_shared<notification_center::History>();
         next->record(std::move(incoming));
-        g_state.notificationCenter = std::move(next);
+        g_state.notification_center = std::move(next);
     }
 
-    g_notificationCenterUnread = true;
-    g_layoutDirty = true;
-    TriggerNudge();
+    g_notification_center_unread = true;
+    g_layout_dirty = true;
+    trigger_nudge();
 }
 
 bool deliver(const Prepared& prepared)
 {
-    const Settings settings = GetSettingsCopy();
+    const Settings settings = get_settings_copy();
 
-    if (settings.notificationRespectDnD && g_isDnDActive.load())
+    if (settings.notification_respect_dn_d && g_is_dn_d_active.load())
     {
         host::log(L"Island pipe: skipped, Do Not Disturb active");
         return false;
@@ -310,15 +309,15 @@ bool deliver(const Prepared& prepared)
     snapshot.app = prepared.app;
     snapshot.title = prepared.line;
     snapshot.icon = prepared.icon;
-    snapshot.expiresAt = NowSeconds() + display_seconds;
+    snapshot.expires_at = now_seconds() + display_seconds;
 
     {
-        std::lock_guard lock(g_stateMutex);
+        std::lock_guard lock(g_state_mutex);
         g_state.notification = std::move(snapshot);
     }
 
     host::log(L"Island pipe: notification shown (category %u)", static_cast<unsigned>(prepared.category));
-    TriggerNudge();
+    trigger_nudge();
     return true;
 }
 
@@ -338,14 +337,14 @@ public:
 
     void pump()
     {
-        while (!pending_.empty() && NowSeconds() >= busy_until_)
+        while (!pending_.empty() && now_seconds() >= busy_until_)
         {
             Prepared next = std::move(pending_.front());
             pending_.pop_front();
 
             if (deliver(next))
             {
-                busy_until_ = NowSeconds() + display_seconds + display_gap_seconds;
+                busy_until_ = now_seconds() + display_seconds + display_gap_seconds;
             }
         }
     }
@@ -357,7 +356,7 @@ public:
             return INFINITE;
         }
 
-        const double remaining = busy_until_ - NowSeconds();
+        const double remaining = busy_until_ - now_seconds();
         return remaining <= 0.0 ? 0 : static_cast<DWORD>(remaining * 1000.0) + 1;
     }
 
@@ -373,7 +372,7 @@ private:
 
 WaitResult wait_with_queue(HANDLE pipe, OVERLAPPED& overlapped, DWORD& transferred, DisplayQueue& queue)
 {
-    const HANDLE waits[2] = {g_stopEvent, overlapped.hEvent};
+    const HANDLE waits[2] = {g_stop_event, overlapped.hEvent};
 
     while (true)
     {
@@ -407,11 +406,12 @@ void serve_client(HANDLE pipe, OVERLAPPED& overlapped)
     RateLimiter limiter;
     DisplayQueue queue;
 
-    while (WaitForSingleObject(g_stopEvent, 0) == WAIT_TIMEOUT)
+    while (WaitForSingleObject(g_stop_event, 0) == WAIT_TIMEOUT)
     {
         ResetEvent(overlapped.hEvent);
         DWORD transferred = 0;
-        bool completed = ReadFile(pipe, buffer.data(), static_cast<DWORD>(buffer.size()), &transferred, &overlapped) != FALSE;
+        bool completed =
+            ReadFile(pipe, buffer.data(), static_cast<DWORD>(buffer.size()), &transferred, &overlapped) != FALSE;
 
         if (!completed)
         {
@@ -466,7 +466,6 @@ void serve_client(HANDLE pipe, OVERLAPPED& overlapped)
 namespace island_pipe
 {
 
-
 DWORD WINAPI thread_proc(void*)
 {
     OwnedHandle event(CreateEventW(nullptr, TRUE, FALSE, nullptr));
@@ -476,7 +475,7 @@ DWORD WINAPI thread_proc(void*)
         return 0;
     }
 
-    while (WaitForSingleObject(g_stopEvent, 0) == WAIT_TIMEOUT)
+    while (WaitForSingleObject(g_stop_event, 0) == WAIT_TIMEOUT)
     {
         OwnedHandle pipe(create_pipe());
 
@@ -484,7 +483,7 @@ DWORD WINAPI thread_proc(void*)
         {
             host::log(L"Island pipe: cannot create the pipe (error %u)", GetLastError());
 
-            if (WaitForSingleObject(g_stopEvent, retry_wait_ms) != WAIT_TIMEOUT)
+            if (WaitForSingleObject(g_stop_event, retry_wait_ms) != WAIT_TIMEOUT)
             {
                 break;
             }
@@ -494,7 +493,7 @@ DWORD WINAPI thread_proc(void*)
 
         host::log(L"Island pipe: listening");
 
-        while (WaitForSingleObject(g_stopEvent, 0) == WAIT_TIMEOUT)
+        while (WaitForSingleObject(g_stop_event, 0) == WAIT_TIMEOUT)
         {
             OVERLAPPED overlapped = {};
             overlapped.hEvent = event.get();
@@ -505,7 +504,7 @@ DWORD WINAPI thread_proc(void*)
                 break;
             }
 
-            if (connected == WaitResult::Failed && WaitForSingleObject(g_stopEvent, 200) != WAIT_TIMEOUT)
+            if (connected == WaitResult::Failed && WaitForSingleObject(g_stop_event, 200) != WAIT_TIMEOUT)
             {
                 break;
             }

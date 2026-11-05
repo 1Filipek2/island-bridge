@@ -2,14 +2,15 @@
 
 #include "core/common.h"
 #include "core/model.h"
+
 namespace island
 {
 
-int ActiveTabCount(const Settings& settings);
-int NormalizedTabIndex(const Settings& settings);
-int HardwareMonitorTabIndex(const Settings& settings);
-int FileTrayTabIndex(const Settings& settings);
-int NotificationCenterTabIndex(const Settings& settings);
-void StepIdleTab(int direction);
+int active_tab_count(const Settings& settings);
+int normalized_tab_index(const Settings& settings);
+int hardware_monitor_tab_index(const Settings& settings);
+int file_tray_tab_index(const Settings& settings);
+int notification_center_tab_index(const Settings& settings);
+void step_idle_tab(int direction);
 
 }

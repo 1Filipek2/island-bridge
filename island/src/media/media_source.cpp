@@ -4,90 +4,94 @@
 
 namespace island
 {
-
-
-// ── Media source selection ───────────────────────────────────────────────────
-int ActiveMediaSourceIndex(const SharedState& state) {
-    for (size_t i = 0; i < state.mediaSources.size(); ++i) {
-        if (state.mediaSources[i].aumid == state.media.sourceAppUserModelId) {
+// Media source selection
+int active_media_source_index(const SharedState& state)
+{
+    for (std::size_t i = 0; i < state.media_sources.size(); ++i)
+    {
+        if (state.media_sources[i].aumid == state.media.source_app_user_model_id)
+        {
             return static_cast<int>(i);
         }
     }
     return -1;
 }
 
-std::wstring GetPreferredMediaSource() {
-    std::lock_guard lock(g_mediaSourceMutex);
-    return g_preferredMediaSource;
+std::wstring get_preferred_media_source()
+{
+    std::lock_guard lock(g_media_source_mutex);
+    return g_preferred_media_source;
 }
 
-// Instant switch. Empty AUMID = Auto. The timestamp tells MediaThreadProc this title
-// change is not a "new track": no auto-expand, no 5s recentTrackChange window.
-void RequestMediaSource(const std::wstring& aumid) {
+// Instant switch, empty = Auto. The timestamp tells the media thread this is not a new track.
+void request_media_source(const std::wstring& aumid)
+{
     {
-        std::lock_guard lock(g_mediaSourceMutex);
-        // Dock pick: a TEMPORARY override, not a lock. MediaThreadProc drops it as soon as
-        // something new starts playing or that app goes away, so Auto keeps working.
-        g_dockOverrideAumid = aumid;
-        g_dockOverrideRev.fetch_add(1);
+        std::lock_guard lock(g_media_source_mutex);
+        // Dock pick: temporary, dropped when something new starts playing or that app goes away.
+        g_dock_override_aumid = aumid;
+        g_dock_override_rev.fetch_add(1);
     }
-    g_userSourceSwitchAt.store(NowSeconds());
-    if (g_mediaRefreshEvent) {
-        SetEvent(g_mediaRefreshEvent);
-    }
-    g_layoutDirty = true;
-}
-
-// Right-click menu pick. Empty AUMID = Auto. A real AUMID LOCKS the island to that app
-// until Auto or another app is picked; what starts playing elsewhere is ignored.
-// Any temporary dock pick is cleared, so "Auto" really means "newest playing app".
-void LockMediaSource(const std::wstring& aumid) {
+    g_user_source_switch_at.store(now_seconds());
+    if (g_media_refresh_event)
     {
-        std::lock_guard lock(g_mediaSourceMutex);
-        g_preferredMediaSource.assign(aumid);
-        g_dockOverrideAumid.clear();
-        g_dockOverrideRev.fetch_add(1);
+        SetEvent(g_media_refresh_event);
     }
-    g_userSourceSwitchAt.store(NowSeconds());
-    if (g_mediaRefreshEvent) {
-        SetEvent(g_mediaRefreshEvent);
-    }
-    g_layoutDirty = true;
+    g_layout_dirty = true;
 }
 
-// Dock click. Animated when "Expanded player transitions" is on: the renderer slides
-// the old content out first, then calls RequestMediaSource().
-void RequestMediaSourceSwitch(const std::wstring& aumid) {
+// Context menu pick: locks the island to that app until Auto or another app is picked.
+void lock_media_source(const std::wstring& aumid)
+{
+    {
+        std::lock_guard lock(g_media_source_mutex);
+        g_preferred_media_source.assign(aumid);
+        g_dock_override_aumid.clear();
+        g_dock_override_rev.fetch_add(1);
+    }
+    g_user_source_switch_at.store(now_seconds());
+    if (g_media_refresh_event)
+    {
+        SetEvent(g_media_refresh_event);
+    }
+    g_layout_dirty = true;
+}
+
+void request_media_source_switch(const std::wstring& aumid)
+{
     int direction = 1;
-    bool sameAsActive = false;
+    bool same_as_active = false;
     {
-        std::lock_guard lock(g_stateMutex);
-        const int active = ActiveMediaSourceIndex(g_state);
+        std::lock_guard lock(g_state_mutex);
+        const int active = active_media_source_index(g_state);
         int target = -1;
-        for (size_t i = 0; i < g_state.mediaSources.size(); ++i) {
-            if (g_state.mediaSources[i].aumid == aumid) {
+        for (std::size_t i = 0; i < g_state.media_sources.size(); ++i)
+        {
+            if (g_state.media_sources[i].aumid == aumid)
+            {
                 target = static_cast<int>(i);
                 break;
             }
         }
-        sameAsActive = (target >= 0 && target == active);
-        if (target >= 0 && active >= 0) {
+        same_as_active = (target >= 0 && target == active);
+        if (target >= 0 && active >= 0)
+        {
             direction = target >= active ? 1 : -1;
         }
     }
 
-    if (sameAsActive || !GetSettingsCopy().expandedMediaAnim) {
-        RequestMediaSource(aumid);
+    if (same_as_active || !get_settings_copy().expanded_media_anim)
+    {
+        request_media_source(aumid);
         return;
     }
     {
-        std::lock_guard lock(g_mediaSourceMutex);
-        g_switchTarget = aumid;
+        std::lock_guard lock(g_media_source_mutex);
+        g_switch_target = aumid;
     }
-    g_switchDir.store(direction);
-    g_switchSeq.fetch_add(1);
-    g_layoutDirty = true;
+    g_switch_dir.store(direction);
+    g_switch_seq.fetch_add(1);
+    g_layout_dirty = true;
 }
-
 
 }

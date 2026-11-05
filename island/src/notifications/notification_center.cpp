@@ -15,7 +15,6 @@ constexpr float hit_slop = 3.0f;
 namespace notification_center
 {
 
-
 int row_at(float x, float y, float width, float height, int row_count)
 {
     if (row_count <= 0 || x < pad_x || x > width - pad_x || y < list_top || y > height - list_bottom_inset)
@@ -43,7 +42,8 @@ bool clear_hit(float x, float y, float width)
 {
     const float right = width - pad_x;
     const float left = right - clear_size;
-    return x >= left - hit_slop && x <= right + hit_slop && y >= clear_top - hit_slop && y <= clear_top + clear_size + hit_slop;
+    return x >= left - hit_slop && x <= right + hit_slop && y >= clear_top - hit_slop &&
+           y <= clear_top + clear_size + hit_slop;
 }
 
 bool remove_hit(float x, float y, float width, int row)

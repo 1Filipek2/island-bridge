@@ -2,11 +2,11 @@
 
 #include "core/common.h"
 #include "core/pixels.h"
+
 namespace island
 {
 namespace island_pipe
 {
-
 
 constexpr wchar_t pipe_name[] = L"\\\\.\\pipe\\DynamicIslandNotify";
 constexpr DWORD max_message_bytes = 12288;
@@ -74,7 +74,7 @@ public:
     }
 
     OwnedHandle(const OwnedHandle&) = delete;
-    OwnedHandle& operator = (const OwnedHandle&) = delete;
+    OwnedHandle& operator=(const OwnedHandle&) = delete;
 
     HANDLE get() const
     {
@@ -99,6 +99,7 @@ public:
 private:
     HANDLE handle_;
 };
+
 std::wstring sanitize(const std::wstring& text, std::size_t max_chars);
 std::optional<PipeMessage> parse_message(const std::uint8_t* data, std::size_t size);
 PixelsRef decode_icon(const std::vector<std::uint8_t>& bytes);

@@ -104,56 +104,56 @@ std::optional<std::string> unescape(std::string_view raw)
 
         switch (raw[i])
         {
-        case '"':
-        case '\\':
-        case '/':
-            out.push_back(raw[i]);
-            break;
-        case 'b':
-        case 'f':
-        case 'n':
-        case 'r':
-        case 't':
-            out.push_back(' ');
-            break;
-        case 'u':
-        {
-            auto code = read_hex4(raw, i + 1);
-
-            if (!code)
+            case '"':
+            case '\\':
+            case '/':
+                out.push_back(raw[i]);
+                break;
+            case 'b':
+            case 'f':
+            case 'n':
+            case 'r':
+            case 't':
+                out.push_back(' ');
+                break;
+            case 'u':
             {
-                return std::nullopt;
-            }
+                auto code = read_hex4(raw, i + 1);
 
-            i += 4;
-
-            if (*code >= 0xD800 && *code <= 0xDBFF)
-            {
-                if (i + 2 >= raw.size() || raw[i + 1] != '\\' || raw[i + 2] != 'u')
+                if (!code)
                 {
                     return std::nullopt;
                 }
 
-                const auto low = read_hex4(raw, i + 3);
+                i += 4;
 
-                if (!low || *low < 0xDC00 || *low > 0xDFFF)
+                if (*code >= 0xD800 && *code <= 0xDBFF)
+                {
+                    if (i + 2 >= raw.size() || raw[i + 1] != '\\' || raw[i + 2] != 'u')
+                    {
+                        return std::nullopt;
+                    }
+
+                    const auto low = read_hex4(raw, i + 3);
+
+                    if (!low || *low < 0xDC00 || *low > 0xDFFF)
+                    {
+                        return std::nullopt;
+                    }
+
+                    code = 0x10000 + ((*code - 0xD800) << 10) + (*low - 0xDC00);
+                    i += 6;
+                }
+                else if (*code >= 0xDC00 && *code <= 0xDFFF)
                 {
                     return std::nullopt;
                 }
 
-                code = 0x10000 + ((*code - 0xD800) << 10) + (*low - 0xDC00);
-                i += 6;
+                append_utf8(out, *code);
+                break;
             }
-            else if (*code >= 0xDC00 && *code <= 0xDFFF)
-            {
+            default:
                 return std::nullopt;
-            }
-
-            append_utf8(out, *code);
-            break;
-        }
-        default:
-            return std::nullopt;
         }
     }
 
@@ -167,7 +167,8 @@ std::optional<std::wstring> to_wide(const std::string& utf8)
         return std::wstring{};
     }
 
-    const int length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8.data(), static_cast<int>(utf8.size()), nullptr, 0);
+    const int length =
+        MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8.data(), static_cast<int>(utf8.size()), nullptr, 0);
 
     if (length <= 0)
     {
@@ -257,7 +258,8 @@ std::optional<std::size_t> find_address_object(std::string_view json)
 
             std::size_t j = i + 1;
 
-            while (j < json.size() && (json[j] == ' ' || json[j] == ':' || json[j] == '\n' || json[j] == '\r' || json[j] == '\t'))
+            while (j < json.size() &&
+                   (json[j] == ' ' || json[j] == ':' || json[j] == '\n' || json[j] == '\r' || json[j] == '\t'))
             {
                 ++j;
             }
@@ -362,7 +364,8 @@ double distance_km(Point from, Point to)
     const double d_lat = (to.latitude - from.latitude) * degrees_to_radians;
     const double d_lon = (to.longitude - from.longitude) * degrees_to_radians;
     const double a = std::sin(d_lat / 2) * std::sin(d_lat / 2) + std::cos(from.latitude * degrees_to_radians) *
-                     std::cos(to.latitude * degrees_to_radians) * std::sin(d_lon / 2) * std::sin(d_lon / 2);
+                                                                     std::cos(to.latitude * degrees_to_radians) *
+                                                                     std::sin(d_lon / 2) * std::sin(d_lon / 2);
     return 2.0 * earth_radius_km * std::asin(std::sqrt(std::min(1.0, a)));
 }
 

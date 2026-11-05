@@ -2,9 +2,10 @@
 
 #include "core/common.h"
 #include "core/pixels.h"
+
 namespace island
 {
 
-bool DecodeImageBytesToPixels(const std::vector<uint8_t>& bytes, BitmapPixels* outPixels);
+bool decode_image_bytes_to_pixels(const std::vector<std::uint8_t>& bytes, BitmapPixels* out_pixels);
 
 }
