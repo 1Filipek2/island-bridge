@@ -4312,7 +4312,9 @@ class Renderer {
                     mutedBrush_->SetOpacity(0.75f);
                 }
 
-                if (state.media.playing) {
+                if (settings.spectrumStyle == SpectrumStyle::Bars) {
+                    DrawSpectrum(state, waveRect, settings, now, state.media.playing);
+                } else if (state.media.playing) {
                     DrawSpectrum(state, waveRect, settings, now);
                 } else {
                     const float gap = 2.5f;
@@ -4527,7 +4529,9 @@ class Renderer {
 
             D2D1_RECT_F waveRect = D2D1::RectF(rect.right - 42.0f - shiftX, cy - 10.0f,
                                                rect.right - 14.0f - shiftX, cy + 10.0f);
-            if (state.media.playing) {
+            if (settings.spectrumStyle == SpectrumStyle::Bars) {
+                DrawSpectrum(state, waveRect, settings, now, state.media.playing);
+            } else if (state.media.playing) {
                 DrawSpectrum(state, waveRect, settings, now);
             } else {
                 const float gap = 2.5f;
@@ -4818,7 +4822,9 @@ class Renderer {
         // ── Accent glow behind the lyrics, breathing gently with the audio level ──
         {
             float level = 0.0f;
-            if (state.media.playing) {
+            if (settings.spectrumStyle == SpectrumStyle::Bars) {
+                level = state.media.playing ? PlayingIndicatorGlow(now) : 0.0f;
+            } else if (state.media.playing) {
                 const size_t n = state.waveform.size();
                 level = Clamp(state.waveform[(state.waveformWrite + n - 1) % n], 0.0f, 1.0f);
             }
@@ -6955,7 +6961,8 @@ class Renderer {
         return sum / static_cast<float>(b - a);
     }
 
-    void DrawSpectrum(const SharedState& state, D2D1_RECT_F rect, const Settings& settings, double now) {
+    void DrawSpectrum(const SharedState& state, D2D1_RECT_F rect, const Settings& settings, double now,
+                      bool playing = true) {
         constexpr double kSpecDur = 1.15;
         const bool recentlyDrawn = specLastDrawn_ >= 0.0 && (now - specLastDrawn_) < 0.25;
         float dt = recentlyDrawn ? static_cast<float>(now - specLastDrawn_) : 0.016f;
@@ -7011,7 +7018,7 @@ class Renderer {
             case SpectrumStyle::Orb:    DrawSpectrumOrb(state, rect); break;
             case SpectrumStyle::Plasma: DrawSpectrumPlasma(state, rect); break;
             case SpectrumStyle::Led:    DrawSpectrumLed(state, rect, dt); break;
-            default:                    DrawWaveform(state, rect); break;
+            default:                    DrawPlayingIndicator(rect, playing, now); break;
         }
     }
 
@@ -7550,53 +7557,69 @@ class Renderer {
         target_->PopAxisAlignedClip();
     }
 
-    void DrawWaveform(const SharedState& state, D2D1_RECT_F rect) {
+    float PlayingIndicatorLevel(int bar, double now) const {
+        const double t = std::fmod(now, 3600.0);
+        const double slow = std::sin(6.283185307179586 * (0.62 + 0.09 * bar) * t + 1.9 * bar);
+        const double fast = std::sin(6.283185307179586 * (1.03 + 0.05 * bar) * t + 0.7 * bar * bar);
+        const float wave = static_cast<float>(0.6 * slow + 0.4 * fast);
+        return SmoothStep01(0.5f + 0.5f * wave);
+    }
+
+    float PlayingIndicatorGlow(double now) const {
+        const float breath = 0.5f + 0.5f * static_cast<float>(std::sin(6.283185307179586 * 0.45 * std::fmod(now, 3600.0)));
+        return 0.22f + 0.14f * breath;
+    }
+
+    void DrawPlayingIndicator(D2D1_RECT_F rect, bool playing, double now) {
+        const bool recentlyDrawn = indicatorLastDrawn_ >= 0.0 && (now - indicatorLastDrawn_) < 0.25;
+        const float dt = recentlyDrawn ? Clamp(static_cast<float>(now - indicatorLastDrawn_), 0.0f, 0.05f) : 0.0f;
+        indicatorLastDrawn_ = now;
+        const float target = playing ? 1.0f : 0.0f;
+        if (!recentlyDrawn) {
+            indicatorMix_ = target;
+        } else {
+            indicatorMix_ += (target - indicatorMix_) * (1.0f - std::exp(-dt / 0.22f));
+            if (std::fabs(target - indicatorMix_) < 0.002f) {
+                indicatorMix_ = target;
+            } else {
+                g_layoutDirty = true;
+            }
+        }
+
         const float gap = 2.5f;
-        const float minBarWidth = 2.0f;
+        const float dot = 2.4f;
         const float availableW = rect.right - rect.left;
-        size_t count = std::max<size_t>(1, static_cast<size_t>((availableW + gap) / (minBarWidth + gap)));
-        count = std::min<size_t>(count, 32);
-
-        const float barWidth = (availableW - gap * (count - 1)) / count;
+        const int count = std::clamp(static_cast<int>((availableW + gap) / (2.0f + gap)), 1, 32);
+        const float slotWidth = (availableW - gap * (count - 1)) / count;
         const float centerY = (rect.top + rect.bottom) * 0.5f;
-        const float maxH = (rect.bottom - rect.top) * 0.86f;
-
-        // Use a step size of 4 samples (approx 40ms) so bars aren't identical
-        const size_t step = 4;
-
+        const float maxH = (rect.bottom - rect.top) * 0.78f;
+        const float mix = SmoothStep01(indicatorMix_);
+        const float width = dot + (slotWidth - dot) * mix;
         const float t = specT_;
-        for (size_t i = 0; i < count; ++i) {
-            const size_t offset = (count - i) * step;
-            const size_t source = (state.waveformWrite + state.waveform.size() - offset) %
-                                  state.waveform.size();
-            const float amp = Clamp(state.waveform[source], 0.03f, 1.0f);
-            float h = std::max(3.0f, amp * maxH);
-            float glow = 0.0f;
 
-            // Track change: domino ripple. Each bar collapses to a dot, then springs
-            // back up with overshoot; the ripple runs with the skip direction.
-            if (t >= 0.0f && count > 1) {
+        for (int i = 0; i < count; ++i) {
+            const float level = 0.28f + 0.72f * PlayingIndicatorLevel(i, now);
+            float h = dot + (std::max(width, level * maxH) - dot) * mix;
+            if (t >= 0.0f && count > 1 && playing) {
                 float f = static_cast<float>(i) / static_cast<float>(count - 1);
                 if (specDir_ < 0.0f) f = 1.0f - f;
-                const float u = (t - 0.34f * f) / 0.66f;
-                float scale = 1.0f;
-                if (u < 0.0f) {
-                    scale = 1.0f;
-                } else if (u < 0.22f) {
-                    scale = 1.0f - SkipSmooth(u / 0.22f);
-                } else {
-                    const float v = Clamp((u - 0.22f) / 0.78f, 0.0f, 1.0f);
-                    scale = 1.0f - std::exp(-5.5f * v) * std::cos(9.5f * v);
-                    glow = std::exp(-6.0f * v);
-                }
-                h = std::max(2.0f, h * Clamp(scale, 0.0f, 1.5f));
+                const float u = Clamp((t - 0.34f * f) / 0.66f, 0.0f, 1.0f);
+                const float dip = std::sin(3.14159265f * u);
+                h = std::max(width, h * (1.0f - 0.6f * dip * dip));
             }
 
-            const float x = rect.left + i * (barWidth + gap);
-            D2D1_RECT_F bar = D2D1::RectF(x, centerY - h * 0.5f, x + barWidth, centerY + h * 0.5f);
-            accentBrush_->SetOpacity(Clamp(0.45f + 0.5f * amp + 0.35f * glow, 0.0f, 1.0f));
-            target_->FillRoundedRectangle(D2D1::RoundedRect(bar, barWidth * 0.5f, barWidth * 0.5f),
-                                         accentBrush_.Get());
+            const float cx = rect.left + i * (slotWidth + gap) + slotWidth * 0.5f;
+            const D2D1_RECT_F bar = D2D1::RectF(cx - width * 0.5f, centerY - h * 0.5f,
+                                                cx + width * 0.5f, centerY + h * 0.5f);
+            const D2D1_ROUNDED_RECT shape = D2D1::RoundedRect(bar, width * 0.5f, width * 0.5f);
+            if (mix < 0.999f) {
+                mutedBrush_->SetOpacity(0.5f * (1.0f - mix));
+                target_->FillRoundedRectangle(shape, mutedBrush_.Get());
+            }
+            if (mix > 0.001f) {
+                accentBrush_->SetOpacity(mix * (0.6f + 0.3f * level));
+                target_->FillRoundedRectangle(shape, accentBrush_.Get());
+            }
         }
         accentBrush_->SetOpacity(1.0f);
     }
@@ -9136,6 +9159,8 @@ class Renderer {
     bool         pillArtInit_ = false;
     bool         expandedAnim_ = false;   // Settings::expandedMediaAnim, latched per frame
     bool         pillCoverAnim_ = false;  // Settings::pillCoverAnim, latched per frame
+    float        indicatorMix_ = 0.0f;
+    double       indicatorLastDrawn_ = -1.0;
     bool         specInit_ = false;     // audio spectrum state
     double       specLastDrawn_ = -1.0;
     double       specStart_ = -1.0;     // -1 = no track-change animation running
@@ -9921,7 +9946,7 @@ DWORD WINAPI RenderThreadProc(void*) {
         }
 
         const bool mediaWaveformVisible =
-            g_settings.media && snapshot.media.playing &&
+            g_settings.media && snapshot.media.playing && g_settings.spectrumStyle != SpectrumStyle::Bars &&
             ((primary.kind == IslandKind::Media && primary.width > 1.0f && primary.height > 1.0f) ||
              (secondary && secondary->kind == IslandKind::Media && secondary->width > 1.0f && secondary->height > 1.0f));
         g_audioCaptureNeeded.store(mediaWaveformVisible, std::memory_order_relaxed);
