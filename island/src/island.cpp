@@ -1,585 +1,3 @@
-// ==WindhawkMod==
-// @id              dynamic-island-openmeteo
-// @name            Dynamic Island for Windows (Open-Meteo)
-// @description     Private fork of Dynamic Island 1.4.0 using Open-Meteo for weather. A living, breathing pill overlay inspired by iPhone's Dynamic Island. Reacts to media, downloads, clipboard, battery, and more.
-// @version         1.4.0-openmeteo.17
-// @author          Himanshu
-// @github          https://github.com/devcode90
-// @include         windhawk.exe
-// @compilerOptions -lole32 -loleaut32 -lshcore -ld2d1 -ldwrite -ldwmapi -lgdi32 -luser32 -lshell32 -lruntimeobject -lwindowscodecs -lsetupapi -lwinhttp -lpdh -lwinmm
-// @license         MIT
-// ==/WindhawkMod==
-
-// ==WindhawkModReadme==
-/*
-# Dynamic Island for Windows
-
-A fluid, living overlay inspired by Apple's Dynamic Island, bringing a beautiful, highly-responsive UI to your Windows desktop. Built natively with hardware-accelerated Direct2D rendering for a buttery-smooth 60 FPS experience.
-
-![Dynamic Island running on the desktop](https://raw.githubusercontent.com/devcode90/Dynamic-Island-for-Windows/793cf954d51aa9748c39d544187fab6e25ecd0fb/previews/desktop.png)
-
-![Dynamic Island surfaces](https://raw.githubusercontent.com/devcode90/Dynamic-Island-for-Windows/793cf954d51aa9748c39d544187fab6e25ecd0fb/previews/Full-preview-v2.png)
-
----
-
-## 🚀 Modules & Dashboards
-
-The Dynamic Island intelligently expands to display context-aware dashboards. You can easily navigate between different views using your mouse scroll wheel.
-
-| Module | Description | Preview |
-| :--- | :--- | :--- |
-| **Media Player** | Shows live album art, track details, audio waveforms, and full playback controls. | ![Media](https://raw.githubusercontent.com/devcode90/Dynamic-Island-for-Windows/793cf954d51aa9748c39d544187fab6e25ecd0fb/previews/media-v2.png) |
-| **Live Lyrics** | Real-time synchronized lyrics with inline collapsed view and full lyrics tab. | ![Live Lyrics](https://raw.githubusercontent.com/devcode90/Dynamic-Island-for-Windows/main/previews/lyrics.png) |
-| **Blur & Acrylic** | Genuine Windows DWM blur and acrylic backdrop effects for modern depth. | ![Blur & Acrylic](https://raw.githubusercontent.com/devcode90/Dynamic-Island-for-Windows/main/previews/blur-acrylic.png) |
-| **Calendar** | A monthly grid that always fits its rows, with today marked in the accent colour. | ![Calendar](https://raw.githubusercontent.com/devcode90/Dynamic-Island-for-Windows/793cf954d51aa9748c39d544187fab6e25ecd0fb/previews/calendar.png) |
-| **Weather** | Real-time weather stats powered by wttr.in, including wind speed, humidity, and "feels like" temperature. | ![Weather](https://raw.githubusercontent.com/devcode90/Dynamic-Island-for-Windows/793cf954d51aa9748c39d544187fab6e25ecd0fb/previews/weather-v2.png) |
-| **Hardware Monitor** | CPU, RAM, GPU, disk and live network throughput, with load bars that turn amber past 75% and red past 90%. | ![Hardware Monitor](https://raw.githubusercontent.com/devcode90/Dynamic-Island-for-Windows/793cf954d51aa9748c39d544187fab6e25ecd0fb/previews/hardware-monitor.png) |
-| **Game Overlay** | Real-time FPS, CPU, GPU, RAM and disk, sized to whichever metrics you enable. | ![Gamebar](https://raw.githubusercontent.com/devcode90/Dynamic-Island-for-Windows/793cf954d51aa9748c39d544187fab6e25ecd0fb/previews/gamebar-v2.png) |
-| **Idle View** | A minimal dashboard with your battery status, digital clock, and sleek pagination dots. | ![Idle](https://raw.githubusercontent.com/devcode90/Dynamic-Island-for-Windows/793cf954d51aa9748c39d544187fab6e25ecd0fb/previews/idle-v2.png) |
-| **Camera Privacy** | Shows a green dot when an app is actively using your webcam. | ![Camera](https://raw.githubusercontent.com/devcode90/Dynamic-Island-for-Windows/793cf954d51aa9748c39d544187fab6e25ecd0fb/previews/camera-detected-v2.png) |
-| **Mic Privacy** | Shows an orange dot when an app is actively using your microphone. | ![Mic](https://raw.githubusercontent.com/devcode90/Dynamic-Island-for-Windows/793cf954d51aa9748c39d544187fab6e25ecd0fb/previews/mic-detected-v2.png) |
-
----
-
-## ✨ Core Features
-
-- **Hardware Privacy Indicators:** A pulsing orange dot appears when your microphone is active, and a green dot when your camera is in use. Rate-limited polling ensures absolutely no CPU drain.
-- **High-Res Clipboard & Notifications:** Instantly see what you copied or your latest Windows notifications, featuring crisp, high-fidelity 64px app icons extracted directly from system executables.
-- **360Hz+ Dynamic Fluid Animations:** Ultra-smooth resizing and splitting with native support for high refresh rate monitors (up to 360Hz/500Hz+) and zero idle CPU drain.
-- **Eight Curated Themes:** Obsidian, Graphite, Slate, Nord, Evergreen, Espresso, Plum and a light Porcelain, all switchable from the right-click menu's Theme submenu — or dial in your exact hex colors.
-- **Clean Flat Material:** Surfaces are built from soft downward depth shading, a drop shadow, and an accent wash tinted live from your album art. No rim lighting, no glass highlights, no outlined cards — nothing traces a bright line along an edge.
-- **Real Blur & Acrylic Backdrop:** Optionally paint genuine Windows blur or frosted acrylic behind the island so your desktop shows through it, exactly like the system's own surfaces. Requires Windows' **Transparency effects** to be turned on (see Usage & Settings below).
-- **Translucent Backgrounds:** Hex colors accept an alpha channel (`#RRGGBBAA`), so you can make the island see-through while keeping text and icons perfectly crisp.
-- **Your Language:** The island's own labels follow your Windows display language across 12 languages, or you can pick one explicitly.
-- **File Tray:** Drag any file onto the island to park it on a shelf, then click to open it. You can now drag files back out into any folder or app, and remove them one by one. The island itself only references files, it never copies or moves them.
-- **Lyrics on the Collapsed Island:** Switch on "Show lyrics on collapsed island" from the right-click menu and the pill widens to show the current line as it's sung, sliding in with every new line. When there are no synced lyrics it shows the song title instead.
-- **Quick Lookup:** Once enabled under Modules, press **Ctrl+Alt+Space** to open a search box right on the island. Type a word or phrase, press Enter, and get a definition or a short summary. Your clipboard text and recent searches are one click away.
-- **Lyrics Sync Offset:** Nudge lyric timing in milliseconds when lyrics feel early or late, with a separate value for Bluetooth audio output that is picked automatically from your default audio device. Set it in Mod Settings or from the right-click menu's "Lyrics sync" submenu.
-- **Typography & Clock Control:** Scale all island text independently of the island's size, choose 12- or 24-hour time, show seconds, and set a custom date pattern — including CJK forms like `yyyy年MM月dd日`.
-
----
-
-## ⚙️ Usage & Settings
-
-- **Hover & Scroll:** Hover over the island to seamlessly expand it. Use your mouse scroll wheel to swipe between the Media, Calendar, Weather, Hardware Monitor, File Tray, and Lyrics tabs.
-- **File Tray:** Enable the File Tray module, then drag files onto the island. It jumps to the shelf to confirm the drop. Click a row to open that file, drag a row out to drop the file into any folder or app, or press the small ✕ on a row to remove just that file. The bin button in the header clears the whole shelf.
-- **Lyrics on the Collapsed Island:** Right-click the island and tick "Show lyrics on collapsed island". This choice is remembered across restarts. Long lines pan across as they are sung.
-- **Cross-Source Media Switching:** If multiple apps are playing media at the same time, you can smoothly swap between their active playback controls directly from the island without opening the apps.
-- **Quick Lookup:** Enable "Quick Lookup (hotkey)" under Modules, then press the hotkey (default **Ctrl+Alt+Space**, changeable in the **Shortcuts** tab) to open the search box. Type a word or phrase and press Enter. Up/Down picks a row and Esc closes it. With an empty box it suggests your clipboard text and your recent lookups. Results come from Wiktionary and Wikipedia, with dictionaryapi.dev as a backup. Nothing is sent anywhere until you press Enter, and recent lookups are kept in memory only.
-- **Right-Click Menu:** Right-click the island to access Theme presets, Transparency settings, collapsed-island lyrics, and to pin the island open.
-- **⚠️ Right-click choices are per-session:** The right-click menu is a quick way to try things out, not a place to configure the mod. **Theme**, **shape style** (Pill / Notch / Windows 11) and **pin open** are all re-applied from your Windhawk settings whenever the mod restarts — so a reboot, a mod update, or toggling the mod off and on will discard them. Anything you want to keep, set in the **Mod Settings** tab instead. (Transparency and Expand-on-hover do persist, but the settings tab is still the reliable place for them.)
-- **Windhawk Settings:** Visit the Mod Settings tab to change the island's Position, Size Scale, Refresh Rate (Target FPS), Animation Style (Smooth/Default/Bouncy/Snappy), Animation Speed, and toggle specific modules. You can also perfectly align the island using the `Offset X` and `Offset Y` settings, and select exactly which monitor the island should appear on (including a "Follow Mouse" mode!).
-- **Blur & Acrylic need Transparency effects:** Windows does not enable this by default on every PC, and the Blur and Acrylic backdrop will not show without it (you will only see a flat tint instead). Turn it on in **Settings > Personalization > Colors > Transparency effects** (on Windows 11 you can also find it under **Settings > Accessibility > Visual effects > Transparency effects**). Also make sure **Battery saver** is off, because it disables these effects too. Then pick a material under **Mod Settings > Themes > Backdrop material**; the change applies live, no restart needed.
-- **Notifications:** Windows must allow apps to read notifications: turn on **Settings > Privacy & security > Notifications > "Let apps access your notifications"**. Without that permission Windows denies the listener and the module stays silent. Nothing needs to be added to the process inclusion list; the island runs in its own process and reads notifications from there. Note: notifications from command-line consoles and terminal hosts (PowerShell, cmd.exe, conhost) are filtered out by default to avoid toast spam from terminal scripts and build jobs.
-- **Quick Hide/Show:** Right-click the island and choose "Hide Island" to collapse it completely — CPU usage drops to ~0% while hidden since the mod fully parks its render thread. Bring it back instantly with the configurable hotkey (default **Ctrl+Alt+D**, changeable in the **Shortcuts** settings tab). Because a hidden island can't be right-clicked, the hotkey is the *only* way back once hidden — if you turn the hotkey off while hidden, re-enable it (or disable the mod) from Windhawk's settings.
-
----
-
-## 💾 Lyrics Cache
-
-**Why it matters:** instant lyrics, less load on the free LRCLIB server, tiny disk footprint, and you can wipe it anytime.
-
-- **Source:** lyrics come from [LRCLIB](https://lrclib.net), a free open-source lyrics database.
-- **Where:** inside the mod's storage folder (`lyrics` subfolder), one small file per song.
-- **What's inside:** when fetching lyrics, the title, artist, album, and duration of the track being shown are sent to LRCLIB to look up matching lyrics. The retrieved lyrics and track metadata are then saved locally in the cache on your PC.
-- **Size & expiry:** capped at 25 MB by default (10 / 25 / 100 MB or Off in settings); the least recently used files are deleted first. Only songs that have lyrics are cached (refreshed after 90 days). Songs without lyrics, and failed requests, are never saved, so they are simply looked up again each time they play.
-- **Turn it off:** Mod Settings > Modules > "Lyrics cache (disk)", or set the size limit to Off. Lyrics are then not read from or written to disk at all.
-- **Clear it:** right-click the island > "Clear lyrics cache" (shows how many songs and how much space it uses).
-- **By hand:** you can clear or delete the cache at any time. It is stored in Windhawk's mod storage and is automatically cleaned up if the mod is uninstalled.
-
----
-
-## 📝 Feedback & Credits
-
-### Feedback / Support / Bug Reports
-- Please use [Windhawk Mods Issues](https://github.com/ramensoftware/windhawk-mods/issues) or [dynamic-island-for-windows issues](https://github.com/devcode90/dynamic-island-for-windows/issues) to report bugs, request features, or share feedback.
-- Clear descriptions, screenshots, or steps to reproduce help improve fixes and updates.
-- Suggestions for UI/UX or new integrations are always welcome.
-
-### Credits
-- **[Sarthak Singh (sarthakaksh) @GitHub](https://github.com/sarthakaksh)**: Major feature overhaul including smoothing animations, right-click focus timer, lyrics for songs, quick lookup, Cross-Source Media Switching, hover clock, robust media controls, zero-CPU instant hide shortcut, Bluetooth battery integration, image clipboard thumbnails, and full-screen autohide fixes.
-- **[ciizerr @GitHub](https://github.com/ciizerr)**: Improved the UI by refining layout alignment, fixing dashboard scaling, and enhancing calendar and weather module integration.
-- **[ChrisSch-dev @GitHub](https://github.com/ChrisSch-dev)**: Added album title support, word wrapping for weather descriptions, sleep resume fixes, and various performance/movement stability improvements.
-- **[thevioletto @GitHub](https://github.com/thevioletto)**: Added custom font support, Windows Do Not Disturb integration and status alerts, improved album art color sampling, reorganized settings, and addressed various UI/media edge cases.
-- **[David Ravelo (DavidRaveloU) @GitHub](https://github.com/DavidRaveloU)**: Added selectable audio spectrum styles with a live frequency analyzer, new progress bar styles, optional track-change animations for the title, cover flip, playback controls and pill cover spin, an optional clock in the collapsed media pill, and a brightness slider flyout.
-- **[Retr0dev-jpg @GitHub](https://github.com/Retr0dev-jpg)**: Event-driven volume flyout with animated bar and default device switching, plus a calendar that follows the Windows locale for weekday initials and first day of the week (with a Monday/Sunday override).
-
-### 🤝 Contributing
-We love community contributions! To ensure high-quality updates, please follow these rules:
-1. **Fork & Branch:** Fork the repository and apply your feature or fix.
-2. **Respect Existing Features:** Do not outright remove or break other people's features unless fully explained why in your PR. You are highly encouraged to refine and improve existing features!
-3. **Credit Yourself:** After completing your feature, add your name and a short summary of your contribution to the **Credits** section in both the Mod UI here and the GitHub `README.md`!
-
-*/
-// ==/WindhawkModReadme==
-
-// ==WindhawkModSettings==
-/*
-- Appearance:
-  - Position: top-center
-    $name: Position
-    $description: Where the island should appear on your screen.
-    $options:
-      - top-center: Top Center
-      - top-left: Top Left
-      - top-right: Top Right
-      - bottom-center: Bottom Center
-      - bottom-left: Bottom Left
-      - bottom-right: Bottom Right
-  - TargetMonitor: primary
-    $name: Target Monitor
-    $description: Select the screen to display the island. If a display isn't found, it safely falls back to the Primary Monitor.(Extra Displays are given even if they don't exist because windhawk settings are static)
-    $options:
-      - 'primary': Primary Monitor
-      - '1': Display 1
-      - '2': Display 2
-      - '3': Display 3
-      - '4': Display 4
-      - '5': Display 5
-      - 'follow': Follow Mouse (Active Monitor)
-  - OffsetX: 0
-    $name: Offset X
-    $description: Adjust the horizontal position (in pixels). Positive values move it right, negative values move it left.
-  - OffsetY: 0
-    $name: Offset Y
-    $description: Adjust the vertical position (in pixels). Positive values move it down, negative values move it up. Applies to every state unless the separate expanded offset below is turned on, in which case this becomes the collapsed/idle offset.
-  - SeparateExpandedOffsetY: false
-    $name: Use a separate Offset Y when expanded
-    $description: Lets the island sit at one height while collapsed and a different one while expanded. Useful for tucking the idle pill up near the screen edge while keeping the expanded dashboard somewhere comfortable to interact with.
-  - OffsetYExpanded: 0
-    $name: Offset Y (expanded)
-    $description: Vertical position in pixels while the island is expanded. Only used when the separate expanded offset above is on. The island eases between this and Offset Y as it expands and collapses, so the two never snap.
-  - BorderMergedMode: false
-    $name: Border-Merged Mode
-    $description: Attach the island flush to the top edge of the monitor without a floating gap.
-  - ShapeStyle: default
-    $name: Island Shape Style
-    $description: Change the overall shape of the island (Pill, Windows 11, or macOS Notch).
-    $options:
-      - default: Default (Apple Pill)
-      - w11: Windows 11 (Rounded Box)
-      - notch: macOS Notch (Top Edge Flush)
-  - ProgressStyle: slim
-    $name: Progress bar style
-    $description: Look of the song progress bar in the expanded media player. Wavy and Squiggle animate while music is playing and flatten when paused.
-    $options:
-      - slim: Slim (classic bar)
-      - wavy: Wavy
-      - squiggle: Squiggle (slower, subtler wave)
-      - bar: Bar (thick bar with a line thumb)
-  - SpectrumStyle: bars
-    $name: Audio spectrum style
-    $description: Look of the live audio visualizer next to the album art (collapsed pill and expanded player). Pulse Orb, Plasma Thread and Peak Matrix use a real frequency analysis of the system audio, and each plays its own animation when the track changes.
-    $options:
-      - bars: Classic Bars
-      - led: Peak Matrix
-      - plasma: Plasma Thread
-      - orb: Pulse Orb
-  - SizeScale: '1.0'
-    $name: Size scale
-    $description: Makes the entire island and its contents larger or smaller.
-    $options:
-      - '0.8': 0.8x
-      - '1.0': 1.0x
-      - '1.2': 1.2x
-      - '1.5': 1.5x
-      - '1.8': 1.8x
-      - '2.0': 2.0x
-      - '2.5': 2.5x
-  - AutoDpiScale: true
-    $name: Auto DPI scaling
-    $description: Automatically scales the island to match your monitor's DPI. Recommended for 4K screens.
-  $name: Appearance & Position
-- Behavior:
-  - AlwaysOnTop: true
-    $name: Always on top
-    $description: Keeps the island above all other windows. Turn this off if it blocks other apps.
-  - ExpandOnHover: true
-    $name: Expand on hover
-    $description: Expand the island automatically when hovered. If disabled, click to expand.
-  - AutoHideIdleSeconds: '0'
-    $name: Auto-hide island (all states)
-    $description: Hide the island (including idle, media, and other states) after this many seconds of inactivity. 0 to disable.
-    $options:
-      - '-1': Hide instantly
-      - '0': Never hide (default)
-      - '5': Hide after 5 seconds
-      - '10': Hide after 10 seconds
-      - '30': Hide after 30 seconds
-      - '60': Hide after 60 seconds
-  - AutoHideFullscreen: true
-    $name: Hide on full screen
-    $description: Automatically hide the island when playing a video or app in full screen mode.
-  - UnhideOnHover: true
-    $name: Unhide on hover
-    $description: Allow the hidden island to reappear when you hover your mouse over it.
-  $name: Behavior & Visibility
-- Animations:
-  - TargetFPS: auto
-    $name: Refresh rate / FPS
-    $description: Set the animation frame rate. Choose Auto to dynamically match your active monitor's refresh rate (up to 360Hz/500Hz), or select a fixed FPS.
-    $options:
-      - auto: Auto (Match Monitor Refresh Rate)
-      - '60': 60 FPS (Eco / Standard)
-      - '90': 90 FPS
-      - '120': 120 FPS
-      - '144': 144 FPS
-      - '165': 165 FPS
-      - '240': 240 FPS
-      - '360': 360 FPS (Ultra Smooth)
-      - '500': 500 FPS (Maximum / Uncapped)
-  - AnimationStyle: default
-    $name: Animation bounciness / style
-    $description: Control the spring physics and feel of the animation.
-    $options:
-      - smooth: Smooth (No bounciness / Critically damped)
-      - default: Default (Balanced Apple-like spring)
-      - bouncy: Bouncy (Dynamic elastic spring)
-      - snappy: Snappy (High stiffness, quick settle)
-  - AnimationSpeed: normal
-    $name: Animation speed
-    $description: How fast the island expands and collapses.
-    $options:
-      - very-slow: Very Slow (0.5x)
-      - slow: Slow (0.75x)
-      - normal: Normal (1.0x)
-      - fast: Fast (1.35x)
-      - very-fast: Very Fast (1.65x)
-      - ultra-fast: Ultra Fast (2.0x)
-  - ExpandedMediaTransitions: false
-    $name: Expanded player transitions
-    $description: Animate the hover player when the song changes or you press a control - title, artist and album text, the cover flip, and the previous / next / play-pause buttons. Turn off to make them change instantly.
-  - PillCoverSpin: false
-    $name: Pill cover spin
-    $description: Spin the album cover in the collapsed pill when the song changes. Turn off to swap the cover instantly.
-  $name: Animations & Performance
-- Themes:
-  - ThemePreset: obsidian
-    $name: Theme preset
-    $description: Select a curated color theme, or choose Custom to use your own hex colors below.
-    $options:
-      - obsidian: Obsidian - true black (Default)
-      - graphite: Graphite - neutral Windows 11 dark
-      - slate: Slate - cool blue-grey
-      - nord: Nord - the Nord palette
-      - evergreen: Evergreen - deep green
-      - espresso: Espresso - warm brown
-      - plum: Plum - muted mauve
-      - porcelain: Porcelain - light theme
-      - custom: Custom Colors (Use Hex Below)
-  - PillOpacity: 96
-    $name: Pill transparency
-    $description: 35 to 100. Lower values make the island more see-through.
-  - TintIntensity: 72
-    $name: Background tint intensity
-    $description: 0 to 100. Controls how dark the background tint behind the island is.
-  - BackdropMaterial: none
-    $name: Backdrop material (real Windows blur)
-    $description: Paints genuine Windows blur or acrylic behind the island so your desktop and windows show through it, using the same effect the system uses for its own surfaces. Acrylic adds Windows' frosted grain and a tint of your background colour (see Acrylic tint strength). Requires Windows 10 1803 or newer, and Windows' Transparency effects must be turned ON (Settings > Personalization > Colors > Transparency effects, or on Windows 11 also Settings > Accessibility > Visual effects). If it is off, or Battery saver is on, you will only see a flat tint with no blur. When this is on, use Backdrop fill opacity below to control how much of the blur comes through.
-    $options:
-      - none: Off (solid background)
-      - blur: Blur
-      - acrylic: Acrylic (frosted)
-  - BackdropFillOpacity: 45
-    $name: Backdrop fill opacity
-    $description: 0 to 100. Only used when a Backdrop material is enabled. How opaque the island's own background stays on top of the blur - lower values let more of the blurred desktop through. Has no effect when the backdrop is Off.
-  - BackdropTint: 55
-    $name: Acrylic tint strength
-    $description: 0 to 100. How strongly your background colour tints the backdrop. Acrylic uses the full strength; Blur uses a lighter wash of the same colour so the desktop stays readable.
-  - MaterialDepth: true
-    $name: Depth shading
-    $description: Adds soft downward shading and the accent wash so the island has depth instead of looking like one flat fill. No edge highlights or rim lighting are involved. Turn off for a completely flat look.
-  - DropShadow: true
-    $name: Soft drop shadow
-    $description: Casts a soft shadow beneath the island to lift it off the desktop.
-  - AccentBloom: 100
-    $name: Accent bloom intensity
-    $description: 0 to 200. Strength of the soft accent-coloured wash bleeding in from the top of the island. Driven by album art when the accent mode is Auto. Set to 0 to remove it.
-  - TextScale: 100
-    $name: Text size
-    $description: 70 to 160. Scales all island text independently of the overall Size scale, so you can keep the island compact while making the clock and labels easier to read.
-  - AccentColorMode: auto
-    $name: Accent color mode
-    $description: How the glowing accent color is chosen. Auto extracts it from album art.
-    $options:
-      - auto: Auto, from album art
-      - system: System (Device Accent)
-      - custom: Custom hex
-  - CustomAccentHex: "#4cc9f0"
-    $name: Custom accent hex
-    $description: The hex color to use when the accent mode is set to Custom.
-  - CalendarAccent: red
-    $name: Calendar accent color
-    $description: Accent color for the calendar's month name and today's marker. Default uses the island's accent color mode; System always uses the Windows accent.
-    $options:
-      - red: Default (Island accent)
-      - system: System (Device Accent)
-  - ClockAccentGlow: true
-    $name: Show clock background circle/glow
-    $description: Display the soft accent circle/glow behind the time in the expanded clock view. Turn off for a clean, minimal clock without background glow.
-  - FontFamily: ""
-    $name: Font family
-    $description: Custom font family for island text (e.g. Segoe UI, Arial, Aptos, Consolas). Leave empty for system default.
-  - ContourBorderMode: default
-    $name: Contour border
-    $description: Choose the island's border style. Default uses the theme's matching border, Auto extracts the border color from album art, and Borderless removes all outer border outlines.
-    $options:
-      - default: Default
-      - auto: Auto (From album art)
-      - borderless: Borderless
-  - ContourBorderHex: "#1E1E22"
-    $name: Contour border hex color
-    $description: 'Hex color for the island contour stroke. Changing it from the default overrides the selected Theme preset; restore the default to go back to the preset.'
-  - PillBgColor: "#08080A"
-    $name: Pill background color
-    $description: 'Hex color for the island background. Accepts 3, 4, 6 or 8 hex digits, so use the 8-digit RRGGBBAA form for a translucent background (for example 0D0D0FB0) while keeping the text and icons opaque. Changing it from the default overrides the selected Theme preset; restore the default to go back to the preset.'
-  - TextPrimaryColor: "#FFFFFF"
-    $name: Primary text color
-    $description: 'Accessible hex color for titles and main text. Changing it from the default overrides the selected Theme preset; restore the default to go back to the preset.'
-  - TextSecondaryColor: "#9B9BA5"
-    $name: Secondary text color
-    $description: 'Accessible hex color for artist names and muted labels. Changing it from the default overrides the selected Theme preset; restore the default to go back to the preset.'
-  $name: Colors & Theming
-- Indicators:
-  - PrivacyDots: true
-    $name: Show privacy indicators (Mic & Camera)
-    $description: Master toggle to display the iOS-style privacy dots when microphone or camera is in use.
-  - PrivacyDotsMic: true
-    $name: Show microphone indicator (Orange dot)
-    $description: Show the orange dot when microphone is in use. Turn off if background apps (like Discord/OBS) keep it permanently active.
-  - PrivacyDotsMicHex: "#FF9500"
-    $name: Microphone dot color
-    $description: Custom hex color for microphone privacy indicator.
-  - PrivacyDotsCam: true
-    $name: Show camera indicator (Green dot)
-    $description: Show the green dot when webcam is in use.
-  - PrivacyDotsCamHex: "#34C759"
-    $name: Camera dot color
-    $description: Custom hex color for camera privacy indicator.
-  $name: Privacy Indicators
-- Modules:
-  - Media: true
-    $name: Media module
-    $description: Shows album art, song info, and playback controls when music is playing.
-  - MediaAutoExpand: false
-    $name: Auto-expand on track change
-    $description: Automatically expand the island when a new song or video starts playing. If disabled, album art updates smoothly in the collapsed pill without unprompted expansion.
-  - MediaPillClock: false
-    $name: Show clock in the collapsed media pill
-    $description: While media is playing, the collapsed pill also shows the current time on the left, separated from the album cover by a thin divider. Hovering still opens the normal player. Uses the same 12h/24h and seconds options as the clock below. Off by default.
-  - Volume: true
-    $name: Volume slider flyout
-    $description: Shows a volume slider banner on the island when adjusting system volume. Disable if you prefer the default Windows volume flyout.
-  - Brightness: true
-    $name: Brightness slider flyout
-    $description: Shows a brightness slider banner on the island when you change the screen brightness. Works with a laptop's built-in display. Disable if you prefer the default Windows brightness flyout.
-  - CapsLock: true
-    $name: Caps Lock module
-    $description: Shows an indicator when Caps Lock or Num Lock state changes.
-  - Battery: true
-    $name: Battery module
-    $description: Shows an alert when your laptop battery is running low.
-  - BluetoothIndicator: true
-    $name: Bluetooth connect/disconnect indicator
-    $description: Shows a card with the device name, category icon, and battery level (if available) when a Bluetooth device connects or disconnects.
-  - BluetoothShowBattery: true
-    $name: Show Bluetooth battery level
-    $description: Reads battery level over BLE GATT when the device supports it. Not all classic Bluetooth devices report battery this way — when unavailable, only a Connected/Disconnected label is shown.
-  - BluetoothAllowList: "FreeBuds;DualSense"
-    $name: Bluetooth devices to show
-    $description: Only devices whose name contains one of these words (separated by semicolons, case-insensitive) show a Connected/Disconnected card. Leave empty to show all devices. Phones are never shown.
-  - Progress: true
-    $name: Progress module
-    $description: Shows a progress ring around the island for downloads or file copies.
-  - TimerModule: true
-    $name: Focus Timer module
-    $description: Enables a Pomodoro-style focus/break timer, startable from the island's right-click menu.
-  - Clipboard: true
-    $name: Clipboard module
-    $description: Shows a quick preview of the text or images you just copied.
-  - StatusCountdownProgress: false
-    $name: Status countdown progress bar
-    $description: Shows a subtle countdown progress bar at the bottom of temporary status alert cards (such as Clipboard, Notifications, and Device alerts). Disabled by default.
-  - DoNotDisturbIndicator: true
-    $name: Do Not Disturb status alert
-    $description: Shows a status alert card when Do Not Disturb is toggled in the Windows notification panel.
-  - NotificationRespectDnD: true
-    $name: Notifications respect Do Not Disturb
-    $description: Suppresses Dynamic Island notification alerts when Windows Do Not Disturb is active.
-  - WindowsToastListener: false
-    $name: Read Windows notifications in the mod
-    $description: Lets the mod read Windows notifications by itself. Leave it off when IslandBridge forwards them, otherwise every notification shows twice.
-  - IslandBridgePath: '%LOCALAPPDATA%\Programs\IslandBridge\IslandBridge.exe'
-    $name: IslandBridge executable
-    $description: Only this program may send iPhone notifications to the island through the local pipe. Environment variables are expanded.
-  - NotificationCenter: true
-    $name: Notification center card
-    $description: Adds a card to the scroll loop with recent notifications grouped by app. Kept in memory only (up to 50 notifications from 12 apps) and gone after a restart. Clearing it never touches the phone.
-  - GitHubModule: true
-    $name: Include GitHub in scroll loop
-    $description: Adds a contribution graph tab between Weather and Hardware Monitor.
-  - GitHubUser: "1Filipek2"
-    $name: GitHub username
-    $description: Public profile shown on the GitHub tab. No token is used.
-  - HardwareMonitorModule: true
-    $name: Include Hardware Monitor in scroll loop
-    $description: Add CPU, GPU, RAM, FPS and Network stats card to mouse-wheel scroll loop.
-  - GameOverlay: false
-    $name: Enable game overlay mode
-    $description: Replaces the clock with live stats like FPS, CPU, and RAM usage.
-  - ShowMetricText: false
-    $name: Show labels in metric chips
-    $description: Adds text labels (like "CPU") inside the game overlay bars.
-  - Weather: true
-    $name: Weather module
-    $description: Shows the weather on the right side of the pill. Turn off to only show the clock.
-  - WeatherCities: "London|51.50735|-0.12776;New York|40.71278|-74.00597"
-    $name: Weather cities
-    $description: Cities for Open-Meteo as Name|latitude|longitude, separated by semicolons. Pick the active one from the right-click menu (Weather city), or choose Auto to use the city nearest to your IP-based location.
-  - WeatherFahrenheit: false
-    $name: Use Fahrenheit
-    $description: Display weather temperature and wind speed in imperial units.
-  - MediaTabLyrics: false
-    $name: Lyrics in the media tab
-    $description: Adds a lyrics button to the media player controls to toggle an immersive lyrics view over the media tab. Can also be toggled from the right-click menu.
-  - Lyrics: false
-    $name: Lyrics module
-    $description: Shows synced lyrics for the current track (fetched from LRCLIB, a free open-source lyrics database) while the island is expanded. Scroll to the Lyrics tab to view them.
-  - LyricsVisualizer: true
-    $name: Show visualizer in Lyrics tab
-    $description: Shows a small live audio waveform next to the Lyrics title while a track is playing.
-  - KaraokeLyrics: true
-    $name: Karaoke-style glow
-    $description: Lights up the active lyric line progressively, left to right, in sync with the song.
-  - KaraokeLetterGlow: true
-    $name: Karaoke letter glow
-    $description: As the karaoke light sweeps across the line, letters near the wipe boundary softly glow, then fade out behind it.
-  - LyricsOffsetMs: 0
-    $name: Lyrics sync offset - speakers / wired (ms)
-    $description: "Fine-tunes lyric timing in milliseconds (-3000 to 3000, 1 ms steps). Positive = lyrics appear EARLIER, negative = LATER. Raise it if lyrics feel late, lower it if they feel early. Applies to every lyric view (Lyrics tab, collapsed pill, media-tab panel and the karaoke wipe). This value is used whenever the default audio output is NOT a Bluetooth device. You can also nudge it from the right-click menu under Lyrics sync."
-  - LyricsOffsetBluetoothMs: 0
-    $name: Lyrics sync offset - Bluetooth output (ms)
-    $description: "Same as above (-3000 to 3000 ms, positive = EARLIER, negative = LATER), but used automatically while the default audio output is a Bluetooth device. Bluetooth adds latency, so lyrics usually need to be shifted LATER (a negative value) here. The island switches between the two values by itself when the output changes."
-  - LyricsNeighborLinesVisible: false
-    $name: Show neighboring lyric lines clearly
-    $description: By default the lines above and below the active line are only a faint ghost. Turn this on to make them clearly readable.
-  - LyricsCache: true
-    $name: Lyrics cache (disk)
-    $description: Instant lyrics, less load on LRCLIB, tiny disk use, clearable anytime. Stored in the mod's storage folder. Turn off to stop all lyrics disk reads and writes.
-  - LyricsCacheMaxMB: '25'
-    $name: Lyrics cache size limit
-    $description: Least recently used files are deleted once the cache grows past this. Off disables the disk cache.
-    $options:
-      - '0': Off
-      - '10': 10 MB
-      - '25': 25 MB (default)
-      - '100': 100 MB
-  - Language: auto
-    $name: Language
-    $description: Language for the island's own text labels. Auto follows your Windows display language.
-    $options:
-      - auto: Auto (Follow Windows)
-      - en: English
-      - fr: Français (French)
-      - es: Español (Spanish)
-      - de: Deutsch (German)
-      - pt: Português (Portuguese)
-      - it: Italiano (Italian)
-      - ru: Русский (Russian)
-      - tr: Türkçe (Turkish)
-      - hi: हिन्दी (Hindi)
-      - zh: 简体中文 (Simplified Chinese)
-      - ja: 日本語 (Japanese)
-      - ko: 한국어 (Korean)
-  - ClockFormat: system
-    $name: Clock format
-    $description: Choose 12-hour or 24-hour time, or follow your Windows locale setting.
-    $options:
-      - system: Follow Windows locale
-      - 12h: 12-hour (3:07 PM)
-      - 24h: 24-hour (15:07)
-  - ShowSeconds: false
-    $name: Show seconds on the clock
-    $description: Include seconds in the expanded clock. Costs a little more CPU because the clock then redraws every second.
-  - DateFormat: ""
-    $name: Custom date format
-    $description: 'Custom date pattern for the idle dashboard. Leave empty to follow your Windows locale. Supports yyyy (year), MM / M (month), dd / d (day), MMM (short month name), MMMM (full month name), ddd / dddd (weekday). Any other characters are printed as-is, so CJK formats like yyyy年MM月dd日 work.'
-  - DateFirst: false
-    $name: Show date above the time
-    $description: Swap the idle dashboard so the date is the headline and the time sits beneath it.
-  - FirstDayOfWeek: auto
-    $name: First day of the week
-    $description: Which weekday the calendar grid starts on. Auto follows your Windows regional format.
-    $options:
-      - auto: Auto (Follow Windows)
-      - monday: Monday
-      - sunday: Sunday
-  - QuickLookup: false
-    $name: Quick Lookup (hotkey)
-    $description: "Press the Quick Lookup hotkey (Shortcuts tab) to open a search box on the island. Type a word or short phrase and press Enter, or pick your clipboard text or a recent lookup. Nothing is sent anywhere until you submit a search; searches go to en.wiktionary.org and en.wikipedia.org (and api.dictionaryapi.dev as a backup dictionary). Recent lookups are kept in memory only and cleared when the mod restarts."
-  - FileTrayModule: false
-    $name: File Tray (drag & drop shelf)
-    $description: Adds a File Tray card to the scroll loop. Drag files onto the island to park them there, then click to open one, or use the right-click menu to clear the shelf. Files are only referenced, never copied or moved.
-  - FileTrayMaxItems: 10
-    $name: File Tray capacity
-    $description: 1 to 25. How many files the shelf keeps before the oldest one drops off.
-  - FileTrayPersist: true
-    $name: File Tray remembers items (disk)
-    $description: Keeps the tray's contents across restarts, in the mod's storage folder. Only file paths and pasted text snippets are stored, never copies of your files. Turn off to stop all disk reads and writes and delete the saved list.
-  - MediaExpandBlocklist: ""
-    $name: Never auto-expand for these apps
-    $description: 'Comma-separated list of app or site names that should never make the island expand on a track change, while still updating quietly in the collapsed pill. Matched loosely against the media source and title, for example: chrome, tiktok, youtube.'
-  - GameOverlayShowFps: true
-    $name: Game overlay - show FPS
-    $description: Include the frame rate in the game overlay strip.
-  - GameOverlayShowCpu: true
-    $name: Game overlay - show CPU
-    $description: Include CPU utilization in the game overlay strip.
-  - GameOverlayShowGpu: true
-    $name: Game overlay - show GPU
-    $description: Include GPU utilization in the game overlay strip.
-  - GameOverlayShowRam: true
-    $name: Game overlay - show RAM
-    $description: Include memory usage in the game overlay strip.
-  - GameOverlayShowDisk: true
-    $name: Game overlay - show disk
-    $description: Include disk usage in the game overlay strip.
-  - GameOverlayCompact: false
-    $name: Game overlay - compact size
-    $description: Shrink the game overlay to a narrow strip that fits neatly inside the taskbar area.
-  $name: Modules & Features
-- Shortcuts:
-  - HideShowHotkeyEnabled: true
-    $name: Enable hide/show hotkey
-    $description: Toggle the island's visibility instantly with a keyboard shortcut. The hotkey is the only way to bring a hidden island back, so leave this on unless you're comfortable re-enabling it from Windhawk settings.
-  - HideShowModifiers: ctrl_alt
-    $name: Hotkey modifiers
-    $description: Modifier keys combined with the letter/number key below.
-    $options:
-      - ctrl_alt: Ctrl + Alt
-      - ctrl_shift: Ctrl + Shift
-      - alt_shift: Alt + Shift
-      - win_alt: Win + Alt
-      - ctrl_alt_shift: Ctrl + Alt + Shift
-  - HideShowKey: "D"
-    $name: Hotkey letter/number key
-    $description: A single A-Z or 0-9 key combined with the modifiers above. Falls back to "D" if left blank or invalid.
-  - LookupModifiers: ctrl_alt
-    $name: Quick Lookup hotkey modifiers
-    $description: Modifier keys combined with the Quick Lookup key below.
-    $options:
-      - ctrl_alt: Ctrl + Alt
-      - ctrl_shift: Ctrl + Shift
-      - alt_shift: Alt + Shift
-      - win_alt: Win + Alt
-      - ctrl_alt_shift: Ctrl + Alt + Shift
-  - LookupKey: "Space"
-    $name: Quick Lookup hotkey key
-    $description: 'Type Space, or a single A-Z or 0-9 key. Falls back to Space if left blank or invalid.'
-  $name: Shortcuts & Hotkeys
-*/
-// ==/WindhawkModSettings==
-
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #ifndef UNICODE
@@ -625,6 +43,7 @@ We love community contributions! To ensure high-quality updates, please follow t
 #include <cmath>
 #include <cstdint>
 #include <cwchar>
+#include <cwctype>
 #include <cstring>
 #include <deque>
 #include <memory>
@@ -637,6 +56,8 @@ We love community contributions! To ensure high-quality updates, please follow t
 #include <utility>
 #include <vector>
 #include <set>
+#include "host/host.h"
+#include "island.h"
 #include <winrt/base.h>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
@@ -2093,11 +1514,11 @@ constexpr int kLyricsOffsetLimitMs = 3000;
 // LoadSettings() and from the right-click menu.
 void PublishLyricsOffsets(int settingMs, int settingBtMs) {
     g_lyricsEffectiveOffsetMs.store(
-        ClampInt(settingMs + Wh_GetIntValue(L"LyricsNudgeMs", 0),
+        ClampInt(settingMs + host::int_value(L"LyricsNudgeMs", 0),
                  -kLyricsOffsetLimitMs, kLyricsOffsetLimitMs),
         std::memory_order_relaxed);
     g_lyricsEffectiveOffsetBtMs.store(
-        ClampInt(settingBtMs + Wh_GetIntValue(L"LyricsNudgeBtMs", 0),
+        ClampInt(settingBtMs + host::int_value(L"LyricsNudgeBtMs", 0),
                  -kLyricsOffsetLimitMs, kLyricsOffsetLimitMs),
         std::memory_order_relaxed);
 }
@@ -2892,10 +2313,7 @@ bool EqualsNoCase(std::wstring_view a, std::wstring_view b) {
 }
 
 std::wstring GetStringSettingCopy(PCWSTR name) {
-    PCWSTR value = Wh_GetStringSetting(name);
-    std::wstring result = value ? value : L"";
-    Wh_FreeStringSetting(value);
-    return result;
+    return host::string_setting(name);
 }
 
 std::wstring GetStringSettingWithFallback(PCWSTR primary, PCWSTR fallback, PCWSTR fallback2 = nullptr) {
@@ -3252,7 +2670,7 @@ void LoadSettings() {
 
     // Auto DPI scaling: multiply sizeScale by monitor DPI factor for the target display.
     // On mixed-DPI setups or a 4K 200% display this scales the island to the right physical size.
-    next.autoDpiScale = (Wh_GetIntSetting(L"Appearance.AutoDpiScale") != 0);
+    next.autoDpiScale = (host::int_setting(L"Appearance.AutoDpiScale") != 0);
     HMONITOR anchorMon = GetAnchorMonitorFor(next.targetMonitor);
     const float dpi = next.autoDpiScale ? GetMonitorDpiScale(anchorMon) : 1.0f;
     next.sizeScale = next.baseSizeScale * dpi;
@@ -3325,8 +2743,8 @@ void LoadSettings() {
     g_spectrumBandsNeeded.store(next.spectrumStyle == SpectrumStyle::Orb ||
                                     next.spectrumStyle == SpectrumStyle::Plasma,
                                 std::memory_order_relaxed);
-    next.expandedMediaAnim = Wh_GetIntSetting(L"Animations.ExpandedMediaTransitions") != 0;
-    next.pillCoverAnim = Wh_GetIntSetting(L"Animations.PillCoverSpin") != 0;
+    next.expandedMediaAnim = host::int_setting(L"Animations.ExpandedMediaTransitions") != 0;
+    next.pillCoverAnim = host::int_setting(L"Animations.PillCoverSpin") != 0;
 
     const std::wstring speed = GetStringSettingWithFallback(L"Animations.AnimationSpeed", L"Appearance.AnimationSpeed", L"Behavior.AnimationSpeed");
     if (EqualsNoCase(speed, L"very-slow")) {
@@ -3343,28 +2761,28 @@ void LoadSettings() {
         next.animationSpeed = 1.0f;
     }
 
-    next.media = Wh_GetIntSetting(L"Modules.Media") != 0;
-    next.mediaAutoExpand = Wh_GetIntSetting(L"Modules.MediaAutoExpand") != 0;
-    next.volume = Wh_GetIntSetting(L"Modules.Volume") != 0;
+    next.media = host::int_setting(L"Modules.Media") != 0;
+    next.mediaAutoExpand = host::int_setting(L"Modules.MediaAutoExpand") != 0;
+    next.volume = host::int_setting(L"Modules.Volume") != 0;
     if (!next.volume) {
         std::lock_guard lock(g_stateMutex);
         g_state.volume.active = false;
     }
-    next.brightness = Wh_GetIntSetting(L"Modules.Brightness") != 0;
+    next.brightness = host::int_setting(L"Modules.Brightness") != 0;
     if (!next.brightness) {
         std::lock_guard lock(g_stateMutex);
         g_state.brightness.active = false;
         g_brightnessInitialized = false;
     }
-    next.clipboard = Wh_GetIntSetting(L"Modules.Clipboard") != 0;
-    next.statusCountdownProgress = Wh_GetIntSetting(L"Modules.StatusCountdownProgress") != 0;
+    next.clipboard = host::int_setting(L"Modules.Clipboard") != 0;
+    next.statusCountdownProgress = host::int_setting(L"Modules.StatusCountdownProgress") != 0;
 
-    next.battery = Wh_GetIntSetting(L"Modules.Battery") != 0;
-    next.progress = Wh_GetIntSetting(L"Modules.Progress") != 0;
-    next.capsLock = Wh_GetIntSetting(L"Modules.CapsLock") != 0;
-    next.timerEnabled = Wh_GetIntSetting(L"Modules.TimerModule") != 0;
+    next.battery = host::int_setting(L"Modules.Battery") != 0;
+    next.progress = host::int_setting(L"Modules.Progress") != 0;
+    next.capsLock = host::int_setting(L"Modules.CapsLock") != 0;
+    next.timerEnabled = host::int_setting(L"Modules.TimerModule") != 0;
 
-    next.hideShowHotkeyEnabled = Wh_GetIntSetting(L"Shortcuts.HideShowHotkeyEnabled") != 0;
+    next.hideShowHotkeyEnabled = host::int_setting(L"Shortcuts.HideShowHotkeyEnabled") != 0;
 
     const std::wstring hotkeyModStr = GetStringSettingCopy(L"Shortcuts.HideShowModifiers");
     if (EqualsNoCase(hotkeyModStr, L"ctrl_shift")) {
@@ -3391,7 +2809,7 @@ void LoadSettings() {
     }
 
     // ── Quick Lookup ─────────────────────────────────────────────────────────
-    next.quickLookup = Wh_GetIntSetting(L"Modules.QuickLookup") != 0;
+    next.quickLookup = host::int_setting(L"Modules.QuickLookup") != 0;
 
     const std::wstring lookupModStr = GetStringSettingCopy(L"Shortcuts.LookupModifiers");
     if (EqualsNoCase(lookupModStr, L"ctrl_shift")) {
@@ -3425,10 +2843,10 @@ void LoadSettings() {
         }
     }
 
-    next.bluetoothIndicator = Wh_GetIntSetting(L"Modules.BluetoothIndicator") != 0;
-    next.bluetoothShowBattery = Wh_GetIntSetting(L"Modules.BluetoothShowBattery") != 0;
-    next.doNotDisturbIndicator = Wh_GetIntSetting(L"Modules.DoNotDisturbIndicator") != 0;
-    next.notificationRespectDnD = Wh_GetIntSetting(L"Modules.NotificationRespectDnD") != 0;
+    next.bluetoothIndicator = host::int_setting(L"Modules.BluetoothIndicator") != 0;
+    next.bluetoothShowBattery = host::int_setting(L"Modules.BluetoothShowBattery") != 0;
+    next.doNotDisturbIndicator = host::int_setting(L"Modules.DoNotDisturbIndicator") != 0;
+    next.notificationRespectDnD = host::int_setting(L"Modules.NotificationRespectDnD") != 0;
 
     // ── Premium material / redesign ──────────────────────────────────────────
     {
@@ -3441,21 +2859,21 @@ void LoadSettings() {
             next.backdropMaterial = BackdropMaterial::None;
         }
     }
-    next.backdropTint = Clamp(Wh_GetIntSetting(L"Themes.BackdropTint") / 100.0f, 0.0f, 1.0f);
-    next.backdropFillAlpha = Clamp(Wh_GetIntSetting(L"Themes.BackdropFillOpacity") / 100.0f, 0.0f, 1.0f);
+    next.backdropTint = Clamp(host::int_setting(L"Themes.BackdropTint") / 100.0f, 0.0f, 1.0f);
+    next.backdropFillAlpha = Clamp(host::int_setting(L"Themes.BackdropFillOpacity") / 100.0f, 0.0f, 1.0f);
 
-    next.materialDepth = Wh_GetIntSetting(L"Themes.MaterialDepth") != 0;
-    next.dropShadow = Wh_GetIntSetting(L"Themes.DropShadow") != 0;
-    next.accentBloom = Clamp(Wh_GetIntSetting(L"Themes.AccentBloom") / 100.0f, 0.0f, 2.0f);
-    next.textScale = Clamp(Wh_GetIntSetting(L"Themes.TextScale") / 100.0f, 0.7f, 1.6f);
+    next.materialDepth = host::int_setting(L"Themes.MaterialDepth") != 0;
+    next.dropShadow = host::int_setting(L"Themes.DropShadow") != 0;
+    next.accentBloom = Clamp(host::int_setting(L"Themes.AccentBloom") / 100.0f, 0.0f, 2.0f);
+    next.textScale = Clamp(host::int_setting(L"Themes.TextScale") / 100.0f, 0.7f, 1.6f);
 
     // ── Clock / date presentation (#61) ──────────────────────────────────────
-    next.showSeconds = Wh_GetIntSetting(L"Modules.ShowSeconds") != 0;
+    next.showSeconds = host::int_setting(L"Modules.ShowSeconds") != 0;
     const std::wstring clockMode = GetStringSettingCopy(L"Modules.ClockFormat");
     next.clockFollowSystem = clockMode.empty() || EqualsNoCase(clockMode, L"system");
     next.use24HourClock = EqualsNoCase(clockMode, L"24h");
     next.dateFormat = GetStringSettingCopy(L"Modules.DateFormat");
-    next.dateFirst = Wh_GetIntSetting(L"Modules.DateFirst") != 0;
+    next.dateFirst = host::int_setting(L"Modules.DateFirst") != 0;
     const std::wstring firstDay = GetStringSettingCopy(L"Modules.FirstDayOfWeek");
     if (EqualsNoCase(firstDay, L"monday")) {
         next.firstDayOfWeek = 1;
@@ -3464,7 +2882,7 @@ void LoadSettings() {
     } else {
         next.firstDayOfWeek = -1;
     }
-    next.mediaPillClock = Wh_GetIntSetting(L"Modules.MediaPillClock") != 0;
+    next.mediaPillClock = host::int_setting(L"Modules.MediaPillClock") != 0;
 
     // ── Localization (#35) ───────────────────────────────────────────────────
     {
@@ -3479,10 +2897,10 @@ void LoadSettings() {
     }
 
     // ── File tray (#33) ──────────────────────────────────────────────────────
-    next.fileTrayModule = Wh_GetIntSetting(L"Modules.FileTrayModule") != 0;
-    next.fileTrayMaxItems = ClampInt(Wh_GetIntSetting(L"Modules.FileTrayMaxItems"), 1, 25);
-    next.fileTrayPersist = Wh_GetIntSetting(L"Modules.FileTrayPersist") != 0;
-    next.notificationCenterModule = Wh_GetIntSetting(L"Modules.NotificationCenter") != 0;
+    next.fileTrayModule = host::int_setting(L"Modules.FileTrayModule") != 0;
+    next.fileTrayMaxItems = ClampInt(host::int_setting(L"Modules.FileTrayMaxItems"), 1, 25);
+    next.fileTrayPersist = host::int_setting(L"Modules.FileTrayPersist") != 0;
+    next.notificationCenterModule = host::int_setting(L"Modules.NotificationCenter") != 0;
 
     // ── Media auto-expand exclusions (#62) ───────────────────────────────────
     next.mediaExpandBlocklist.clear();
@@ -3511,36 +2929,36 @@ void LoadSettings() {
     }
 
     // ── Game overlay options (#25) ───────────────────────────────────────────
-    next.gameOverlayShowFps = Wh_GetIntSetting(L"Modules.GameOverlayShowFps") != 0;
-    next.gameOverlayShowCpu = Wh_GetIntSetting(L"Modules.GameOverlayShowCpu") != 0;
-    next.gameOverlayShowGpu = Wh_GetIntSetting(L"Modules.GameOverlayShowGpu") != 0;
-    next.gameOverlayShowRam = Wh_GetIntSetting(L"Modules.GameOverlayShowRam") != 0;
-    next.gameOverlayShowDisk = Wh_GetIntSetting(L"Modules.GameOverlayShowDisk") != 0;
-    next.gameOverlayCompact = Wh_GetIntSetting(L"Modules.GameOverlayCompact") != 0;
-    next.tintOpacity = Clamp(Wh_GetIntSetting(L"Themes.TintIntensity") / 100.0f, 0.0f, 1.0f);
-    const int settingOpacity = Wh_GetIntSetting(L"Themes.PillOpacity");
-    const int localOpacity = Wh_GetIntValue(L"PillOpacityOverride", -1);
+    next.gameOverlayShowFps = host::int_setting(L"Modules.GameOverlayShowFps") != 0;
+    next.gameOverlayShowCpu = host::int_setting(L"Modules.GameOverlayShowCpu") != 0;
+    next.gameOverlayShowGpu = host::int_setting(L"Modules.GameOverlayShowGpu") != 0;
+    next.gameOverlayShowRam = host::int_setting(L"Modules.GameOverlayShowRam") != 0;
+    next.gameOverlayShowDisk = host::int_setting(L"Modules.GameOverlayShowDisk") != 0;
+    next.gameOverlayCompact = host::int_setting(L"Modules.GameOverlayCompact") != 0;
+    next.tintOpacity = Clamp(host::int_setting(L"Themes.TintIntensity") / 100.0f, 0.0f, 1.0f);
+    const int settingOpacity = host::int_setting(L"Themes.PillOpacity");
+    const int localOpacity = host::int_value(L"PillOpacityOverride", -1);
     g_pillOpacityOverride.store(localOpacity);
-    g_gameOverlayPinned.store(Wh_GetIntValue(L"GameOverlayPinned", 0) != 0);
-    g_pinnedExpanded.store(Wh_GetIntValue(L"PinnedExpanded", 0) != 0);
+    g_gameOverlayPinned.store(host::int_value(L"GameOverlayPinned", 0) != 0);
+    g_pinnedExpanded.store(host::int_value(L"PinnedExpanded", 0) != 0);
     next.pillOpacity = Clamp((localOpacity >= 0 ? localOpacity : settingOpacity) / 100.0f,
                              0.35f, 1.0f);
-    next.gameOverlay = Wh_GetIntSetting(L"Modules.GameOverlay") != 0;
-    next.showMetricText = Wh_GetIntSetting(L"Modules.ShowMetricText") != 0;
-    next.weather = Wh_GetIntSetting(L"Modules.Weather") != 0;
+    next.gameOverlay = host::int_setting(L"Modules.GameOverlay") != 0;
+    next.showMetricText = host::int_setting(L"Modules.ShowMetricText") != 0;
+    next.weather = host::int_setting(L"Modules.Weather") != 0;
     next.weatherCity = GetStringSettingWithFallback(L"Modules.WeatherCity", L"Weather.WeatherCity", L"CalendarWeather.WeatherCity");
-    next.weatherFahrenheit = Wh_GetIntSetting(L"Modules.WeatherFahrenheit") != 0;
-    next.lyrics = Wh_GetIntSetting(L"Modules.Lyrics") != 0;
-    next.lyricsVisualizer = Wh_GetIntSetting(L"Modules.LyricsVisualizer") != 0;
-    next.karaokeLyrics = Wh_GetIntSetting(L"Modules.KaraokeLyrics") != 0;
-    next.karaokeLetterGlow = Wh_GetIntSetting(L"Modules.KaraokeLetterGlow") != 0;
-    next.lyricsNeighborLinesVisible = Wh_GetIntSetting(L"Modules.LyricsNeighborLinesVisible") != 0;
-    next.lyricsOffsetMs = ClampInt(Wh_GetIntSetting(L"Modules.LyricsOffsetMs"),
+    next.weatherFahrenheit = host::int_setting(L"Modules.WeatherFahrenheit") != 0;
+    next.lyrics = host::int_setting(L"Modules.Lyrics") != 0;
+    next.lyricsVisualizer = host::int_setting(L"Modules.LyricsVisualizer") != 0;
+    next.karaokeLyrics = host::int_setting(L"Modules.KaraokeLyrics") != 0;
+    next.karaokeLetterGlow = host::int_setting(L"Modules.KaraokeLetterGlow") != 0;
+    next.lyricsNeighborLinesVisible = host::int_setting(L"Modules.LyricsNeighborLinesVisible") != 0;
+    next.lyricsOffsetMs = ClampInt(host::int_setting(L"Modules.LyricsOffsetMs"),
                                    -kLyricsOffsetLimitMs, kLyricsOffsetLimitMs);
-    next.lyricsOffsetBtMs = ClampInt(Wh_GetIntSetting(L"Modules.LyricsOffsetBluetoothMs"),
+    next.lyricsOffsetBtMs = ClampInt(host::int_setting(L"Modules.LyricsOffsetBluetoothMs"),
                                      -kLyricsOffsetLimitMs, kLyricsOffsetLimitMs);
     PublishLyricsOffsets(next.lyricsOffsetMs, next.lyricsOffsetBtMs);
-    next.lyricsCache = Wh_GetIntSetting(L"Modules.LyricsCache") != 0;
+    next.lyricsCache = host::int_setting(L"Modules.LyricsCache") != 0;
     {
         const std::wstring capStr = GetStringSettingCopy(L"Modules.LyricsCacheMaxMB");
         int capMb = 25;  // default, also used if the value is unparsable
@@ -3554,46 +2972,46 @@ void LoadSettings() {
     }
     const std::wstring hideSec = GetStringSettingWithFallback(L"Behavior.AutoHideIdleSeconds", L"Appearance.AutoHideIdleSeconds");
     next.autoHideIdleSeconds = hideSec.empty() ? 0 : _wtoi(hideSec.c_str());
-    next.unhideOnHover = Wh_GetIntSetting(L"Behavior.UnhideOnHover") != 0;
-    next.alwaysOnTop = Wh_GetIntSetting(L"Behavior.AlwaysOnTop") != 0;
-    const int localExpandOnHover = Wh_GetIntValue(L"ExpandOnHoverOverride", -1);
-    next.expandOnHover = localExpandOnHover >= 0 ? (localExpandOnHover != 0) : (Wh_GetIntSetting(L"Behavior.ExpandOnHover") != 0);
+    next.unhideOnHover = host::int_setting(L"Behavior.UnhideOnHover") != 0;
+    next.alwaysOnTop = host::int_setting(L"Behavior.AlwaysOnTop") != 0;
+    const int localExpandOnHover = host::int_value(L"ExpandOnHoverOverride", -1);
+    next.expandOnHover = localExpandOnHover >= 0 ? (localExpandOnHover != 0) : (host::int_setting(L"Behavior.ExpandOnHover") != 0);
     // Right-click toggle; stored with Wh_SetIntValue so it survives restarts.
-    next.collapsedLyrics = Wh_GetIntValue(L"CollapsedLyrics", 0) != 0;
-    next.lyricsPinnedFirst = Wh_GetIntValue(L"LyricsPinnedFirst", 0) != 0;
+    next.collapsedLyrics = host::int_value(L"CollapsedLyrics", 0) != 0;
+    next.lyricsPinnedFirst = host::int_value(L"LyricsPinnedFirst", 0) != 0;
     {
         // Right-click choice wins until the Mod Settings value is changed.
-        const int mediaTabLyricsSetting = Wh_GetIntSetting(L"Modules.MediaTabLyrics") != 0 ? 1 : 0;
-        int mediaTabLyricsOverride = Wh_GetIntValue(L"MediaTabLyricsOverride", -1);
+        const int mediaTabLyricsSetting = host::int_setting(L"Modules.MediaTabLyrics") != 0 ? 1 : 0;
+        int mediaTabLyricsOverride = host::int_value(L"MediaTabLyricsOverride", -1);
         if (mediaTabLyricsOverride >= 0 &&
-            Wh_GetIntValue(L"MediaTabLyricsOverrideBase", -1) != mediaTabLyricsSetting) {
-            Wh_SetIntValue(L"MediaTabLyricsOverride", -1);
+            host::int_value(L"MediaTabLyricsOverrideBase", -1) != mediaTabLyricsSetting) {
+            host::set_int_value(L"MediaTabLyricsOverride", -1);
             mediaTabLyricsOverride = -1;
         }
         next.mediaTabLyrics = mediaTabLyricsOverride >= 0 ? (mediaTabLyricsOverride != 0)
                                                           : (mediaTabLyricsSetting != 0);
     }
-    next.autoDpiScale = Wh_GetIntSetting(L"Appearance.AutoDpiScale") != 0;
-    next.offsetX = Wh_GetIntSetting(L"Appearance.OffsetX");
-    next.offsetY = Wh_GetIntSetting(L"Appearance.OffsetY");
-    next.separateExpandedOffsetY = Wh_GetIntSetting(L"Appearance.SeparateExpandedOffsetY") != 0;
-    next.offsetYExpanded = Wh_GetIntSetting(L"Appearance.OffsetYExpanded");
+    next.autoDpiScale = host::int_setting(L"Appearance.AutoDpiScale") != 0;
+    next.offsetX = host::int_setting(L"Appearance.OffsetX");
+    next.offsetY = host::int_setting(L"Appearance.OffsetY");
+    next.separateExpandedOffsetY = host::int_setting(L"Appearance.SeparateExpandedOffsetY") != 0;
+    next.offsetYExpanded = host::int_setting(L"Appearance.OffsetYExpanded");
 
 
     std::wstring shapeStr = GetStringSettingCopy(L"Appearance.ShapeStyle");
     static std::wstring s_lastConfiguredShape = L"";
     if (!shapeStr.empty() && shapeStr != s_lastConfiguredShape) {
         s_lastConfiguredShape = shapeStr;
-        Wh_SetIntValue(L"W11StyleOverride", -1);
-        Wh_SetIntValue(L"NotchStyleOverride", -1);
+        host::set_int_value(L"W11StyleOverride", -1);
+        host::set_int_value(L"NotchStyleOverride", -1);
     }
     bool baseW11 = EqualsNoCase(shapeStr, L"w11");
     bool baseNotch = EqualsNoCase(shapeStr, L"notch");
 
-    const int localW11Style = Wh_GetIntValue(L"W11StyleOverride", -1);
+    const int localW11Style = host::int_value(L"W11StyleOverride", -1);
     next.w11Style = localW11Style >= 0 ? (localW11Style != 0) : baseW11;
 
-    const int localNotchStyle = Wh_GetIntValue(L"NotchStyleOverride", -1);
+    const int localNotchStyle = host::int_value(L"NotchStyleOverride", -1);
     next.notchStyle = localNotchStyle >= 0 ? (localNotchStyle != 0) : baseNotch;
 
     // A bottom-anchored island cannot be a top-edge macOS notch.
@@ -3668,8 +3086,8 @@ void LoadSettings() {
     // The active palette is persisted as an integer so the right-click menu can
     // change it without rewriting the settings file. Migrate the old key across
     // once, since the integers were renumbered when the palettes changed.
-    if (Wh_GetIntValue(kThemeValueName, -1) < 0) {
-        const int legacy = Wh_GetIntValue(kLegacyThemeValueName, -1);
+    if (host::int_value(kThemeValueName, -1) < 0) {
+        const int legacy = host::int_value(kLegacyThemeValueName, -1);
         if (legacy >= 0) {
             int migrated;
             switch (legacy) {
@@ -3680,7 +3098,7 @@ void LoadSettings() {
                 case 4:  migrated = 1; break;                  // Fluent Design -> Graphite
                 default: migrated = kCustomThemeIndex; break;   // out of range meant Custom
             }
-            Wh_SetIntValue(kThemeValueName, migrated);
+            host::set_int_value(kThemeValueName, migrated);
         }
     }
 
@@ -3689,11 +3107,11 @@ void LoadSettings() {
         s_lastConfiguredPreset = themePresetStr;
         const int fromSettings = ThemeIndexFromId(themePresetStr);
         if (fromSettings >= 0) {
-            Wh_SetIntValue(kThemeValueName, fromSettings);
+            host::set_int_value(kThemeValueName, fromSettings);
         }
     }
 
-    const int theme = Wh_GetIntValue(kThemeValueName, -1);
+    const int theme = host::int_value(kThemeValueName, -1);
     if (theme >= 0 && theme < kCustomThemeIndex) {
         next.themePreset = static_cast<ThemePreset>(theme);
         applyPreset(next, theme);
@@ -3722,10 +3140,10 @@ void LoadSettings() {
         next.pillOpacity = 0.88f;
     }
 
-    next.borderMergedMode = Wh_GetIntSetting(L"Appearance.BorderMergedMode") != 0;
-    next.autoHideFullscreen = Wh_GetIntSetting(L"Behavior.AutoHideFullscreen") != 0;
-    next.hardwareMonitorModule = Wh_GetIntSetting(L"Modules.HardwareMonitorModule") != 0;
-    next.githubModule = Wh_GetIntSetting(L"Modules.GitHubModule") != 0;
+    next.borderMergedMode = host::int_setting(L"Appearance.BorderMergedMode") != 0;
+    next.autoHideFullscreen = host::int_setting(L"Behavior.AutoHideFullscreen") != 0;
+    next.hardwareMonitorModule = host::int_setting(L"Modules.HardwareMonitorModule") != 0;
+    next.githubModule = host::int_setting(L"Modules.GitHubModule") != 0;
     const std::wstring borderModeStr = GetStringSettingCopy(L"Themes.ContourBorderMode");
     if (EqualsNoCase(borderModeStr, L"borderless")) {
         next.contourBorderMode = ContourBorderMode::Borderless;
@@ -3740,14 +3158,14 @@ void LoadSettings() {
         next.contourBorderEnabled = true;  // no such setting; the mode dropdown drives this
         next.contourBorderMode = next.contourBorderEnabled ? ContourBorderMode::Default : ContourBorderMode::Borderless;
     }
-    next.clockAccentGlow = Wh_GetIntSetting(L"Themes.ClockAccentGlow") != 0;
+    next.clockAccentGlow = host::int_setting(L"Themes.ClockAccentGlow") != 0;
     bool settingsChangedWhileHidden = (g_autoHiddenParked.load() || g_manuallyHidden.load());
     bool unhideRequested = (next.autoHideIdleSeconds == 0) ||
                            (next.unhideOnHover && !g_settings.unhideOnHover);
     if (unhideRequested || (settingsChangedWhileHidden && next.autoHideIdleSeconds == 0)) {
         g_autoHiddenParked = false;
         g_manuallyHidden = false;
-        Wh_SetIntValue(L"ManuallyHidden", 0);
+        host::set_int_value(L"ManuallyHidden", 0);
         g_hotkeyUnhideUntil.store(NowSeconds() + (next.autoHideIdleSeconds > 0 ? next.autoHideIdleSeconds : 6.0));
         if (g_hwnd) {
             ShowWindow(g_hwnd, SW_SHOWNOACTIVATE);
@@ -3756,7 +3174,7 @@ void LoadSettings() {
     } else if (settingsChangedWhileHidden && next.unhideOnHover) {
         g_autoHiddenParked = false;
         g_manuallyHidden = false;
-        Wh_SetIntValue(L"ManuallyHidden", 0);
+        host::set_int_value(L"ManuallyHidden", 0);
         g_hotkeyUnhideUntil.store(NowSeconds() + (next.autoHideIdleSeconds > 0 ? next.autoHideIdleSeconds : 6.0));
         if (g_hwnd) {
             ShowWindow(g_hwnd, SW_SHOWNOACTIVATE);
@@ -3765,9 +3183,9 @@ void LoadSettings() {
     }
 
     // Privacy Indicators: unified reading with complete fallback to legacy keys
-    next.privacyDots = Wh_GetIntSetting(L"Indicators.PrivacyDots") != 0;
-    next.privacyDotsMic = Wh_GetIntSetting(L"Indicators.PrivacyDotsMic") != 0;
-    next.privacyDotsCam = Wh_GetIntSetting(L"Indicators.PrivacyDotsCam") != 0;
+    next.privacyDots = host::int_setting(L"Indicators.PrivacyDots") != 0;
+    next.privacyDotsMic = host::int_setting(L"Indicators.PrivacyDotsMic") != 0;
+    next.privacyDotsCam = host::int_setting(L"Indicators.PrivacyDotsCam") != 0;
     next.privacyDotsPulse = true;  // no such setting; pulsing is always on
 
     std::wstring micHexStr = GetStringSettingWithFallback(L"Indicators.PrivacyDotsMicHex", L"Indicators.MicDotHex", L"Modules.PrivacyDotsMicHex");
@@ -3783,7 +3201,7 @@ void LoadSettings() {
     next.camDotColor = next.privacyDotsCamHex;
 
     g_pinnedExpanded.store(false);
-    Wh_SetIntValue(L"PinnedExpanded", 0);
+    host::set_int_value(L"PinnedExpanded", 0);
 
     // Compare-then-publish under one lock so the change flags describe exactly
     // the transition we are about to commit. Two LoadSettings() calls can run
@@ -4308,7 +3726,7 @@ void ApplyHideShowHotkey() {
             g_registeredHotkeyVk = g_settings.hideShowVk;
             g_hotkeyRegistered = true;
         } else {
-            Wh_Log(L"Failed to register hide/show hotkey (error %lu).", GetLastError());
+            host::log(L"Failed to register hide/show hotkey (error %lu).", GetLastError());
         }
     }
 }
@@ -4992,10 +4410,10 @@ HICON getProcessIcon(DWORD pid) {
         }
 
         HICON large = nullptr;
-        HICON small = nullptr;
-        if (ExtractIconExW(path.c_str(), 0, &large, &small, 1) > 0) {
-            if (small) {
-                DestroyIcon(small);
+        HICON smallIcon = nullptr;
+        if (ExtractIconExW(path.c_str(), 0, &large, &smallIcon, 1) > 0) {
+            if (smallIcon) {
+                DestroyIcon(smallIcon);
             }
             if (large) {
                 return large;
@@ -5966,7 +5384,7 @@ DWORD WINAPI MediaThreadProc(void*) {
             }
         } catch (...) {
             if (!loggedUnavailable) {
-                Wh_Log(L"WinRT media session unavailable; media module will fall back to idle.");
+                host::log(L"WinRT media session unavailable; media module will fall back to idle.");
                 loggedUnavailable = true;
             }
         }
@@ -6149,7 +5567,7 @@ bool should_run()
 
 void sync_thread()
 {
-    enabled = Wh_GetIntSetting(L"Modules.WindowsToastListener") != 0;
+    enabled = host::int_setting(L"Modules.WindowsToastListener") != 0;
 
     if (!enabled.load() || !g_running.load() || !g_stopEvent || WaitForSingleObject(g_stopEvent, 0) != WAIT_TIMEOUT)
     {
@@ -6201,7 +5619,7 @@ DWORD WINAPI NotificationThreadProc(void*) {
         uint64_t msSinceProcessStart = (st.QuadPart - ct.QuadPart) / 10000;
         if (msSinceProcessStart < 30000) {
             DWORD waitTime = 30000 - (DWORD)msSinceProcessStart;
-            Wh_Log(L"Process started recently. Delaying UserNotificationListener init by %d ms to let UWP subsystem load...", waitTime);
+            host::log(L"Process started recently. Delaying UserNotificationListener init by %d ms to let UWP subsystem load...", waitTime);
             WaitForSingleObject(g_stopEvent, waitTime);
         }
     }
@@ -6216,12 +5634,12 @@ DWORD WINAPI NotificationThreadProc(void*) {
                         // Actionable: this is a Windows privacy switch, not a
                         // mod setting, and it is the usual reason the module
                         // stays silent when everything else is configured.
-                        Wh_Log(L"Notification listener permission DENIED by Windows. "
+                        host::log(L"Notification listener permission DENIED by Windows. "
                                L"Enable Settings > Privacy & security > Notifications > "
                                L"\"Let apps access your notifications\", then restart the mod. "
                                L"Retrying meanwhile...");
                     } else {
-                        Wh_Log(L"Notification listener permission not granted or UWP subsystem not ready on boot (status: %d); retrying connection loop...", (int)access);
+                        host::log(L"Notification listener permission not granted or UWP subsystem not ready on boot (status: %d); retrying connection loop...", (int)access);
                     }
                     accessLogged = true;
                 }
@@ -6230,7 +5648,7 @@ DWORD WINAPI NotificationThreadProc(void*) {
             }
 
             if (accessLogged) {
-                Wh_Log(L"WinRT UserNotificationListener successfully connected.");
+                host::log(L"WinRT UserNotificationListener successfully connected.");
                 accessLogged = false;
             }
 
@@ -6244,7 +5662,7 @@ DWORD WINAPI NotificationThreadProc(void*) {
                     }
 
                     if (firstPoll) {
-                        Wh_Log(L"Notifications: listener ready, %u existing toasts ignored, DnD=%d",
+                        host::log(L"Notifications: listener ready, %u existing toasts ignored, DnD=%d",
                                notifications.Size(), (int)g_isDnDActive.load());
                         seenIds = std::move(currentIds);
                         firstPoll = false;
@@ -6278,9 +5696,9 @@ DWORD WINAPI NotificationThreadProc(void*) {
                                 displayInfo = appInfo.DisplayInfo();
                                 snapshot.app = displayInfo.DisplayName().c_str();
                             } catch (const winrt::hresult_error& appInfoError) {
-                                Wh_Log(L"Notifications: app info failed (0x%08X)", static_cast<unsigned>(appInfoError.to_abi()));
+                                host::log(L"Notifications: app info failed (0x%08X)", static_cast<unsigned>(appInfoError.to_abi()));
                             } catch (...) {
-                                Wh_Log(L"Notifications: app info failed (unknown)");
+                                host::log(L"Notifications: app info failed (unknown)");
                             }
 
                             // Filter out noisy background console/script engines like PowerShell that fire system toasts unexpectedly
@@ -6367,9 +5785,9 @@ DWORD WINAPI NotificationThreadProc(void*) {
                             }
                             TriggerNudge();
                         } catch (const winrt::hresult_error& nex) {
-                            Wh_Log(L"Failed to parse a notification (0x%08X); skipping.", static_cast<unsigned>(nex.to_abi()));
+                            host::log(L"Failed to parse a notification (0x%08X); skipping.", static_cast<unsigned>(nex.to_abi()));
                         } catch (...) {
-                            Wh_Log(L"Failed to parse a notification; skipping.");
+                            host::log(L"Failed to parse a notification; skipping.");
                         }
                     }
 
@@ -6378,16 +5796,16 @@ DWORD WINAPI NotificationThreadProc(void*) {
                     const HRESULT hr = ex.to_abi();
                     if (hr == static_cast<HRESULT>(0x80004001) || hr == static_cast<HRESULT>(0x80040154)) { // E_NOTIMPL or REGDB_E_CLASSNOTREG
                         if (!accessLogged) {
-                            Wh_Log(L"Notification listener UWP subsystem not fully ready (0x%08X). Retrying in background...", hr);
+                            host::log(L"Notification listener UWP subsystem not fully ready (0x%08X). Retrying in background...", hr);
                             accessLogged = true;
                         }
                     } else {
-                        Wh_Log(L"NotificationThreadProc inner loop WinRT error: %s (0x%08X); reconnecting...", ex.message().c_str(), hr);
+                        host::log(L"NotificationThreadProc inner loop WinRT error: %s (0x%08X); reconnecting...", ex.message().c_str(), hr);
                     }
                     WaitForSingleObject(g_stopEvent, 3000);
                     break;
                 } catch (...) {
-                    Wh_Log(L"NotificationThreadProc inner loop unknown exception; reconnecting...");
+                    host::log(L"NotificationThreadProc inner loop unknown exception; reconnecting...");
                     WaitForSingleObject(g_stopEvent, 3000);
                     break;
                 }
@@ -6396,13 +5814,13 @@ DWORD WINAPI NotificationThreadProc(void*) {
             }
         } catch (const winrt::hresult_error& ex) {
             if (!accessLogged) {
-                Wh_Log(L"NotificationThreadProc connection error: %s (0x%08X). Retrying in 3s...", ex.message().c_str(), ex.to_abi());
+                host::log(L"NotificationThreadProc connection error: %s (0x%08X). Retrying in 3s...", ex.message().c_str(), ex.to_abi());
                 accessLogged = true;
             }
             WaitForSingleObject(g_stopEvent, 3000);
         } catch (...) {
             if (!accessLogged) {
-                Wh_Log(L"NotificationThreadProc unknown connection exception. Retrying in 3s...");
+                host::log(L"NotificationThreadProc unknown connection exception. Retrying in 3s...");
                 accessLogged = true;
             }
             WaitForSingleObject(g_stopEvent, 3000);
@@ -6535,14 +5953,14 @@ static const DEVPROPKEY PKEY_Bluetooth_Battery = {
 
 int TryReadClassicBluetoothBatteryPercent(uint64_t address) {
     if (!address) {
-        Wh_Log(L"BT battery: no address to search for.");
+        host::log(L"BT battery: no address to search for.");
         return -1;
     }
 
     wchar_t addrHex[16] = {};
     swprintf_s(addrHex, L"%012llX", static_cast<unsigned long long>(address));
     const std::wstring addrLower = ToLowerCopy(addrHex);
-    Wh_Log(L"BT battery: searching devnodes for address %s", addrLower.c_str());
+    host::log(L"BT battery: searching devnodes for address %s", addrLower.c_str());
 
     // Enumerate everything the Bluetooth bus driver (BTHENUM) exposes,
     // regardless of which device setup class it landed in. This is broader
@@ -6553,10 +5971,10 @@ int TryReadClassicBluetoothBatteryPercent(uint64_t address) {
         nullptr, nullptr, nullptr);
 
     if (deviceInfoSet == INVALID_HANDLE_VALUE) {
-        Wh_Log(L"BT battery: SetupDiGetClassDevsExW(BTHENUM) failed (0x%lx), falling back to class GUID.", GetLastError());
+        host::log(L"BT battery: SetupDiGetClassDevsExW(BTHENUM) failed (0x%lx), falling back to class GUID.", GetLastError());
         deviceInfoSet = SetupDiGetClassDevsW(&kGuidDevClassBluetooth, nullptr, nullptr, DIGCF_PRESENT);
         if (deviceInfoSet == INVALID_HANDLE_VALUE) {
-            Wh_Log(L"BT battery: fallback enumeration also failed.");
+            host::log(L"BT battery: fallback enumeration also failed.");
             return -1;
         }
     }
@@ -6578,25 +5996,25 @@ int TryReadClassicBluetoothBatteryPercent(uint64_t address) {
         }
 
         ++matchedCount;
-        Wh_Log(L"BT battery: matched devnode %s", instanceId);
+        host::log(L"BT battery: matched devnode %s", instanceId);
 
         DEVPROPTYPE propType = 0;
         BYTE battery = 0;
         DWORD required = 0;
         if (SetupDiGetDevicePropertyW(deviceInfoSet, &devInfoData, &PKEY_Bluetooth_Battery,
                                       &propType, &battery, sizeof(battery), &required, 0)) {
-            Wh_Log(L"BT battery: property present on this devnode, type=%lu value=%u", propType, battery);
+            host::log(L"BT battery: property present on this devnode, type=%lu value=%u", propType, battery);
             if (propType == DEVPROP_TYPE_BYTE && battery != 0xFF) {
                 result = ClampInt(static_cast<int>(battery), 0, 100);
                 break;
             }
         } else {
-            Wh_Log(L"BT battery: PKEY_Bluetooth_Battery not set on this devnode yet (error 0x%lx).", GetLastError());
+            host::log(L"BT battery: PKEY_Bluetooth_Battery not set on this devnode yet (error 0x%lx).", GetLastError());
         }
     }
 
     if (matchedCount == 0) {
-        Wh_Log(L"BT battery: no devnode instance ID contained address %s.", addrLower.c_str());
+        host::log(L"BT battery: no devnode instance ID contained address %s.", addrLower.c_str());
     }
 
     SetupDiDestroyDeviceInfoList(deviceInfoSet);
@@ -6700,11 +6118,11 @@ void HandleBluetoothConnected(
     if (category == BluetoothDeviceCategory::Phone || !IsBluetoothCardAllowed(name)) {
         // Fork: see HandleBluetoothDisconnected; phones and devices outside the
         // allow list are not shown.
-        Wh_Log(L"Bluetooth: connected (card suppressed) - %s", name.c_str());
+        host::log(L"Bluetooth: connected (card suppressed) - %s", name.c_str());
         return;
     }
 
-    Wh_Log(L"Bluetooth: connected - %s", name.c_str());
+    host::log(L"Bluetooth: connected - %s", name.c_str());
 
     const uint64_t myGeneration = ++g_bluetoothConnectGeneration;
     const std::wstring deviceId = info.Id().c_str();
@@ -6745,7 +6163,7 @@ void HandleBluetoothConnected(
                     if (g_bluetoothConnectGeneration.load() == myGeneration &&
                         g_state.bluetoothDevice.connected) {
                         g_state.bluetoothDevice.batteryPercent = battery;
-                        Wh_Log(L"Bluetooth: battery arrived late (%d%%) on retry %d.", battery, attempt + 1);
+                        host::log(L"Bluetooth: battery arrived late (%d%%) on retry %d.", battery, attempt + 1);
                     }
                     TriggerNudge();
                     break;
@@ -6769,7 +6187,7 @@ void HandleBluetoothDisconnected(
         // device can't pop a nameless "Bluetooth Device" card.
         if (it == cache.end() || it->second.category == BluetoothDeviceCategory::Phone ||
             !IsBluetoothCardAllowed(it->second.name)) {
-            Wh_Log(L"Bluetooth: disconnected (card suppressed) - %s",
+            host::log(L"Bluetooth: disconnected (card suppressed) - %s",
                    it != cache.end() ? it->second.name.c_str() : L"(unknown)");
             return;
         }
@@ -6801,7 +6219,7 @@ void HandleBluetoothDisconnected(
         name = L"Bluetooth Device";
     }
 
-    Wh_Log(L"Bluetooth: disconnected - %s", name.c_str());
+    host::log(L"Bluetooth: disconnected - %s", name.c_str());
 
     BluetoothDeviceSnapshot snapshot;
     snapshot.active = true;
@@ -6871,9 +6289,9 @@ DWORD WINAPI BluetoothThreadProc(void*) {
 
             watcher.Start();
             watchers.push_back(watcher);
-            Wh_Log(L"Bluetooth: %s watcher started.", label);
+            host::log(L"Bluetooth: %s watcher started.", label);
         } catch (...) {
-            Wh_Log(L"Bluetooth: failed to start %s watcher.", label);
+            host::log(L"Bluetooth: failed to start %s watcher.", label);
         }
     };
 
@@ -7207,7 +6625,7 @@ std::string HttpGet(const wchar_t* host, const wchar_t* path, bool https = true)
     std::string response;
     HINTERNET hSession = WinHttpOpen(L"DynamicIsland/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     if (!hSession) {
-        Wh_Log(L"Weather HttpGet: WinHttpOpen failed with error %lu", GetLastError());
+        host::log(L"Weather HttpGet: WinHttpOpen failed with error %lu", GetLastError());
         return response;
     }
 
@@ -7226,20 +6644,20 @@ std::string HttpGet(const wchar_t* host, const wchar_t* path, bool https = true)
                             buffer[downloaded] = '\0';
                             response.append(buffer.data());
                         } else {
-                            Wh_Log(L"Weather HttpGet: WinHttpReadData failed with error %lu", GetLastError());
+                            host::log(L"Weather HttpGet: WinHttpReadData failed with error %lu", GetLastError());
                         }
                     }
                 } while (size > 0);
             } else {
-                Wh_Log(L"Weather HttpGet: WinHttpSendRequest/ReceiveResponse failed with error %lu", GetLastError());
+                host::log(L"Weather HttpGet: WinHttpSendRequest/ReceiveResponse failed with error %lu", GetLastError());
             }
             WinHttpCloseHandle(hRequest);
         } else {
-            Wh_Log(L"Weather HttpGet: WinHttpOpenRequest failed with error %lu", GetLastError());
+            host::log(L"Weather HttpGet: WinHttpOpenRequest failed with error %lu", GetLastError());
         }
         WinHttpCloseHandle(hConnect);
     } else {
-        Wh_Log(L"Weather HttpGet: WinHttpConnect failed with error %lu", GetLastError());
+        host::log(L"Weather HttpGet: WinHttpConnect failed with error %lu", GetLastError());
     }
     WinHttpCloseHandle(hSession);
     return response;
@@ -7403,7 +6821,7 @@ std::vector<WeatherCityEntry> ParseWeatherCities(const std::wstring& spec) {
         const double lon = wcstod(city.longitude.c_str(), &lonEnd);
         if (city.name.empty() || city.latitude.empty() || city.longitude.empty() || *latEnd != L'\0' ||
             *lonEnd != L'\0' || lat < -90.0 || lat > 90.0 || lon < -180.0 || lon > 180.0) {
-            Wh_Log(L"Weather: ignoring invalid city entry: %s", item.c_str());
+            host::log(L"Weather: ignoring invalid city entry: %s", item.c_str());
             continue;
         }
         cities.push_back(std::move(city));
@@ -7422,11 +6840,11 @@ static constexpr UINT kWeatherCityAutoMenuId = 96;  // free slot between cities 
 std::atomic<int> g_autoWeatherCityIndex{-1};        // last nearest city found, -1 = unknown
 
 bool IsWeatherCityAuto() {
-    return Wh_GetIntValue(L"WeatherCityIndex", kWeatherCityAuto) == kWeatherCityAuto;
+    return host::int_value(L"WeatherCityIndex", kWeatherCityAuto) == kWeatherCityAuto;
 }
 
 int GetActiveWeatherCityIndex(size_t cityCount) {
-    int index = Wh_GetIntValue(L"WeatherCityIndex", kWeatherCityAuto);
+    int index = host::int_value(L"WeatherCityIndex", kWeatherCityAuto);
     if (index == kWeatherCityAuto) {
         index = g_autoWeatherCityIndex.load();
     }
@@ -7457,7 +6875,7 @@ int FindNearestWeatherCity(const std::vector<WeatherCityEntry>& cities) {
         if (response.empty() || !ReadJsonDouble(response, provider.latKey, lat) ||
             !ReadJsonDouble(response, provider.lonKey, lon) || lat < -90.0 || lat > 90.0 ||
             lon < -180.0 || lon > 180.0 || (lat == 0.0 && lon == 0.0)) {
-            Wh_Log(L"Weather: location lookup via %s failed", provider.host);
+            host::log(L"Weather: location lookup via %s failed", provider.host);
             continue;
         }
         int best = -1;
@@ -7476,7 +6894,7 @@ int FindNearestWeatherCity(const std::vector<WeatherCityEntry>& cities) {
                 bestDistance = a;
             }
         }
-        Wh_Log(L"Weather: location %.3f,%.3f -> nearest city %s", lat, lon,
+        host::log(L"Weather: location %.3f,%.3f -> nearest city %s", lat, lon,
                best >= 0 ? cities[best].name.c_str() : L"(none)");
         return best;
     }
@@ -7563,7 +6981,7 @@ DWORD WINAPI WeatherThreadProc(void*) {
         bool weatherCommitted = false;
 
         if (cities.empty()) {
-            Wh_Log(L"Weather: no valid city in Modules.WeatherCities.");
+            host::log(L"Weather: no valid city in Modules.WeatherCities.");
         } else {
             if (IsWeatherCityAuto()) {
                 // Re-check where the PC is on every refresh (and after resume);
@@ -7590,7 +7008,7 @@ DWORD WINAPI WeatherThreadProc(void*) {
                 path += L"&temperature_unit=fahrenheit&wind_speed_unit=mph";
             }
 
-            Wh_Log(L"Weather: requesting Open-Meteo for %s", city.name.c_str());
+            host::log(L"Weather: requesting Open-Meteo for %s", city.name.c_str());
             const std::string response = HttpGet(L"api.open-meteo.com", path.c_str(), true);
             const char* current = response.empty() ? nullptr : strstr(response.c_str(), "\"current\":{");
 
@@ -7628,9 +7046,9 @@ DWORD WINAPI WeatherThreadProc(void*) {
                 g_state.weather.feelsLike = hasFeels ? buffer : L"--";
                 g_state.weather.lastUpdated = NowSeconds();
                 weatherCommitted = true;
-                Wh_Log(L"Weather: %s %.1f, %s", city.name.c_str(), temp, desc.c_str());
+                host::log(L"Weather: %s %.1f, %s", city.name.c_str(), temp, desc.c_str());
             } else {
-                Wh_Log(L"Weather: no usable reading from Open-Meteo, keeping previous data.");
+                host::log(L"Weather: no usable reading from Open-Meteo, keeping previous data.");
             }
         }
 
@@ -7782,9 +7200,9 @@ DWORD WINAPI GitHubThreadProc(void*) {
             if (!days.empty()) {
                 CommitGitHubSnapshot(user, days);
                 committed = true;
-                Wh_Log(L"GitHub: %zu days for %s", days.size(), user.c_str());
+                host::log(L"GitHub: %zu days for %s", days.size(), user.c_str());
             } else {
-                Wh_Log(L"GitHub: no calendar in response, keeping previous data.");
+                host::log(L"GitHub: no calendar in response, keeping previous data.");
             }
         }
 
@@ -7803,7 +7221,7 @@ DWORD WINAPI GitHubThreadProc(void*) {
 // ── Lyrics (LRCLIB, https://lrclib.net) ──────────────────────────────────────
 // User-Agent sent to LRCLIB.
 constexpr wchar_t kLyricsUserAgent[] =
-    L"DynamicIslandForWindows/" WH_MOD_VERSION L" (https://github.com/devcode90/Dynamic-Island-for-Windows)";
+    L"DynamicIslandForWindows/" ISLAND_VERSION L" (https://github.com/devcode90/Dynamic-Island-for-Windows)";
 
 bool IsUrlSafeChar(unsigned char c) {
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
@@ -8174,7 +7592,7 @@ const std::wstring& CacheDir(bool create) {
     if (!resolved) {
         resolved = true;
         wchar_t storagePath[MAX_PATH] = {};
-        if (Wh_GetModStoragePath(storagePath, ARRAYSIZE(storagePath))) {
+        if (host::storage_path(storagePath, ARRAYSIZE(storagePath))) {
             dir = std::wstring(storagePath) + L"\\lyrics";
         }
     }
@@ -8516,7 +7934,7 @@ void WriteEntryToDisk(const Entry& e, const std::wstring& title, const std::wstr
     const uint64_t oldSize = hadOld ? ((static_cast<uint64_t>(old.nFileSizeHigh) << 32) | old.nFileSizeLow) : 0;
 
     if (!WriteFileAtomic(path, data)) {
-        Wh_Log(L"Lyrics cache: could not write %s (error %lu).", path.c_str(), GetLastError());
+        host::log(L"Lyrics cache: could not write %s (error %lu).", path.c_str(), GetLastError());
         return;
     }
     if (hadOld) {
@@ -8670,7 +8088,7 @@ void ClearAll() noexcept {
         g_lyricsCacheBytes.store(0, std::memory_order_relaxed);
         g_scannedOnce = false;  // next housekeeping pass rescans for exact numbers
         g_cleanupDue = false;
-        Wh_Log(L"Lyrics cache cleared.");
+        host::log(L"Lyrics cache cleared.");
     } catch (...) {
     }
 }
@@ -9078,7 +8496,7 @@ DWORD WINAPI LyricsThreadProc(void*) {
         {
             LyricsSnapshot cached;
             if (LyricsCache::Lookup(cacheKeys, diskCacheOn, title, artist, &cached)) {
-                Wh_Log(L"Lyrics: cache hit for %s - %s", artist.c_str(), title.c_str());
+                host::log(L"Lyrics: cache hit for %s - %s", artist.c_str(), title.c_str());
                 std::lock_guard lock(g_stateMutex);
                 if (g_state.media.title == title && g_state.media.artist == artist) {
                     g_state.lyrics = std::move(cached);
@@ -9096,7 +8514,7 @@ DWORD WINAPI LyricsThreadProc(void*) {
         }
 
         const int durationSec = endTicks > 0 ? static_cast<int>(endTicks / 10000000.0 + 0.5) : 0;
-        Wh_Log(L"Lyrics: requesting %s - %s (attempt %d)", artist.c_str(), title.c_str(), failCount + 1);
+        host::log(L"Lyrics: requesting %s - %s (attempt %d)", artist.c_str(), title.c_str(), failCount + 1);
 
         LyricsPick pick;
         bool definitive = true;
@@ -9115,7 +8533,7 @@ DWORD WINAPI LyricsThreadProc(void*) {
         } else if (definitive) {
             snap.notFound = true;   // LRCLIB really has nothing for this track
             failCount = 0;
-            Wh_Log(L"Lyrics: genuinely no lyrics for %s - %s", artist.c_str(), title.c_str());
+            host::log(L"Lyrics: genuinely no lyrics for %s - %s", artist.c_str(), title.c_str());
         } else {
             // Network / 429 / 5xx: NOT "not found". Back off and retry.
             ++failCount;
@@ -9123,7 +8541,7 @@ DWORD WINAPI LyricsThreadProc(void*) {
             retryAtSec = NowSeconds() + kBackoff[std::min<size_t>(failCount - 1, 3)];
             snap.fetching = (failCount < 3);
             snap.notFound = (failCount >= 3);
-            Wh_Log(L"Lyrics: request FAILED for %s - %s (fail #%d), retrying later.",
+            host::log(L"Lyrics: request FAILED for %s - %s (fail #%d), retrying later.",
                    artist.c_str(), title.c_str(), failCount);
         }
 
@@ -9254,7 +8672,7 @@ DWORD WINAPI AudioThreadProc(void*) {
                     mediaPlayingNow = g_state.media.playing;
                 }
                 if (mediaPlayingNow && (now - lastPacketTime) > 5.0) {
-                    Wh_Log(L"Audio loopback capture appears stalled while media is playing; reconnecting...");
+                    host::log(L"Audio loopback capture appears stalled while media is playing; reconnecting...");
                     break;
                 }
             }
@@ -9538,7 +8956,7 @@ void UpdateDefaultOutputBluetoothFlag(IMMDevice* device) {
         static bool s_loggedReadFailure = false;
         if (!s_loggedReadFailure) {
             s_loggedReadFailure = true;
-            Wh_Log(L"Lyrics sync: could not read the output's enumerator name; treating it as non-Bluetooth.");
+            host::log(L"Lyrics sync: could not read the output's enumerator name; treating it as non-Bluetooth.");
         }
     }
 
@@ -9546,7 +8964,7 @@ void UpdateDefaultOutputBluetoothFlag(IMMDevice* device) {
     const bool changed = g_defaultOutputIsBluetooth.exchange(isBluetooth, std::memory_order_relaxed) != isBluetooth;
     if (changed || !s_logged) {
         s_logged = true;
-        Wh_Log(L"Lyrics sync: default audio output is %s.", isBluetooth ? L"Bluetooth" : L"not Bluetooth");
+        host::log(L"Lyrics sync: default audio output is %s.", isBluetooth ? L"Bluetooth" : L"not Bluetooth");
     }
     if (changed) {
         g_layoutDirty = true;
@@ -9722,7 +9140,7 @@ int ReadPanelBrightness(bool onAc) {
                           OPEN_EXISTING, 0, nullptr);
     }
     if (lcd == INVALID_HANDLE_VALUE) {
-        Wh_Log(L"Brightness: cannot open the LCD device (error %lu), retrying in 30s", GetLastError());
+        host::log(L"Brightness: cannot open the LCD device (error %lu), retrying in 30s", GetLastError());
         s_retryAt = now + 30.0;
         return -1;
     }
@@ -9734,7 +9152,7 @@ int ReadPanelBrightness(bool onAc) {
     const DWORD error = ok ? 0 : GetLastError();
     CloseHandle(lcd);
     if (!ok) {
-        Wh_Log(L"Brightness: query failed (error %lu, %lu bytes), retrying in 30s", error, returned);
+        host::log(L"Brightness: query failed (error %lu, %lu bytes), retrying in 30s", error, returned);
         s_retryAt = now + 30.0;
         return -1;
     }
@@ -9742,7 +9160,7 @@ int ReadPanelBrightness(bool onAc) {
     static bool s_loggedFirst = false;
     if (!s_loggedFirst) {
         s_loggedFirst = true;
-        Wh_Log(L"Brightness: policy=%d ac=%d dc=%d", db.policy, db.acBrightness, db.dcBrightness);
+        host::log(L"Brightness: policy=%d ac=%d dc=%d", db.policy, db.acBrightness, db.dcBrightness);
     }
     // Pick the level for the current power source, falling back to the other one
     // when the driver only reports one of them.
@@ -9854,7 +9272,7 @@ bool ConsentStoreEntryInUse(HKEY key) {
     // be an indicator that silently stops working with nothing to explain it.
     static std::atomic<bool> loggedMissingStart{false};
     if (!loggedMissingStart.exchange(true)) {
-        Wh_Log(L"Privacy indicator: a ConsentStore entry has LastUsedTimeStop=0 but no "
+        host::log(L"Privacy indicator: a ConsentStore entry has LastUsedTimeStop=0 but no "
                L"readable REG_QWORD LastUsedTimeStart; treating it as not in use.");
     }
     return false;
@@ -9935,7 +9353,7 @@ bool IsCameraActive(std::wstring* outAppName = nullptr) {
 }
 
 void UpdateProgressSnapshot() {
-    const int progress = Wh_GetIntValue(L"ProgressPercent", -1);
+    const int progress = host::int_value(L"ProgressPercent", -1);
     std::lock_guard lock(g_stateMutex);
     g_state.progress.active = progress >= 0 && progress <= 100;
     g_state.progress.percent = ClampInt(progress, 0, 100);
@@ -10416,7 +9834,7 @@ int LookupRowAtContentPoint(const MediaContentPoint& pt, int rowCount, bool head
 
 // Wikimedia asks API clients to send a descriptive User-Agent with contact info.
 constexpr wchar_t kLookupUserAgent[] =
-    L"DynamicIslandForWindows/" WH_MOD_VERSION L" (https://github.com/devcode90/Dynamic-Island-for-Windows) QuickLookup";
+    L"DynamicIslandForWindows/" ISLAND_VERSION L" (https://github.com/devcode90/Dynamic-Island-for-Windows) QuickLookup";
 
 // Bumped for every new request AND when the card is dismissed. A worker only
 // publishes if its id is still current, so a slow reply can never resurrect a card
@@ -11232,7 +10650,7 @@ void SubmitLookup(const std::wstring& rawText) {
     const uint64_t id = PublishNewLookup(snap, false);
 
     // The query text is deliberately not logged.
-    Wh_Log(L"Quick Lookup: request started.");
+    host::log(L"Quick Lookup: request started.");
     std::thread([id, query, key]() {
         try {
             QuickLookup::Result result;
@@ -11241,9 +10659,9 @@ void SubmitLookup(const std::wstring& rawText) {
                 QuickLookup::CacheStore(key, outcome == QuickLookup::Outcome::Found, result);
             }
             QuickLookup::ApplyResult(id, query, outcome == QuickLookup::Outcome::Found, result);
-            Wh_Log(L"Quick Lookup: finished (outcome %d).", static_cast<int>(outcome));
+            host::log(L"Quick Lookup: finished (outcome %d).", static_cast<int>(outcome));
         } catch (...) {
-            Wh_Log(L"Quick Lookup: lookup threw an exception.");
+            host::log(L"Quick Lookup: lookup threw an exception.");
         }
     }).detach();
 }
@@ -11565,7 +10983,7 @@ void ApplyLookupHotkey() {
     if (RegisterHotKey(hwnd, ID_LOOKUP_HOTKEY, settings.lookupModifiers, settings.lookupVk)) {
         g_lookupHotkeyRegistered = true;
     } else {
-        Wh_Log(L"Failed to register Quick Lookup hotkey (error %lu).", GetLastError());
+        host::log(L"Failed to register Quick Lookup hotkey (error %lu).", GetLastError());
     }
 }
 
@@ -11758,7 +11176,7 @@ void SendMediaTransportCommand(int cmd) {
                 // Not escalated to a media key on purpose (see above). Logged so
                 // a player that genuinely refuses transport control is
                 // diagnosable from the mod log.
-                Wh_Log(L"Media transport command %d was refused by the session.", cmd);
+                host::log(L"Media transport command %d was refused by the session.", cmd);
             }
             return;
         }
@@ -11931,7 +11349,7 @@ void DismissTransientState() {
     g_state.device.active = false;
     g_state.bluetoothDevice.active = false;
     g_state.battery.active = false;
-    Wh_SetIntValue(L"ProgressPercent", -1);
+    host::set_int_value(L"ProgressPercent", -1);
 }
 
 // ── Media source menu (right-click submenu and the dock's "+N" list) ─────────
@@ -11952,16 +11370,16 @@ void AdjustLyricsNudge(int deltaMs) {
     const Settings s = GetSettingsCopy();
     const int setting = bt ? s.lyricsOffsetBtMs : s.lyricsOffsetMs;
     // Clamp the nudge so setting + nudge stays in range; repeated presses never pile up invisibly.
-    const int nudge = ClampInt(Wh_GetIntValue(key, 0) + deltaMs,
+    const int nudge = ClampInt(host::int_value(key, 0) + deltaMs,
                                -kLyricsOffsetLimitMs - setting, kLyricsOffsetLimitMs - setting);
-    Wh_SetIntValue(key, nudge);
+    host::set_int_value(key, nudge);
     PublishLyricsOffsets(s.lyricsOffsetMs, s.lyricsOffsetBtMs);
     g_layoutDirty = true;
 }
 
 void ResetLyricsNudge() {
     const bool bt = g_defaultOutputIsBluetooth.load(std::memory_order_relaxed);
-    Wh_SetIntValue(bt ? L"LyricsNudgeBtMs" : L"LyricsNudgeMs", 0);
+    host::set_int_value(bt ? L"LyricsNudgeBtMs" : L"LyricsNudgeMs", 0);
     const Settings s = GetSettingsCopy();
     PublishLyricsOffsets(s.lyricsOffsetMs, s.lyricsOffsetBtMs);
     g_layoutDirty = true;
@@ -12020,6 +11438,23 @@ void ShowMediaSourcePopup(HWND hwnd, POINT screenPoint) {
     DwmBackdrop::EnsureBehind(hwnd);
     g_layoutDirty = true;
     ApplyMediaSourceMenuCommand(cmd, items);
+}
+
+void OpenIslandBridgeWindow() {
+    wchar_t path[MAX_PATH] = {};
+    const DWORD length = GetModuleFileNameW(nullptr, path, ARRAYSIZE(path));
+    wchar_t* slash = length > 0 && length < ARRAYSIZE(path) ? wcsrchr(path, L'\\') : nullptr;
+    if (!slash) {
+        return;
+    }
+    slash[1] = L'\0';
+    if (wcscat_s(path, ARRAYSIZE(path), L"IslandBridge.exe") != 0) {
+        return;
+    }
+    const HINSTANCE result = ShellExecuteW(nullptr, L"open", path, L"--show", nullptr, SW_SHOWNORMAL);
+    if (reinterpret_cast<INT_PTR>(result) <= 32) {
+        host::log(L"Could not open IslandBridge.");
+    }
 }
 
 void ShowContextMenu(HWND hwnd, POINT screenPoint) {
@@ -12085,14 +11520,14 @@ void ShowContextMenu(HWND hwnd, POINT screenPoint) {
                            kShapeMenuIdBase + static_cast<UINT>(currentShape), MF_BYCOMMAND);
         AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(shapeMenu), L"Shape style");
     }
-    const int activeExpandOnHover = Wh_GetIntValue(L"ExpandOnHoverOverride", -1) >= 0
-                          ? Wh_GetIntValue(L"ExpandOnHoverOverride", 0)
-                          : (Wh_GetIntSetting(L"Behavior.ExpandOnHover") != 0);
+    const int activeExpandOnHover = host::int_value(L"ExpandOnHoverOverride", -1) >= 0
+                          ? host::int_value(L"ExpandOnHoverOverride", 0)
+                          : (host::int_setting(L"Behavior.ExpandOnHover") != 0);
     AppendMenuW(menu, MF_STRING, 11, activeExpandOnHover ? L"Expand on Click" : L"Expand on Hover");
-    AppendMenuW(menu, MF_STRING | (Wh_GetIntValue(L"CollapsedLyrics", 0) ? MF_CHECKED : 0), 13,
+    AppendMenuW(menu, MF_STRING | (host::int_value(L"CollapsedLyrics", 0) ? MF_CHECKED : 0), 13,
                 L"Show lyrics on collapsed island");
     AppendMenuW(menu,
-                MF_STRING | (Wh_GetIntValue(L"LyricsPinnedFirst", 0) ? MF_CHECKED : 0) |
+                MF_STRING | (host::int_value(L"LyricsPinnedFirst", 0) ? MF_CHECKED : 0) |
                     (g_settings.lyrics ? 0 : (MF_GRAYED | MF_DISABLED)),
                 14, L"Pin lyrics as first tab");
     AppendMenuW(menu,
@@ -12176,7 +11611,7 @@ void ShowContextMenu(HWND hwnd, POINT screenPoint) {
     }
     // Color theme presets. Built from kThemePalettes and nested in a submenu:
     // nine palettes listed flat would dominate the root menu.
-    const int activeTheme = Wh_GetIntValue(kThemeValueName, static_cast<int>(g_settings.themePreset));
+    const int activeTheme = host::int_value(kThemeValueName, static_cast<int>(g_settings.themePreset));
     HMENU themeMenu = CreatePopupMenu();
     for (int i = 0; i < kCustomThemeIndex; ++i) {
         AppendMenuW(themeMenu, MF_STRING | (activeTheme == i ? MF_CHECKED : 0),
@@ -12187,7 +11622,7 @@ void ShowContextMenu(HWND hwnd, POINT screenPoint) {
                 kThemeMenuIdBase + static_cast<UINT>(kCustomThemeIndex), L"Custom Colors");
     AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(themeMenu), L"Theme");
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(menu, MF_STRING, 9, L"Open Windhawk settings");
+    AppendMenuW(menu, MF_STRING, 9, L"Open IslandBridge");
 
     SetForegroundWindow(hwnd);
     DwmBackdrop::EnsureBehind(hwnd);
@@ -12202,14 +11637,14 @@ void ShowContextMenu(HWND hwnd, POINT screenPoint) {
     // palette to kThemePalettes needs no change here.
     if (cmd >= kThemeMenuIdBase &&
         cmd <= kThemeMenuIdBase + static_cast<UINT>(kCustomThemeIndex)) {
-        Wh_SetIntValue(kThemeValueName, static_cast<int>(cmd - kThemeMenuIdBase));
+        host::set_int_value(kThemeValueName, static_cast<int>(cmd - kThemeMenuIdBase));
         LoadSettings();
         return;
     }
 
     if (cmd == kWeatherCityAutoMenuId ||
         (cmd >= kWeatherCityMenuIdBase && cmd < kWeatherCityMenuIdBase + kWeatherCityMenuMax)) {
-        Wh_SetIntValue(L"WeatherCityIndex", cmd == kWeatherCityAutoMenuId
+        host::set_int_value(L"WeatherCityIndex", cmd == kWeatherCityAutoMenuId
                                                 ? kWeatherCityAuto
                                                 : static_cast<int>(cmd - kWeatherCityMenuIdBase));
         if (g_settingsChangedEvent) {
@@ -12233,78 +11668,42 @@ void ShowContextMenu(HWND hwnd, POINT screenPoint) {
         case 2: {
             const bool nextVal = !g_pinnedExpanded.load();
             g_pinnedExpanded.store(nextVal);
-            Wh_SetIntValue(L"PinnedExpanded", nextVal ? 1 : 0);
+            host::set_int_value(L"PinnedExpanded", nextVal ? 1 : 0);
             break;
         }
         case 3: {
             const bool nextVal = !g_gameOverlayPinned.load();
             g_gameOverlayPinned.store(nextVal);
-            Wh_SetIntValue(L"GameOverlayPinned", nextVal ? 1 : 0);
+            host::set_int_value(L"GameOverlayPinned", nextVal ? 1 : 0);
             break;
         }
         case 4:
             g_pillOpacityOverride.store(100);
-            Wh_SetIntValue(L"PillOpacityOverride", 100);
+            host::set_int_value(L"PillOpacityOverride", 100);
             LoadSettings();
             break;
         case 5:
             g_pillOpacityOverride.store(85);
-            Wh_SetIntValue(L"PillOpacityOverride", 85);
+            host::set_int_value(L"PillOpacityOverride", 85);
             LoadSettings();
             break;
         case 6:
             g_pillOpacityOverride.store(70);
-            Wh_SetIntValue(L"PillOpacityOverride", 70);
+            host::set_int_value(L"PillOpacityOverride", 70);
             LoadSettings();
             break;
         case 7:
             g_pillOpacityOverride.store(55);
-            Wh_SetIntValue(L"PillOpacityOverride", 55);
+            host::set_int_value(L"PillOpacityOverride", 55);
             LoadSettings();
             break;
         case 8:
             g_pillOpacityOverride.store(-1);
-            Wh_SetIntValue(L"PillOpacityOverride", -1);
+            host::set_int_value(L"PillOpacityOverride", -1);
             LoadSettings();
             break;
         case 9: {
-            // Launch the Windhawk UI, resolved relative to our own module rather
-            // than by launching our own executable.
-            //
-            // Running the current process directly only worked because under
-            // Windhawk 1.x that *is* windhawk.exe. Windhawk 2.0 runs tool mods in
-            // a separate windhawk-mod.exe, so re-launching the current process
-            // would have spawned another mod host instead of opening settings.
-            // Taking the directory and appending windhawk.exe is correct on both,
-            // since the two executables live side by side.
-            wchar_t windhawkPath[MAX_PATH] = {};
-            const DWORD pathLen =
-                GetModuleFileNameW(nullptr, windhawkPath, ARRAYSIZE(windhawkPath));
-            if (pathLen == 0 || pathLen >= ARRAYSIZE(windhawkPath)) {
-                Wh_Log(L"Could not resolve the Windhawk directory (GetModuleFileNameW: %lu).",
-                       pathLen);
-                break;
-            }
-
-            wchar_t* lastSlash = wcsrchr(windhawkPath, L'\\');
-            if (!lastSlash) {
-                Wh_Log(L"Unexpected module path with no directory separator.");
-                break;
-            }
-            *(lastSlash + 1) = L'\0';  // keep the trailing slash
-
-            if (wcscat_s(windhawkPath, ARRAYSIZE(windhawkPath), L"windhawk.exe") != 0) {
-                Wh_Log(L"Windhawk directory path is too long to append the executable name.");
-                break;
-            }
-
-            HINSTANCE result = ShellExecuteW(nullptr, L"open",
-                                             windhawkPath,
-                                             nullptr,
-                                             nullptr, SW_SHOWNORMAL);
-            if (reinterpret_cast<INT_PTR>(result) <= 32) {
-                Wh_Log(L"Failed to open Windhawk settings (%s).", windhawkPath);
-            }
+            OpenIslandBridgeWindow();
             break;
         }
         case kShapeMenuIdBase:
@@ -12316,31 +11715,31 @@ void ShowContextMenu(HWND hwnd, POINT screenPoint) {
                 break;  // a bottom-anchored island can't be a top-edge notch
             }
             // Both overrides are written every time, so exactly one style is active.
-            Wh_SetIntValue(L"W11StyleOverride", wantW11 ? 1 : 0);
-            Wh_SetIntValue(L"NotchStyleOverride", wantNotch ? 1 : 0);
+            host::set_int_value(L"W11StyleOverride", wantW11 ? 1 : 0);
+            host::set_int_value(L"NotchStyleOverride", wantNotch ? 1 : 0);
             LoadSettings();
             g_layoutDirty = true;
             TriggerNudge();
             break;
         }
         case 11: {
-            const int activeExpandOnHover = Wh_GetIntValue(L"ExpandOnHoverOverride", -1) >= 0
-                                  ? Wh_GetIntValue(L"ExpandOnHoverOverride", 0)
-                                  : (Wh_GetIntSetting(L"Behavior.ExpandOnHover") != 0);
-            Wh_SetIntValue(L"ExpandOnHoverOverride", activeExpandOnHover ? 0 : 1);
+            const int activeExpandOnHover = host::int_value(L"ExpandOnHoverOverride", -1) >= 0
+                                  ? host::int_value(L"ExpandOnHoverOverride", 0)
+                                  : (host::int_setting(L"Behavior.ExpandOnHover") != 0);
+            host::set_int_value(L"ExpandOnHoverOverride", activeExpandOnHover ? 0 : 1);
             LoadSettings();
             g_layoutDirty = true;
             break;
         }
         case 13: {
-            Wh_SetIntValue(L"CollapsedLyrics", Wh_GetIntValue(L"CollapsedLyrics", 0) ? 0 : 1);
+            host::set_int_value(L"CollapsedLyrics", host::int_value(L"CollapsedLyrics", 0) ? 0 : 1);
             LoadSettings();
             g_layoutDirty = true;
             TriggerNudge();
             break;
         }
         case 14: {
-            Wh_SetIntValue(L"LyricsPinnedFirst", Wh_GetIntValue(L"LyricsPinnedFirst", 0) ? 0 : 1);
+            host::set_int_value(L"LyricsPinnedFirst", host::int_value(L"LyricsPinnedFirst", 0) ? 0 : 1);
             LoadSettings();
             g_idleTab = 0;  // back to the (new) first tab
             g_layoutDirty = true;
@@ -12348,9 +11747,9 @@ void ShowContextMenu(HWND hwnd, POINT screenPoint) {
             break;
         }
         case 15: {
-            const int mediaTabLyricsSetting = Wh_GetIntSetting(L"Modules.MediaTabLyrics") != 0 ? 1 : 0;
-            Wh_SetIntValue(L"MediaTabLyricsOverride", GetSettingsCopy().mediaTabLyrics ? 0 : 1);
-            Wh_SetIntValue(L"MediaTabLyricsOverrideBase", mediaTabLyricsSetting);
+            const int mediaTabLyricsSetting = host::int_setting(L"Modules.MediaTabLyrics") != 0 ? 1 : 0;
+            host::set_int_value(L"MediaTabLyricsOverride", GetSettingsCopy().mediaTabLyrics ? 0 : 1);
+            host::set_int_value(L"MediaTabLyricsOverrideBase", mediaTabLyricsSetting);
             LoadSettings();
             g_layoutDirty = true;
             TriggerNudge();
@@ -12377,7 +11776,7 @@ void ShowContextMenu(HWND hwnd, POINT screenPoint) {
             // hotkey is the only way back. That's intentional; see readme.
             const bool nowHidden = !g_manuallyHidden.load();
             g_manuallyHidden = nowHidden;
-            Wh_SetIntValue(L"ManuallyHidden", nowHidden ? 1 : 0);
+            host::set_int_value(L"ManuallyHidden", nowHidden ? 1 : 0);
             if (nowHidden) {
                 g_hotkeyUnhideUntil.store(0.0);
             }
@@ -22442,7 +21841,7 @@ inline std::wstring GetCurrentUserSid() {
 
 bool ResolvePaths(std::wstring* dir, std::wstring* file) {
     wchar_t storagePath[MAX_PATH] = {};
-    if (!Wh_GetModStoragePath(storagePath, ARRAYSIZE(storagePath))) {
+    if (!host::storage_path(storagePath, ARRAYSIZE(storagePath))) {
         return false;
     }
     const std::wstring userKey = GetCurrentUserSid();
@@ -22534,7 +21933,7 @@ void SaveFileTray() {
     }
 
     if (!LyricsCache::WriteFileAtomic(file, data)) {
-        Wh_Log(L"File Tray: could not save %s (error %lu).", file.c_str(), GetLastError());
+        host::log(L"File Tray: could not save %s (error %lu).", file.c_str(), GetLastError());
     }
 }
 
@@ -22582,7 +21981,7 @@ void LoadFileTray() {
 
     static const char kHeader[] = "DIWFT 1\n";
     if (!readOk || data.compare(0, sizeof(kHeader) - 1, kHeader) != 0) {
-        Wh_Log(L"File Tray: saved list is unreadable; starting empty.");
+        host::log(L"File Tray: saved list is unreadable; starting empty.");
         return;
     }
 
@@ -22652,7 +22051,7 @@ void LoadFileTray() {
     while (items.size() > static_cast<size_t>(maxItems)) {
         items.erase(items.begin());
     }
-    Wh_Log(L"File Tray: restored %zu item(s).", items.size());
+    host::log(L"File Tray: restored %zu item(s).", items.size());
 }
 
 bool TrayModuleEnabled() {
@@ -23087,7 +22486,7 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 dropTarget.Attach(new TrayDropTarget());
                 const HRESULT dropHr = RegisterDragDrop(hwnd, dropTarget.Get());
                 if (FAILED(dropHr)) {
-                    Wh_Log(L"RegisterDragDrop failed (0x%08X).", static_cast<unsigned>(dropHr));
+                    host::log(L"RegisterDragDrop failed (0x%08X).", static_cast<unsigned>(dropHr));
                 }
             }
             return 0;
@@ -23852,7 +23251,7 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         case WM_LBUTTONDBLCLK: {
             const bool nextVal = !g_pinnedExpanded.load();
             g_pinnedExpanded.store(nextVal);
-            Wh_SetIntValue(L"PinnedExpanded", nextVal ? 1 : 0);
+            host::set_int_value(L"PinnedExpanded", nextVal ? 1 : 0);
             return 0;
         }
 
@@ -23924,7 +23323,7 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     g_layoutDirty = true;
                     if (g_fullscreenOverrideVisible.load()) {
                         g_manuallyHidden = false;
-                        Wh_SetIntValue(L"ManuallyHidden", 0);
+                        host::set_int_value(L"ManuallyHidden", 0);
                         g_hotkeyUnhideUntil.store(NowSeconds() + (g_settings.autoHideIdleSeconds > 0 ? g_settings.autoHideIdleSeconds : 6.0));
                         ShowWindow(hwnd, SW_SHOWNOACTIVATE);
                         PostMessageW(hwnd, WM_APP_NEW_EVENT, 0, 0);
@@ -23937,7 +23336,7 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     if (isCurrentlyHidden) {
                         // User wants to reveal / unhide
                         g_manuallyHidden = false;
-                        Wh_SetIntValue(L"ManuallyHidden", 0);
+                        host::set_int_value(L"ManuallyHidden", 0);
                         g_autoHiddenParked = false;
                         g_fullscreenOverrideVisible = true;
                         g_hotkeyUnhideUntil.store(NowSeconds() + (g_settings.autoHideIdleSeconds > 0 ? g_settings.autoHideIdleSeconds : 6.0));
@@ -23947,7 +23346,7 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     } else {
                         // User wants to manually hide
                         g_manuallyHidden = true;
-                        Wh_SetIntValue(L"ManuallyHidden", 1);
+                        host::set_int_value(L"ManuallyHidden", 1);
                         g_hotkeyUnhideUntil.store(0.0);
                         g_fullscreenOverrideVisible = false;
                         g_layoutDirty = true;
@@ -23967,7 +23366,7 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     }
 
     if (msg == g_taskbarCreatedMessage && g_taskbarCreatedMessage != 0) {
-        Wh_Log(L"TaskbarCreated received; re-registering shell hook window.");
+        host::log(L"TaskbarCreated received; re-registering shell hook window.");
         DeregisterShellHookWindow(hwnd);
         RegisterShellHookWindow(hwnd);
         return 0;
@@ -23993,7 +23392,7 @@ DWORD WINAPI RenderThreadProc(void*) {
         nullptr, nullptr, wc.hInstance, nullptr);
 
     if (!hwnd) {
-        Wh_Log(L"Failed to create Dynamic Island overlay window.");
+        host::log(L"Failed to create Dynamic Island overlay window.");
         if (SUCCEEDED(hrCo)) {
             CoUninitialize();
         }
@@ -24026,9 +23425,9 @@ DWORD WINAPI RenderThreadProc(void*) {
 
     if (g_settings.autoHideIdleSeconds == 0) {
         g_manuallyHidden = false;
-        Wh_SetIntValue(L"ManuallyHidden", 0);
+        host::set_int_value(L"ManuallyHidden", 0);
     } else {
-        g_manuallyHidden = Wh_GetIntValue(L"ManuallyHidden", 0) != 0;
+        g_manuallyHidden = host::int_value(L"ManuallyHidden", 0) != 0;
     }
     if (g_manuallyHidden.load()) {
         ShowWindow(hwnd, SW_HIDE);
@@ -25079,7 +24478,7 @@ constexpr double display_seconds = 4.0;
 constexpr double display_gap_seconds = 0.3;
 constexpr std::size_t max_queued = 5;
 constexpr DWORD retry_wait_ms = 5000;
-constexpr wchar_t default_client_path[] = L"%LOCALAPPDATA%\\Programs\\IslandBridge\\IslandBridge.exe";
+constexpr wchar_t client_file_name[] = L"IslandBridge.exe";
 
 constexpr std::array<std::size_t, field_count> max_field_bytes = {256, 256, 1024, 1024, 3072};
 
@@ -25359,26 +24758,25 @@ std::wstring process_image_path(DWORD process_id)
 
 std::wstring expected_client_path()
 {
-    const std::wstring setting = GetStringSettingCopy(L"Modules.IslandBridgePath");
-    const std::wstring configured = setting.empty() ? std::wstring(default_client_path) : setting;
+    wchar_t path[MAX_PATH] = {};
+    const DWORD length = GetModuleFileNameW(nullptr, path, MAX_PATH);
 
-    const DWORD needed = ExpandEnvironmentStringsW(configured.c_str(), nullptr, 0);
-
-    if (needed == 0)
+    if (length == 0 || length >= MAX_PATH)
     {
         return std::wstring{};
     }
 
-    std::wstring expanded(needed, L'\0');
-    const DWORD written = ExpandEnvironmentStringsW(configured.c_str(), expanded.data(), needed);
+    std::wstring result(path, length);
+    const std::size_t slash = result.find_last_of(L'\\');
 
-    if (written == 0 || written > needed)
+    if (slash == std::wstring::npos)
     {
         return std::wstring{};
     }
 
-    expanded.resize(written - 1);
-    return expanded;
+    result.resize(slash + 1);
+    result += client_file_name;
+    return result;
 }
 
 bool is_trusted_client(HANDLE pipe)
@@ -25636,7 +25034,7 @@ bool deliver(const Prepared& prepared)
 
     if (settings.notificationRespectDnD && g_isDnDActive.load())
     {
-        Wh_Log(L"Island pipe: skipped, Do Not Disturb active");
+        host::log(L"Island pipe: skipped, Do Not Disturb active");
         return false;
     }
 
@@ -25652,7 +25050,7 @@ bool deliver(const Prepared& prepared)
         g_state.notification = std::move(snapshot);
     }
 
-    Wh_Log(L"Island pipe: notification shown (category %u)", static_cast<unsigned>(prepared.category));
+    host::log(L"Island pipe: notification shown (category %u)", static_cast<unsigned>(prepared.category));
     TriggerNudge();
     return true;
 }
@@ -25754,7 +25152,7 @@ void serve_client(HANDLE pipe, OVERLAPPED& overlapped)
 
             if (error == ERROR_MORE_DATA)
             {
-                Wh_Log(L"Island pipe: message over %u bytes, disconnecting client", max_message_bytes);
+                host::log(L"Island pipe: message over %u bytes, disconnecting client", max_message_bytes);
                 return;
             }
 
@@ -25769,7 +25167,7 @@ void serve_client(HANDLE pipe, OVERLAPPED& overlapped)
             {
                 if (result == WaitResult::Failed && GetLastError() == ERROR_MORE_DATA)
                 {
-                    Wh_Log(L"Island pipe: message over %u bytes, disconnecting client", max_message_bytes);
+                    host::log(L"Island pipe: message over %u bytes, disconnecting client", max_message_bytes);
                 }
 
                 return;
@@ -25785,7 +25183,7 @@ void serve_client(HANDLE pipe, OVERLAPPED& overlapped)
 
         if (!message)
         {
-            Wh_Log(L"Island pipe: invalid message (%u bytes) dropped", static_cast<unsigned>(transferred));
+            host::log(L"Island pipe: invalid message (%u bytes) dropped", static_cast<unsigned>(transferred));
             continue;
         }
 
@@ -25810,7 +25208,7 @@ DWORD WINAPI thread_proc(void*)
 
         if (!pipe.valid())
         {
-            Wh_Log(L"Island pipe: cannot create the pipe (error %u)", GetLastError());
+            host::log(L"Island pipe: cannot create the pipe (error %u)", GetLastError());
 
             if (WaitForSingleObject(g_stopEvent, retry_wait_ms) != WAIT_TIMEOUT)
             {
@@ -25820,7 +25218,7 @@ DWORD WINAPI thread_proc(void*)
             continue;
         }
 
-        Wh_Log(L"Island pipe: listening");
+        host::log(L"Island pipe: listening");
 
         while (WaitForSingleObject(g_stopEvent, 0) == WAIT_TIMEOUT)
         {
@@ -25842,13 +25240,13 @@ DWORD WINAPI thread_proc(void*)
             {
                 if (is_trusted_client(pipe.get()))
                 {
-                    Wh_Log(L"Island pipe: client connected");
+                    host::log(L"Island pipe: client connected");
                     serve_client(pipe.get(), overlapped);
-                    Wh_Log(L"Island pipe: client disconnected");
+                    host::log(L"Island pipe: client disconnected");
                 }
                 else
                 {
-                    Wh_Log(L"Island pipe: rejected an untrusted client");
+                    host::log(L"Island pipe: rejected an untrusted client");
                 }
             }
 
@@ -25947,209 +25345,35 @@ void StopThreads() {
 
 }  // namespace
 
-BOOL WhTool_ModInit() {
+bool island_start() {
     LoadSettings();
 
     if (!StartThreads()) {
         StopThreads();
-        return FALSE;
+        return false;
     }
 
     g_layoutDirty = true;
-    Wh_Log(L"Dynamic Island for Windows initialized.");
-    return TRUE;
+    host::log(L"Island started.");
+    return true;
 }
 
-void WhTool_ModSettingsChanged() {
+void island_settings_changed() {
     LoadSettings();
 #if DYNAMIC_ISLAND_HAS_USER_NOTIFICATION_LISTENER
     toast_listener::sync_thread();
 #endif
 }
 
-void WhTool_ModUninit() {
+void island_stop() {
     if (g_hwnd) {
         PostMessageW(g_hwnd, WM_CLOSE, 0, 0);
     }
     StopThreads();
-    Wh_Log(L"Dynamic Island for Windows unloaded.");
+    host::log(L"Island stopped.");
 }
 
-//////////////////////////////////////////////////////////////////////////////////
-// Windhawk tool mod implementation for mods which don't need to inject to other
-// processes or hook other functions. Context:
-// https://github.com/ramensoftware/windhawk/wiki/Mods-as-tools:-Running-mods-in-a-dedicated-process
-//
-// The mod will load and run in a dedicated windhawk.exe process.
-//
-// Paste the code below as part of the mod code, and use these callbacks:
-// * WhTool_ModInit
-// * WhTool_ModSettingsChanged
-// * WhTool_ModUninit
-//
-// Currently, other callbacks are not supported.
-
-bool g_isToolModProcessLauncher;
-HANDLE g_toolModProcessMutex;
-
-void WINAPI EntryPoint_Hook() {
-    Wh_Log(L">");
-    ExitThread(0);
+HANDLE island_render_thread() {
+    return g_renderThread;
 }
 
-BOOL Wh_ModInit() {
-    DWORD sessionId;
-    if (ProcessIdToSessionId(GetCurrentProcessId(), &sessionId) &&
-        sessionId == 0) {
-        return FALSE;
-    }
-
-    bool isExcluded = false;
-    bool isToolModProcess = false;
-    bool isCurrentToolModProcess = false;
-    int argc;
-    LPWSTR* argv = CommandLineToArgvW(GetCommandLine(), &argc);
-    if (!argv) {
-        Wh_Log(L"CommandLineToArgvW failed");
-        return FALSE;
-    }
-
-    for (int i = 1; i < argc; i++) {
-        if (wcscmp(argv[i], L"-service") == 0 ||
-            wcscmp(argv[i], L"-service-start") == 0 ||
-            wcscmp(argv[i], L"-service-stop") == 0) {
-            isExcluded = true;
-            break;
-        }
-    }
-
-    for (int i = 1; i < argc - 1; i++) {
-        if (wcscmp(argv[i], L"-tool-mod") == 0) {
-            isToolModProcess = true;
-            if (wcscmp(argv[i + 1], WH_MOD_ID) == 0) {
-                isCurrentToolModProcess = true;
-            }
-            break;
-        }
-    }
-
-    LocalFree(argv);
-
-    if (isExcluded) {
-        return FALSE;
-    }
-
-    if (isCurrentToolModProcess) {
-        g_toolModProcessMutex =
-            CreateMutex(nullptr, TRUE, L"windhawk-tool-mod_" WH_MOD_ID);
-        if (!g_toolModProcessMutex) {
-            Wh_Log(L"CreateMutex failed");
-            ExitProcess(1);
-        }
-
-        if (GetLastError() == ERROR_ALREADY_EXISTS) {
-            Wh_Log(L"Tool mod already running (%s)", WH_MOD_ID);
-            ExitProcess(1);
-        }
-
-        if (!WhTool_ModInit()) {
-            ExitProcess(1);
-        }
-
-        IMAGE_DOS_HEADER* dosHeader =
-            (IMAGE_DOS_HEADER*)GetModuleHandle(nullptr);
-        IMAGE_NT_HEADERS* ntHeaders =
-            (IMAGE_NT_HEADERS*)((BYTE*)dosHeader + dosHeader->e_lfanew);
-
-        DWORD entryPointRVA = ntHeaders->OptionalHeader.AddressOfEntryPoint;
-        void* entryPoint = (BYTE*)dosHeader + entryPointRVA;
-
-        Wh_SetFunctionHook(entryPoint, (void*)EntryPoint_Hook, nullptr);
-        return TRUE;
-    }
-
-    if (isToolModProcess) {
-        return FALSE;
-    }
-
-    g_isToolModProcessLauncher = true;
-    return TRUE;
-}
-
-void Wh_ModAfterInit() {
-    if (!g_isToolModProcessLauncher) {
-        return;
-    }
-
-    WCHAR currentProcessPath[MAX_PATH];
-    switch (GetModuleFileName(nullptr, currentProcessPath,
-                              ARRAYSIZE(currentProcessPath))) {
-        case 0:
-        case ARRAYSIZE(currentProcessPath):
-            Wh_Log(L"GetModuleFileName failed");
-            return;
-    }
-
-    WCHAR
-    commandLine[MAX_PATH + 2 +
-                (sizeof(L" -tool-mod \"" WH_MOD_ID "\"") / sizeof(WCHAR)) - 1];
-    swprintf_s(commandLine, L"\"%s\" -tool-mod \"%s\"", currentProcessPath,
-               WH_MOD_ID);
-
-    HMODULE kernelModule = GetModuleHandle(L"kernelbase.dll");
-    if (!kernelModule) {
-        kernelModule = GetModuleHandle(L"kernel32.dll");
-        if (!kernelModule) {
-            Wh_Log(L"No kernelbase.dll/kernel32.dll");
-            return;
-        }
-    }
-
-    using CreateProcessInternalW_t = BOOL(WINAPI*)(
-        HANDLE hUserToken, LPCWSTR lpApplicationName, LPWSTR lpCommandLine,
-        LPSECURITY_ATTRIBUTES lpProcessAttributes,
-        LPSECURITY_ATTRIBUTES lpThreadAttributes, WINBOOL bInheritHandles,
-        DWORD dwCreationFlags, LPVOID lpEnvironment, LPCWSTR lpCurrentDirectory,
-        LPSTARTUPINFOW lpStartupInfo,
-        LPPROCESS_INFORMATION lpProcessInformation,
-        PHANDLE hRestrictedUserToken);
-    CreateProcessInternalW_t pCreateProcessInternalW =
-        (CreateProcessInternalW_t)GetProcAddress(kernelModule,
-                                                 "CreateProcessInternalW");
-    if (!pCreateProcessInternalW) {
-        Wh_Log(L"No CreateProcessInternalW");
-        return;
-    }
-
-    STARTUPINFO si{
-        .cb = sizeof(STARTUPINFO),
-        .dwFlags = STARTF_FORCEOFFFEEDBACK,
-    };
-    PROCESS_INFORMATION pi;
-    if (!pCreateProcessInternalW(nullptr, currentProcessPath, commandLine,
-                                 nullptr, nullptr, FALSE, NORMAL_PRIORITY_CLASS,
-                                 nullptr, nullptr, &si, &pi, nullptr)) {
-        Wh_Log(L"CreateProcess failed");
-        return;
-    }
-
-    CloseHandle(pi.hProcess);
-    CloseHandle(pi.hThread);
-}
-
-void Wh_ModSettingsChanged() {
-    if (g_isToolModProcessLauncher) {
-        return;
-    }
-
-    WhTool_ModSettingsChanged();
-}
-
-void Wh_ModUninit() {
-    if (g_isToolModProcessLauncher) {
-        return;
-    }
-
-    WhTool_ModUninit();
-    ExitProcess(0);
-}

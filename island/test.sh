@@ -2,7 +2,7 @@
 set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"
 OUT="$HERE/out/tests"
-SOURCE="$HERE/dynamic-island-openmeteo.wh.cpp"
+SOURCE="$HERE/src/island.cpp"
 COMPILER="${MOD_TEST_COMPILER:-windhawk}"
 mkdir -p "$OUT"
 awk '/^namespace notification_center$/,/^struct VolumeSnapshot \{/' "$SOURCE" | sed '$d' > "$OUT/notification_center_under_test.h"

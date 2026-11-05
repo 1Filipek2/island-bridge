@@ -101,8 +101,13 @@ inline void TriggerNudge()
 {
 }
 
-inline void Wh_Log(const wchar_t*, ...)
+namespace host
 {
+
+inline void log(const wchar_t*, ...)
+{
+}
+
 }
 
 inline std::atomic<bool> g_isDnDActive = false;
