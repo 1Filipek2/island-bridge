@@ -9,17 +9,20 @@
 namespace island
 {
 
-
-std::wstring read_clipboard_text(HWND hwnd) {
+std::wstring read_clipboard_text(HWND hwnd)
+{
     std::wstring text;
-    if (!OpenClipboard(hwnd)) {
+    if (!OpenClipboard(hwnd))
+    {
         return text;
     }
 
     HANDLE data = GetClipboardData(CF_UNICODETEXT);
-    if (data) {
+    if (data)
+    {
         auto* locked = static_cast<const wchar_t*>(GlobalLock(data));
-        if (locked) {
+        if (locked)
+        {
             text = locked;
             GlobalUnlock(data);
         }
@@ -29,29 +32,31 @@ std::wstring read_clipboard_text(HWND hwnd) {
     return text;
 }
 
-
 namespace
 {
-
 
 // Decodes whatever bitmap is currently on the clipboard into a small BGRA
 // thumbnail, aspect-preserving and capped at maxDim on the longer side.
 // Requesting CF_BITMAP works regardless of which bitmap format the source
 // app actually placed on the clipboard (CF_DIB/CF_DIBV5) — Windows
 // synthesizes CF_BITMAP from those automatically.
-bool read_clipboard_image_pixels(HWND hwnd, BitmapPixels* out_pixels, UINT max_dim) {
-    if (!out_pixels || !OpenClipboard(hwnd)) {
+bool read_clipboard_image_pixels(HWND hwnd, BitmapPixels* out_pixels, UINT max_dim)
+{
+    if (!out_pixels || !OpenClipboard(hwnd))
+    {
         return false;
     }
 
     HBITMAP source_bitmap = static_cast<HBITMAP>(GetClipboardData(CF_BITMAP));
-    if (!source_bitmap) {
+    if (!source_bitmap)
+    {
         CloseClipboard();
         return false;
     }
 
     BITMAP bm = {};
-    if (!GetObject(source_bitmap, sizeof(bm), &bm) || bm.bmWidth <= 0 || bm.bmHeight <= 0) {
+    if (!GetObject(source_bitmap, sizeof(bm), &bm) || bm.bmWidth <= 0 || bm.bmHeight <= 0)
+    {
         CloseClipboard();
         return false;
     }
@@ -60,7 +65,8 @@ bool read_clipboard_image_pixels(HWND hwnd, BitmapPixels* out_pixels, UINT max_d
     UINT src_h = static_cast<UINT>(bm.bmHeight);
     UINT dst_w = src_w;
     UINT dst_h = src_h;
-    if (src_w > max_dim || src_h > max_dim) {
+    if (src_w > max_dim || src_h > max_dim)
+    {
         const float scale = static_cast<float>(max_dim) / static_cast<float>(std::max(src_w, src_h));
         dst_w = std::max<UINT>(1, static_cast<UINT>(src_w * scale));
         dst_h = std::max<UINT>(1, static_cast<UINT>(src_h * scale));
@@ -70,9 +76,16 @@ bool read_clipboard_image_pixels(HWND hwnd, BitmapPixels* out_pixels, UINT max_d
     HDC src_dc = CreateCompatibleDC(screen);
     HDC dst_dc = CreateCompatibleDC(screen);
     ReleaseDC(nullptr, screen);
-    if (!src_dc || !dst_dc) {
-        if (src_dc) DeleteDC(src_dc);
-        if (dst_dc) DeleteDC(dst_dc);
+    if (!src_dc || !dst_dc)
+    {
+        if (src_dc)
+        {
+            DeleteDC(src_dc);
+        }
+        if (dst_dc)
+        {
+            DeleteDC(dst_dc);
+        }
         CloseClipboard();
         return false;
     }
@@ -84,14 +97,15 @@ bool read_clipboard_image_pixels(HWND hwnd, BitmapPixels* out_pixels, UINT max_d
     BITMAPINFO bi = {};
     bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     bi.bmiHeader.biWidth = static_cast<LONG>(dst_w);
-    bi.bmiHeader.biHeight = -static_cast<LONG>(dst_h);  // top-down
+    bi.bmiHeader.biHeight = -static_cast<LONG>(dst_h); // top-down
     bi.bmiHeader.biPlanes = 1;
     bi.bmiHeader.biBitCount = 32;
     bi.bmiHeader.biCompression = BI_RGB;
 
     void* bits = nullptr;
     HBITMAP dib = CreateDIBSection(dst_dc, &bi, DIB_RGB_COLORS, &bits, nullptr, 0);
-    if (!dib) {
+    if (!dib)
+    {
         SelectObject(src_dc, old_src);
         DeleteDC(src_dc);
         DeleteDC(dst_dc);
@@ -102,8 +116,8 @@ bool read_clipboard_image_pixels(HWND hwnd, BitmapPixels* out_pixels, UINT max_d
     HGDIOBJ old_dst = SelectObject(dst_dc, dib);
     SetStretchBltMode(dst_dc, HALFTONE);
     SetBrushOrgEx(dst_dc, 0, 0, nullptr);
-    StretchBlt(dst_dc, 0, 0, static_cast<int>(dst_w), static_cast<int>(dst_h),
-               src_dc, 0, 0, bm.bmWidth, bm.bmHeight, SRCCOPY);
+    StretchBlt(dst_dc, 0, 0, static_cast<int>(dst_w), static_cast<int>(dst_h), src_dc, 0, 0, bm.bmWidth, bm.bmHeight,
+               SRCCOPY);
 
     BitmapPixels pixels;
     pixels.width = dst_w;
@@ -113,7 +127,8 @@ bool read_clipboard_image_pixels(HWND hwnd, BitmapPixels* out_pixels, UINT max_d
 
     // GDI blits never populate an alpha channel; without this the D2D bitmap
     // (which expects premultiplied alpha) would render fully invisible.
-    for (size_t i = 3; i < pixels.bgra.size(); i += 4) {
+    for (size_t i = 3; i < pixels.bgra.size(); i += 4)
+    {
         pixels.bgra[i] = 255;
     }
 
@@ -129,19 +144,24 @@ bool read_clipboard_image_pixels(HWND hwnd, BitmapPixels* out_pixels, UINT max_d
     return true;
 }
 
-bool is_likely_toast_window(HWND hwnd, const wchar_t* class_name, const wchar_t* title) {
-    if (hwnd == g_hwnd || !hwnd) {
+bool is_likely_toast_window(HWND hwnd, const wchar_t* class_name, const wchar_t* title)
+{
+    if (hwnd == g_hwnd || !hwnd)
+    {
         return false;
     }
 
-    if (GetWindow(hwnd, GW_OWNER)) {
+    if (GetWindow(hwnd, GW_OWNER))
+    {
         return false;
     }
 
     std::wstring image;
-    if (process_image_name_for_window(hwnd, &image)) {
+    if (process_image_name_for_window(hwnd, &image))
+    {
         const std::wstring base = to_lower_copy(base_name_from_path(image));
-        if (base == L"powershell.exe" || base == L"pwsh.exe" || base == L"conhost.exe" || base == L"cmd.exe") {
+        if (base == L"powershell.exe" || base == L"pwsh.exe" || base == L"conhost.exe" || base == L"cmd.exe")
+        {
             return false;
         }
     }
@@ -150,9 +170,9 @@ bool is_likely_toast_window(HWND hwnd, const wchar_t* class_name, const wchar_t*
     const std::wstring text = to_lower_copy(title ? title : L"");
 
     // Classic Windows 10 toasts have clear class names
-    if (cls.find(L"notification") != std::wstring::npos ||
-        cls.find(L"toast") != std::wstring::npos ||
-        cls.find(L"windows.ui.notifications") != std::wstring::npos) {
+    if (cls.find(L"notification") != std::wstring::npos || cls.find(L"toast") != std::wstring::npos ||
+        cls.find(L"windows.ui.notifications") != std::wstring::npos)
+    {
         return true;
     }
 
@@ -160,14 +180,17 @@ bool is_likely_toast_window(HWND hwnd, const wchar_t* class_name, const wchar_t*
     // explorer.exe, sihost.exe, or ShellExperienceHost.exe.
     // Importantly, their title is often empty at the exact moment of creation!
     if (cls.find(L"xaml_windowedpopupclass") != std::wstring::npos ||
-        cls.find(L"windows.ui.core.corewindow") != std::wstring::npos) {
-
+        cls.find(L"windows.ui.core.corewindow") != std::wstring::npos)
+    {
         std::wstring image;
-        if (process_image_name_for_window(hwnd, &image)) {
+        if (process_image_name_for_window(hwnd, &image))
+        {
             const std::wstring base = to_lower_copy(base_name_from_path(image));
-            if (base == L"explorer.exe" || base == L"sihost.exe" || base == L"shellexperiencehost.exe") {
+            if (base == L"explorer.exe" || base == L"sihost.exe" || base == L"shellexperiencehost.exe")
+            {
                 // Ensure it's not the start menu, search, or action center main panel
-                if (text != L"start" && text != L"action center" && text != L"search" && text != L"task view") {
+                if (text != L"start" && text != L"action center" && text != L"search" && text != L"task view")
+                {
                     return true;
                 }
             }
@@ -179,13 +202,13 @@ bool is_likely_toast_window(HWND hwnd, const wchar_t* class_name, const wchar_t*
 
 }
 
-
-
-void capture_shell_notification(HWND hwnd) {
+void capture_shell_notification(HWND hwnd)
+{
     // Grace period: ignore notifications that fire in the first 3 seconds after
     // the mod starts. sihost.exe gets injected while system windows are still
     // settling, which causes false positives (e.g. Snipping Tool windows).
-    if (now_seconds() < 3.0) {
+    if (now_seconds() < 3.0)
+    {
         return;
     }
 
@@ -194,7 +217,8 @@ void capture_shell_notification(HWND hwnd) {
     GetClassNameW(hwnd, class_name, ARRAYSIZE(class_name));
     GetWindowTextW(hwnd, title, ARRAYSIZE(title));
 
-    if (!is_likely_toast_window(hwnd, class_name, title)) {
+    if (!is_likely_toast_window(hwnd, class_name, title))
+    {
         return;
     }
 
@@ -206,7 +230,8 @@ void capture_shell_notification(HWND hwnd) {
     // Fetch a 64px icon to ensure crisp rendering inside the pill
     notification.icon = get_window_icon_pixels(hwnd, 64);
 
-    if (notification.title.size() > 96) {
+    if (notification.title.size() > 96)
+    {
         notification.body = notification.title.substr(64);
         notification.title.resize(64);
         notification.title += L"...";
@@ -220,133 +245,182 @@ void capture_shell_notification(HWND hwnd) {
 
     // Spawn a background thread to extract the full rich text body of the toast using UI Automation.
     // Modern Windows Toasts often only provide the App Name via GetWindowTextW, leaving the body hidden in the XAML tree.
-    std::thread([hwnd]() {
-        try {
-            Sleep(400); // Give the heavy UWP XAML tree enough time to fully construct the text nodes
-            if (!IsWindow(hwnd)) return;
-            HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-            if (SUCCEEDED(hr)) {
-                IUIAutomation* uia = nullptr;
-                hr = CoCreateInstance(__uuidof(CUIAutomation), nullptr, CLSCTX_INPROC_SERVER, __uuidof(IUIAutomation), (void**)&uia);
-                if (SUCCEEDED(hr) && uia) {
-                    IUIAutomation2* uia2 = nullptr;
-                    if (SUCCEEDED(uia->QueryInterface(__uuidof(IUIAutomation2), (void**)&uia2)) && uia2) {
-                        uia2->put_TransactionTimeout(500);
-                        uia2->put_ConnectionTimeout(500);
-                        uia2->Release();
-                    }
-                    IUIAutomationElement* window_el = nullptr;
-                    if (SUCCEEDED(uia->ElementFromHandle(hwnd, &window_el)) && window_el) {
-                        IUIAutomationCondition* cond = nullptr;
-                        uia->CreateTrueCondition(&cond);
-                        IUIAutomationElementArray* elements = nullptr;
-                        if (SUCCEEDED(window_el->FindAll(TreeScope_Descendants, cond, &elements)) && elements) {
-                            int count = 0;
-                            elements->get_Length(&count);
-                            std::wstring app_name;
-                            std::wstring full_text;
-                            for (int i = 0; i < count; ++i) {
-                                IUIAutomationElement* el = nullptr;
-                                if (SUCCEEDED(elements->GetElement(i, &el)) && el) {
-                                    BSTR name = nullptr;
-                                    el->get_CurrentName(&name);
-                                    if (name && wcslen(name) > 0) {
-                                        std::wstring chunk = name;
-                                        // Skip generic screen-reader labels often found in toasts
-                                        if (chunk != L"Notification" && chunk != L"New notification") {
-                                            if (app_name.empty()) {
-                                                app_name = chunk;
-                                            } else {
-                                                if (!full_text.empty()) full_text += L"  -  ";
-                                                full_text += chunk;
+    std::thread(
+        [hwnd]()
+        {
+            try
+            {
+                Sleep(400); // Give the heavy UWP XAML tree enough time to fully construct the text nodes
+                if (!IsWindow(hwnd))
+                {
+                    return;
+                }
+                HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+                if (SUCCEEDED(hr))
+                {
+                    IUIAutomation* uia = nullptr;
+                    hr = CoCreateInstance(__uuidof(CUIAutomation), nullptr, CLSCTX_INPROC_SERVER,
+                                          __uuidof(IUIAutomation), (void**)&uia);
+                    if (SUCCEEDED(hr) && uia)
+                    {
+                        IUIAutomation2* uia2 = nullptr;
+                        if (SUCCEEDED(uia->QueryInterface(__uuidof(IUIAutomation2), (void**)&uia2)) && uia2)
+                        {
+                            uia2->put_TransactionTimeout(500);
+                            uia2->put_ConnectionTimeout(500);
+                            uia2->Release();
+                        }
+                        IUIAutomationElement* window_el = nullptr;
+                        if (SUCCEEDED(uia->ElementFromHandle(hwnd, &window_el)) && window_el)
+                        {
+                            IUIAutomationCondition* cond = nullptr;
+                            uia->CreateTrueCondition(&cond);
+                            IUIAutomationElementArray* elements = nullptr;
+                            if (SUCCEEDED(window_el->FindAll(TreeScope_Descendants, cond, &elements)) && elements)
+                            {
+                                int count = 0;
+                                elements->get_Length(&count);
+                                std::wstring app_name;
+                                std::wstring full_text;
+                                for (int i = 0; i < count; ++i)
+                                {
+                                    IUIAutomationElement* el = nullptr;
+                                    if (SUCCEEDED(elements->GetElement(i, &el)) && el)
+                                    {
+                                        BSTR name = nullptr;
+                                        el->get_CurrentName(&name);
+                                        if (name && wcslen(name) > 0)
+                                        {
+                                            std::wstring chunk = name;
+                                            // Skip generic screen-reader labels often found in toasts
+                                            if (chunk != L"Notification" && chunk != L"New notification")
+                                            {
+                                                if (app_name.empty())
+                                                {
+                                                    app_name = chunk;
+                                                }
+                                                else
+                                                {
+                                                    if (!full_text.empty())
+                                                    {
+                                                        full_text += L"  -  ";
+                                                    }
+                                                    full_text += chunk;
+                                                }
                                             }
                                         }
-                                    }
-                                    if (name) SysFreeString(name);
-                                    el->Release();
-                                }
-                            }
-                            elements->Release();
-
-                            if (full_text.empty() && !app_name.empty()) {
-                                full_text = app_name;
-                                app_name = L"Notification";
-                            }
-
-                            if (!full_text.empty()) {
-                                PixelsRef resolved_icon;
-                                if (!app_name.empty() && app_name != L"Notification") {
-                                    resolved_icon = find_app_icon_by_name(app_name, 64);
-                                }
-                                std::lock_guard lock(g_state_mutex);
-                                if (g_state.notification.active) {
-                                    if (!app_name.empty()) {
-                                        g_state.notification.app = app_name;
-                                        if (resolved_icon) {
-                                            g_state.notification.icon = std::move(resolved_icon);
+                                        if (name)
+                                        {
+                                            SysFreeString(name);
                                         }
+                                        el->Release();
                                     }
-                                    g_state.notification.title = full_text;
+                                }
+                                elements->Release();
+
+                                if (full_text.empty() && !app_name.empty())
+                                {
+                                    full_text = app_name;
+                                    app_name = L"Notification";
+                                }
+
+                                if (!full_text.empty())
+                                {
+                                    PixelsRef resolved_icon;
+                                    if (!app_name.empty() && app_name != L"Notification")
+                                    {
+                                        resolved_icon = find_app_icon_by_name(app_name, 64);
+                                    }
+                                    std::lock_guard lock(g_state_mutex);
+                                    if (g_state.notification.active)
+                                    {
+                                        if (!app_name.empty())
+                                        {
+                                            g_state.notification.app = app_name;
+                                            if (resolved_icon)
+                                            {
+                                                g_state.notification.icon = std::move(resolved_icon);
+                                            }
+                                        }
+                                        g_state.notification.title = full_text;
+                                    }
                                 }
                             }
+                            if (cond)
+                            {
+                                cond->Release();
+                            }
+                            window_el->Release();
                         }
-                        if (cond) cond->Release();
-                        window_el->Release();
+                        uia->Release();
                     }
-                    uia->Release();
+                    CoUninitialize();
                 }
-                CoUninitialize();
             }
-        } catch (...) {
-        }
-    }).detach();
+            catch (...)
+            {
+            }
+        })
+        .detach();
 }
 
-void capture_clipboard(HWND hwnd) {
+void capture_clipboard(HWND hwnd)
+{
     ClipboardSnapshot clip;
     clip.expires_at = now_seconds() + 2.5;
     HWND owner = GetClipboardOwner();
-    if (!owner) {
+    if (!owner)
+    {
         owner = GetForegroundWindow();
     }
     wchar_t owner_title[80] = {};
-    if (owner) {
+    if (owner)
+    {
         GetWindowTextW(owner, owner_title, ARRAYSIZE(owner_title));
     }
-    if (owner && !is_ignorable_foreground_window(owner, owner_title)) {
+    if (owner && !is_ignorable_foreground_window(owner, owner_title))
+    {
         DWORD pid = 0;
         GetWindowThreadProcessId(owner, &pid);
         // Fetch at 64px for crisp rendering — 18px/32px is often too small for icon APIs and returns empty.
         clip.app_icon = get_window_icon_pixels(owner, 64);
 
         clip.app_name = owner_title;
-        if (clip.app_name.empty()) {
+        if (clip.app_name.empty())
+        {
             std::wstring path;
-            if (process_image_name_for_pid(pid, &path)) {
+            if (process_image_name_for_pid(pid, &path))
+            {
                 clip.app_name = strip_extension(base_name_from_path(path));
             }
         }
-        if (clip.app_name.size() > 24) {
+        if (clip.app_name.size() > 24)
+        {
             clip.app_name.resize(24);
             clip.app_name += L"...";
         }
     }
 
     std::wstring text = read_clipboard_text(hwnd);
-    if (!text.empty()) {
+    if (!text.empty())
+    {
         constexpr size_t max_chars = 96;
         std::replace(text.begin(), text.end(), L'\r', L' ');
         std::replace(text.begin(), text.end(), L'\n', L' ');
-        if (text.size() > max_chars) {
+        if (text.size() > max_chars)
+        {
             text.resize(max_chars);
             text += L"...";
         }
         clip.text = text;
         clip.image = false;
         clip.active = true;
-    } else {
+    }
+    else
+    {
         BitmapPixels image_pixels;
-        if (read_clipboard_image_pixels(hwnd, &image_pixels, clipboard_image_thumb_max_dim)) {
+        if (read_clipboard_image_pixels(hwnd, &image_pixels, clipboard_image_thumb_max_dim))
+        {
             clip.text = L"Image copied";
             clip.image = true;
             clip.active = true;
@@ -354,13 +428,13 @@ void capture_clipboard(HWND hwnd) {
         }
     }
 
-    if (clip.active) {
+    if (clip.active)
+    {
         {
             std::lock_guard lock(g_state_mutex);
             g_state.clipboard = std::move(clip);
         }
     }
 }
-
 
 }

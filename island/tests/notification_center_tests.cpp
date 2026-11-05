@@ -44,7 +44,8 @@ bool consistent(const notification_center::History& history)
         sum += group.entries.size();
     }
 
-    return sum == history.total() && history.total() <= notification_center::max_notifications && history.groups().size() <= notification_center::max_apps;
+    return sum == history.total() && history.total() <= notification_center::max_notifications &&
+           history.groups().size() <= notification_center::max_apps;
 }
 
 void grouping()
@@ -213,7 +214,8 @@ void hit_tests()
     check(row_at(100.0f, list_top + 1.0f, width, height, 5) == 0, "first row");
     check(row_at(100.0f, list_top + row_height + row_gap + 1.0f, width, height, 5) == 1, "second row");
     check(row_at(100.0f, list_top + row_height + 1.0f, width, height, 5) == -1, "gap is not a row");
-    check(row_at(100.0f, list_top + 2.0f * (row_height + row_gap) + 1.0f, width, height, 2) == -1, "past the last group");
+    check(row_at(100.0f, list_top + 2.0f * (row_height + row_gap) + 1.0f, width, height, 2) == -1,
+          "past the last group");
     check(row_at(100.0f, list_top + 1.0f, width, height, 0) == -1, "empty list");
     check(row_at(pad_x - 1.0f, list_top + 1.0f, width, height, 5) == -1, "left of the list");
     check(row_at(100.0f, height - 1.0f, width, height, 5) == -1, "below the list");

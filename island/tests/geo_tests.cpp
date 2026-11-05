@@ -23,7 +23,8 @@ void check(bool condition, const char* name)
 
 void check_parsing()
 {
-    const auto city = geo::parse_place_name(R"({"place_id":1,"name":"x","address":{"city":"Trnava","county":"okres Trnava","country":"Slovensko"}})");
+    const auto city = geo::parse_place_name(
+        R"({"place_id":1,"name":"x","address":{"city":"Trnava","county":"okres Trnava","country":"Slovensko"}})");
     check(city && *city == L"Trnava", "city wins");
 
     const auto town = geo::parse_place_name(R"({"address":{"county":"okres","town":"\u017dilina"}})");
@@ -98,21 +99,21 @@ void fuzz()
 
             switch (random() % 3)
             {
-            case 0:
-                input.insert(input.begin() + static_cast<std::ptrdiff_t>(at), static_cast<char>(random() % 256));
-                break;
-            case 1:
-                if (at < input.size())
-                {
-                    input.erase(at, 1);
-                }
-                break;
-            default:
-                if (at < input.size())
-                {
-                    input[at] = static_cast<char>(random() % 256);
-                }
-                break;
+                case 0:
+                    input.insert(input.begin() + static_cast<std::ptrdiff_t>(at), static_cast<char>(random() % 256));
+                    break;
+                case 1:
+                    if (at < input.size())
+                    {
+                        input.erase(at, 1);
+                    }
+                    break;
+                default:
+                    if (at < input.size())
+                    {
+                        input[at] = static_cast<char>(random() % 256);
+                    }
+                    break;
             }
         }
 

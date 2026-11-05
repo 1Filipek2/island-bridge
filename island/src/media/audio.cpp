@@ -8,10 +8,10 @@ namespace island
 namespace
 {
 
-
-
-float sample_audio_amplitude(BYTE* data, UINT32 frames, WAVEFORMATEX* format) {
-    if (!data || !frames || !format || !format->nChannels) {
+float sample_audio_amplitude(BYTE* data, UINT32 frames, WAVEFORMATEX* format)
+{
+    if (!data || !frames || !format || !format->nChannels)
+    {
         return 0.0f;
     }
 
@@ -21,15 +21,19 @@ float sample_audio_amplitude(BYTE* data, UINT32 frames, WAVEFORMATEX* format) {
     if (format->wFormatTag == WAVE_FORMAT_IEEE_FLOAT ||
         (format->wFormatTag == WAVE_FORMAT_EXTENSIBLE &&
          format->cbSize >= sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX) &&
-         IsEqualGUID(reinterpret_cast<WAVEFORMATEXTENSIBLE*>(format)->SubFormat,
-                     sub_type_ieee_float))) {
+         IsEqualGUID(reinterpret_cast<WAVEFORMATEXTENSIBLE*>(format)->SubFormat, sub_type_ieee_float)))
+    {
         auto* f = reinterpret_cast<float*>(data);
-        for (size_t i = 0; i < samples; ++i) {
+        for (size_t i = 0; i < samples; ++i)
+        {
             sum += f[i] * f[i];
         }
-    } else if (format->wBitsPerSample == 16) {
+    }
+    else if (format->wBitsPerSample == 16)
+    {
         auto* s = reinterpret_cast<int16_t*>(data);
-        for (size_t i = 0; i < samples; ++i) {
+        for (size_t i = 0; i < samples; ++i)
+        {
             const double v = s[i] / 32768.0;
             sum += v * v;
         }
@@ -43,19 +47,20 @@ float sample_audio_amplitude(BYTE* data, UINT32 frames, WAVEFORMATEX* format) {
 // Produces kSpectrumBands log-spaced magnitudes (50 Hz .. 14 kHz) with an
 // attack/release envelope and a slow auto-gain so quiet and loud tracks both
 // fill the visualizer. Only ever touched from the audio thread.
-struct SpectrumAnalyzer {
+struct SpectrumAnalyzer
+{
     static constexpr size_t k_window = 1024;
     static constexpr size_t hop = 512;
 
-    static constexpr int log2_window = 10;  // kWindow == 1 << 10
+    static constexpr int log2_window = 10; // kWindow == 1 << 10
 
     float ring[k_window]{};
     float window[k_window]{};
     float tw_cos[k_window / 2]{};
     float tw_sin[k_window / 2]{};
     uint16_t bit_rev[k_window]{};
-    int   bin_lo[spectrum_bands]{};  // FFT bins covered by each band, [lo, hi)
-    int   bin_hi[spectrum_bands]{};
+    int bin_lo[spectrum_bands]{}; // FFT bins covered by each band, [lo, hi)
+    int bin_hi[spectrum_bands]{};
     float smooth[spectrum_bands]{};
     float agc = 0.04f;
     float sample_rate = 0.0f;
@@ -63,21 +68,31 @@ struct SpectrumAnalyzer {
     size_t since_hop = 0;
     bool window_ready = false;
 
-    void configure(float rate) {
-        if (rate < 8000.0f) rate = 48000.0f;
-        if (!window_ready) {
-            for (size_t i = 0; i < k_window; ++i) {
+    void configure(float rate)
+    {
+        if (rate < 8000.0f)
+        {
+            rate = 48000.0f;
+        }
+        if (!window_ready)
+        {
+            for (size_t i = 0; i < k_window; ++i)
+            {
                 window[i] = 0.5f - 0.5f * std::cos(6.2831853f * i / (k_window - 1));
             }
-            for (size_t i = 0; i < k_window / 2; ++i) {
+            for (size_t i = 0; i < k_window / 2; ++i)
+            {
                 const float a = -6.2831853f * static_cast<float>(i) / static_cast<float>(k_window);
                 tw_cos[i] = std::cos(a);
                 tw_sin[i] = std::sin(a);
             }
-            for (size_t i = 0; i < k_window; ++i) {
+            for (size_t i = 0; i < k_window; ++i)
+            {
                 size_t r = 0;
-                for (int bit = 0; bit < log2_window; ++bit) {
-                    if (i & (static_cast<size_t>(1) << bit)) {
+                for (int bit = 0; bit < log2_window; ++bit)
+                {
+                    if (i & (static_cast<size_t>(1) << bit))
+                    {
                         r |= static_cast<size_t>(1) << (log2_window - 1 - bit);
                     }
                 }
@@ -85,7 +100,10 @@ struct SpectrumAnalyzer {
             }
             window_ready = true;
         }
-        if (rate == sample_rate) return;
+        if (rate == sample_rate)
+        {
+            return;
+        }
         sample_rate = rate;
         const float f_min = 50.0f;
         const float f_max = std::min(14000.0f, rate * 0.45f);
@@ -93,7 +111,8 @@ struct SpectrumAnalyzer {
         const float half_step = std::sqrt(ratio);
         const float bin_hz = rate / k_window;
         const int nyquist_bin = static_cast<int>(k_window / 2) - 1;
-        for (int b = 0; b < spectrum_bands; ++b) {
+        for (int b = 0; b < spectrum_bands; ++b)
+        {
             const float fc = f_min * std::pow(ratio, static_cast<float>(b));
             const float lo = fc / half_step, hi = fc * half_step;
             const int centre = static_cast<int>(std::lround(fc / bin_hz));
@@ -108,18 +127,24 @@ struct SpectrumAnalyzer {
 
     // In-place radix-2 FFT. Replaces ~100 Goertzel filters (each a 1024-step
     // dependent chain) with ~5k butterflies.
-    void fft(float* re, float* im) const {
-        for (size_t i = 0; i < k_window; ++i) {
+    void fft(float* re, float* im) const
+    {
+        for (size_t i = 0; i < k_window; ++i)
+        {
             const size_t j = bit_rev[i];
-            if (j > i) {
+            if (j > i)
+            {
                 std::swap(re[i], re[j]);
                 std::swap(im[i], im[j]);
             }
         }
-        for (size_t len = 2; len <= k_window; len <<= 1) {
+        for (size_t len = 2; len <= k_window; len <<= 1)
+        {
             const size_t half = len >> 1, step = k_window / len;
-            for (size_t i = 0; i < k_window; i += len) {
-                for (size_t k = 0; k < half; ++k) {
+            for (size_t i = 0; i < k_window; i += len)
+            {
+                for (size_t k = 0; k < half; ++k)
+                {
                     const float wr = tw_cos[k * step], wi = tw_sin[k * step];
                     const size_t a = i + k, b = a + half;
                     const float tr = re[b] * wr - im[b] * wi;
@@ -133,19 +158,23 @@ struct SpectrumAnalyzer {
         }
     }
 
-    void analyze() {
+    void analyze()
+    {
         float re[k_window];
         float im[k_window];
-        for (size_t i = 0; i < k_window; ++i) {
+        for (size_t i = 0; i < k_window; ++i)
+        {
             re[i] = ring[(write + i) % k_window] * window[i];
             im[i] = 0.0f;
         }
         fft(re, im);
         float peak = 0.0f;
         float raw[spectrum_bands];
-        for (int b = 0; b < spectrum_bands; ++b) {
+        for (int b = 0; b < spectrum_bands; ++b)
+        {
             float sum = 0.0f, mx = 0.0f;
-            for (int k = bin_lo[b]; k < bin_hi[b]; ++k) {
+            for (int k = bin_lo[b]; k < bin_hi[b]; ++k)
+            {
                 const float p = re[k] * re[k] + im[k] * im[k];
                 sum += p;
                 mx = std::max(mx, p);
@@ -163,7 +192,8 @@ struct SpectrumAnalyzer {
         }
         agc = std::max(peak, agc * 0.9985f);
         const float norm = 1.0f / std::max(agc, 0.02f);
-        for (int b = 0; b < spectrum_bands; ++b) {
+        for (int b = 0; b < spectrum_bands; ++b)
+        {
             float v = std::sqrt(clamp(raw[b] * norm, 0.0f, 1.0f));
             // Silence must stay silent even though the auto-gain is boosted.
             v *= clamp(peak * 40.0f, 0.0f, 1.0f);
@@ -171,37 +201,60 @@ struct SpectrumAnalyzer {
         }
     }
 
-    void decay() {
-        for (int b = 0; b < spectrum_bands; ++b) smooth[b] *= 0.88f;
+    void decay()
+    {
+        for (int b = 0; b < spectrum_bands; ++b)
+        {
+            smooth[b] *= 0.88f;
+        }
     }
 
     // Returns true when at least one new analysis frame was produced.
-    bool feed(BYTE* data, UINT32 frames, WAVEFORMATEX* format) {
-        if (!data || !frames || !format || !format->nChannels) { decay(); return true; }
+    bool feed(BYTE* data, UINT32 frames, WAVEFORMATEX* format)
+    {
+        if (!data || !frames || !format || !format->nChannels)
+        {
+            decay();
+            return true;
+        }
         const bool is_float =
             format->wFormatTag == WAVE_FORMAT_IEEE_FLOAT ||
             (format->wFormatTag == WAVE_FORMAT_EXTENSIBLE &&
              format->cbSize >= sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX) &&
-             IsEqualGUID(reinterpret_cast<WAVEFORMATEXTENSIBLE*>(format)->SubFormat,
-                         sub_type_ieee_float));
+             IsEqualGUID(reinterpret_cast<WAVEFORMATEXTENSIBLE*>(format)->SubFormat, sub_type_ieee_float));
         const bool is16 = format->wBitsPerSample == 16;
-        if (!is_float && !is16) { decay(); return true; }
+        if (!is_float && !is16)
+        {
+            decay();
+            return true;
+        }
 
         configure(static_cast<float>(format->nSamplesPerSec));
         const UINT32 ch = format->nChannels;
         bool produced = false;
-        for (UINT32 f = 0; f < frames; ++f) {
+        for (UINT32 f = 0; f < frames; ++f)
+        {
             float mono = 0.0f;
-            if (is_float) {
+            if (is_float)
+            {
                 const float* p = reinterpret_cast<const float*>(data) + static_cast<size_t>(f) * ch;
-                for (UINT32 c = 0; c < ch; ++c) mono += p[c];
-            } else {
+                for (UINT32 c = 0; c < ch; ++c)
+                {
+                    mono += p[c];
+                }
+            }
+            else
+            {
                 const int16_t* p = reinterpret_cast<const int16_t*>(data) + static_cast<size_t>(f) * ch;
-                for (UINT32 c = 0; c < ch; ++c) mono += p[c] / 32768.0f;
+                for (UINT32 c = 0; c < ch; ++c)
+                {
+                    mono += p[c] / 32768.0f;
+                }
             }
             ring[write] = mono / ch;
             write = (write + 1) % k_window;
-            if (++since_hop >= hop) {
+            if (++since_hop >= hop)
+            {
                 since_hop = 0;
                 analyze();
                 produced = true;
@@ -213,38 +266,48 @@ struct SpectrumAnalyzer {
 
 SpectrumAnalyzer g_spectrum_analyzer;
 
-void publish_spectrum_bands() {
+void publish_spectrum_bands()
+{
     std::lock_guard lock(g_state_mutex);
-    for (int b = 0; b < spectrum_bands; ++b) {
+    for (int b = 0; b < spectrum_bands; ++b)
+    {
         g_state.bands[b] = g_spectrum_analyzer.smooth[b];
     }
 }
 
-void decay_and_publish_spectrum() {
-    if (!g_spectrum_bands_needed.load(std::memory_order_relaxed)) {
+void decay_and_publish_spectrum()
+{
+    if (!g_spectrum_bands_needed.load(std::memory_order_relaxed))
+    {
         return;
     }
     g_spectrum_analyzer.decay();
     std::lock_guard lock(g_state_mutex);
-    for (int b = 0; b < spectrum_bands; ++b) {
+    for (int b = 0; b < spectrum_bands; ++b)
+    {
         g_state.bands[b] = g_spectrum_analyzer.smooth[b];
     }
 }
 
-void push_waveform_sample(float amplitude) {
+void push_waveform_sample(float amplitude)
+{
     std::lock_guard lock(g_state_mutex);
 
     float last_val = 0.0f;
-    if (g_state.waveform_write > 0) {
+    if (g_state.waveform_write > 0)
+    {
         last_val = g_state.waveform[(g_state.waveform_write - 1) % g_state.waveform.size()];
     }
 
     // Apply an attack/release envelope (Exponential Moving Average)
     // Quick snappy attack (0.7) for beats, buttery smooth release (0.85) for decay.
     float smoothed;
-    if (amplitude > last_val) {
+    if (amplitude > last_val)
+    {
         smoothed = last_val * 0.3f + amplitude * 0.7f;
-    } else {
+    }
+    else
+    {
         smoothed = last_val * 0.85f + amplitude * 0.15f;
     }
 
@@ -252,12 +315,14 @@ void push_waveform_sample(float amplitude) {
     ++g_state.waveform_write;
 }
 
-void push_audio_chunks(BYTE* data, UINT32 frames, WAVEFORMATEX* format) {
-    if (g_spectrum_bands_needed.load(std::memory_order_relaxed) &&
-        g_spectrum_analyzer.feed(data, frames, format)) {
+void push_audio_chunks(BYTE* data, UINT32 frames, WAVEFORMATEX* format)
+{
+    if (g_spectrum_bands_needed.load(std::memory_order_relaxed) && g_spectrum_analyzer.feed(data, frames, format))
+    {
         publish_spectrum_bands();
     }
-    if (!data || !frames || !format || !format->nChannels) {
+    if (!data || !frames || !format || !format->nChannels)
+    {
         push_waveform_sample(0.0f);
         return;
     }
@@ -268,30 +333,36 @@ void push_audio_chunks(BYTE* data, UINT32 frames, WAVEFORMATEX* format) {
         format->wFormatTag == WAVE_FORMAT_IEEE_FLOAT ||
         (format->wFormatTag == WAVE_FORMAT_EXTENSIBLE &&
          format->cbSize >= sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX) &&
-         IsEqualGUID(reinterpret_cast<WAVEFORMATEXTENSIBLE*>(format)->SubFormat,
-                     sub_type_ieee_float));
+         IsEqualGUID(reinterpret_cast<WAVEFORMATEXTENSIBLE*>(format)->SubFormat, sub_type_ieee_float));
     const bool is16 = format->wBitsPerSample == 16;
 
-    if (!is_float && !is16) {
+    if (!is_float && !is16)
+    {
         push_waveform_sample(sample_audio_amplitude(data, frames, format));
         return;
     }
 
-    for (UINT32 frame = 0; frame < frames; frame += chunk_frames) {
+    for (UINT32 frame = 0; frame < frames; frame += chunk_frames)
+    {
         const UINT32 chunk = std::min(chunk_frames, frames - frame);
         double sum = 0.0;
         const size_t samples = static_cast<size_t>(chunk) * channels;
         const size_t start = static_cast<size_t>(frame) * channels;
 
-        if (is_float) {
+        if (is_float)
+        {
             auto* f = reinterpret_cast<float*>(data);
-            for (size_t i = 0; i < samples; ++i) {
+            for (size_t i = 0; i < samples; ++i)
+            {
                 const double v = f[start + i];
                 sum += v * v;
             }
-        } else {
+        }
+        else
+        {
             auto* s = reinterpret_cast<int16_t*>(data);
-            for (size_t i = 0; i < samples; ++i) {
+            for (size_t i = 0; i < samples; ++i)
+            {
                 const double v = s[start + i] / 32768.0;
                 sum += v * v;
             }
@@ -303,14 +374,16 @@ void push_audio_chunks(BYTE* data, UINT32 frames, WAVEFORMATEX* format) {
 
 }
 
-
-DWORD WINAPI audio_thread_proc(void*) {
+DWORD WINAPI audio_thread_proc(void*)
+{
     HRESULT hr_co = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 
-    while (WaitForSingleObject(g_stop_event, 0) == WAIT_TIMEOUT) {
+    while (WaitForSingleObject(g_stop_event, 0) == WAIT_TIMEOUT)
+    {
         // Don't touch the audio engine at all unless a playing waveform is
         // actually going to be shown right now. Cheap poll, no capture open.
-        if (!g_audio_capture_needed.load(std::memory_order_relaxed)) {
+        if (!g_audio_capture_needed.load(std::memory_order_relaxed))
+        {
             WaitForSingleObject(g_stop_event, 250);
             continue;
         }
@@ -321,33 +394,39 @@ DWORD WINAPI audio_thread_proc(void*) {
         ComPtr<IAudioCaptureClient> capture;
         WAVEFORMATEX* mix_format = nullptr;
 
-        HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr,
-                                      CLSCTX_ALL, IID_PPV_ARGS(&enumerator));
-        if (SUCCEEDED(hr)) {
+        HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL, IID_PPV_ARGS(&enumerator));
+        if (SUCCEEDED(hr))
+        {
             hr = enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device);
         }
-        if (SUCCEEDED(hr)) {
+        if (SUCCEEDED(hr))
+        {
             hr = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
                                   reinterpret_cast<void**>(client.GetAddressOf()));
         }
-        if (SUCCEEDED(hr)) {
+        if (SUCCEEDED(hr))
+        {
             hr = client->GetMixFormat(&mix_format);
         }
-        if (SUCCEEDED(hr)) {
+        if (SUCCEEDED(hr))
+        {
             REFERENCE_TIME buffer_duration = 10000000 / 5;
-            hr = client->Initialize(AUDCLNT_SHAREMODE_SHARED,
-                                    AUDCLNT_STREAMFLAGS_LOOPBACK,
-                                    buffer_duration, 0, mix_format, nullptr);
+            hr = client->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK, buffer_duration, 0,
+                                    mix_format, nullptr);
         }
-        if (SUCCEEDED(hr)) {
+        if (SUCCEEDED(hr))
+        {
             hr = client->GetService(IID_PPV_ARGS(&capture));
         }
-        if (SUCCEEDED(hr)) {
+        if (SUCCEEDED(hr))
+        {
             hr = client->Start();
         }
 
-        if (FAILED(hr)) {
-            if (mix_format) {
+        if (FAILED(hr))
+        {
+            if (mix_format)
+            {
                 CoTaskMemFree(mix_format);
             }
             WaitForSingleObject(g_stop_event, 2500);
@@ -359,48 +438,61 @@ DWORD WINAPI audio_thread_proc(void*) {
         double last_packet_time = now_seconds();
         double next_watchdog_check = last_packet_time + 1.0;
 
-        while (WaitForSingleObject(g_stop_event, 16) == WAIT_TIMEOUT) {
-            if (!g_audio_capture_needed.load(std::memory_order_relaxed)) {
+        while (WaitForSingleObject(g_stop_event, 16) == WAIT_TIMEOUT)
+        {
+            if (!g_audio_capture_needed.load(std::memory_order_relaxed))
+            {
                 break;
             }
             UINT32 packet_frames = 0;
-            if (FAILED(capture->GetNextPacketSize(&packet_frames))) {
+            if (FAILED(capture->GetNextPacketSize(&packet_frames)))
+            {
                 break;
             }
 
             float amplitude = 0.0f;
             int packets = 0;
-            while (packet_frames > 0) {
+            while (packet_frames > 0)
+            {
                 BYTE* data = nullptr;
                 UINT32 frames = 0;
                 DWORD flags = 0;
-                if (FAILED(capture->GetBuffer(&data, &frames, &flags, nullptr, nullptr))) {
+                if (FAILED(capture->GetBuffer(&data, &frames, &flags, nullptr, nullptr)))
+                {
                     break;
                 }
 
                 last_packet_time = now_seconds();
 
-                if (!(flags & AUDCLNT_BUFFERFLAGS_SILENT)) {
+                if (!(flags & AUDCLNT_BUFFERFLAGS_SILENT))
+                {
                     amplitude = std::max(amplitude, sample_audio_amplitude(data, frames, mix_format));
                     push_audio_chunks(data, frames, mix_format);
-                } else {
+                }
+                else
+                {
                     push_waveform_sample(0.0f);
                     decay_and_publish_spectrum();
                 }
                 capture->ReleaseBuffer(frames);
                 ++packets;
 
-                if (FAILED(capture->GetNextPacketSize(&packet_frames))) {
+                if (FAILED(capture->GetNextPacketSize(&packet_frames)))
+                {
                     packet_frames = 0;
                 }
             }
 
-            if (packets > 0) {
-                if (amplitude <= 0.001f) {
+            if (packets > 0)
+            {
+                if (amplitude <= 0.001f)
+                {
                     push_waveform_sample(0.0f);
                     decay_and_publish_spectrum();
                 }
-            } else {
+            }
+            else
+            {
                 push_waveform_sample(0.0f);
                 decay_and_publish_spectrum();
             }
@@ -413,14 +505,16 @@ DWORD WINAPI audio_thread_proc(void*) {
             // that combination almost never happens unless the loopback
             // engine has stalled, so it won't fire during normal silence.
             const double now = now_seconds();
-            if (now >= next_watchdog_check) {
+            if (now >= next_watchdog_check)
+            {
                 next_watchdog_check = now + 1.0;
                 bool media_playing_now = false;
                 {
                     std::lock_guard lock(g_state_mutex);
                     media_playing_now = g_state.media.playing;
                 }
-                if (media_playing_now && (now - last_packet_time) > 5.0) {
+                if (media_playing_now && (now - last_packet_time) > 5.0)
+                {
                     host::log(L"Audio loopback capture appears stalled while media is playing; reconnecting...");
                     break;
                 }
@@ -428,17 +522,18 @@ DWORD WINAPI audio_thread_proc(void*) {
         }
 
         client->Stop();
-        if (mix_format) {
+        if (mix_format)
+        {
             CoTaskMemFree(mix_format);
         }
     }
 
-    if (SUCCEEDED(hr_co)) {
+    if (SUCCEEDED(hr_co))
+    {
         CoUninitialize();
     }
 
     return 0;
 }
-
 
 }

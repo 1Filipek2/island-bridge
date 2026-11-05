@@ -3,13 +3,13 @@
 #include "core/common.h"
 #include "core/state.h"
 #include "core/tabs.h"
+
 namespace island
 {
 namespace file_tray_store
 {
 
-
-inline std::mutex g_io_mutex;  // serialises the load/save file access
+inline std::mutex g_io_mutex; // serialises the load/save file access
 bool resolve_paths(std::wstring* dir, std::wstring* file);
 std::string escape(const std::wstring& value);
 std::wstring unescape(const std::string& value);
@@ -31,11 +31,17 @@ DWORD pick_tray_drop_effect(DWORD allowed);
 
 // Receives drags while they are still hovering, which is what lets the island
 // expand onto the File Tray *before* the drop.
-class TrayDropTarget final : public IDropTarget {
-   public:
-    STDMETHODIMP QueryInterface(REFIID riid, void** ppv) override {
-        if (!ppv) return E_POINTER;
-        if (IsEqualIID(riid, __uuidof(IUnknown)) || IsEqualIID(riid, __uuidof(IDropTarget))) {
+class TrayDropTarget final : public IDropTarget
+{
+public:
+    STDMETHODIMP QueryInterface(REFIID riid, void** ppv) override
+    {
+        if (!ppv)
+        {
+            return E_POINTER;
+        }
+        if (IsEqualIID(riid, __uuidof(IUnknown)) || IsEqualIID(riid, __uuidof(IDropTarget)))
+        {
             *ppv = static_cast<IDropTarget*>(this);
             AddRef();
             return S_OK;
@@ -43,23 +49,36 @@ class TrayDropTarget final : public IDropTarget {
         *ppv = nullptr;
         return E_NOINTERFACE;
     }
-    STDMETHODIMP_(ULONG) AddRef() override { return static_cast<ULONG>(++refs_); }
-    STDMETHODIMP_(ULONG) Release() override {
+
+    STDMETHODIMP_(ULONG) AddRef() override
+    {
+        return static_cast<ULONG>(++refs_);
+    }
+
+    STDMETHODIMP_(ULONG) Release() override
+    {
         const LONG r = --refs_;
-        if (r == 0) delete this;
+        if (r == 0)
+        {
+            delete this;
+        }
         return static_cast<ULONG>(r);
     }
 
-    STDMETHODIMP DragEnter(IDataObject* data, DWORD, POINTL, DWORD* effect) override {
+    STDMETHODIMP DragEnter(IDataObject* data, DWORD, POINTL, DWORD* effect) override
+    {
         accept_ = false;
-        if (!g_tray_internal_drag.load() && tray_module_enabled() && data) {
+        if (!g_tray_internal_drag.load() && tray_module_enabled() && data)
+        {
             FORMATETC fmt = {CF_HDROP, nullptr, DVASPECT_CONTENT, -1, TYMED_HGLOBAL};
             accept_ = (data->QueryGetData(&fmt) == S_OK);
         }
 
-        if (accept_) {
+        if (accept_)
+        {
             tab_ = file_tray_tab_index(get_settings_copy());
-            if (tab_ >= 0) {
+            if (tab_ >= 0)
+            {
                 g_idle_tab = tab_;
             }
             g_tray_drag_over = true;
@@ -67,56 +86,70 @@ class TrayDropTarget final : public IDropTarget {
             g_layout_dirty = true;
             trigger_nudge();
         }
-        if (effect) {
+        if (effect)
+        {
             *effect = accept_ ? pick_tray_drop_effect(*effect) : DROPEFFECT_NONE;
         }
         return S_OK;
     }
 
-    STDMETHODIMP DragOver(DWORD, POINTL, DWORD* effect) override {
-        if (accept_ && tab_ >= 0) {
-            g_idle_tab = tab_;  // stay on the tray while the island expands
+    STDMETHODIMP DragOver(DWORD, POINTL, DWORD* effect) override
+    {
+        if (accept_ && tab_ >= 0)
+        {
+            g_idle_tab = tab_; // stay on the tray while the island expands
         }
-        if (effect) {
+        if (effect)
+        {
             *effect = accept_ ? pick_tray_drop_effect(*effect) : DROPEFFECT_NONE;
         }
         return S_OK;
     }
 
-    STDMETHODIMP DragLeave() override {
+    STDMETHODIMP DragLeave() override
+    {
         accept_ = false;
         g_tray_drag_over = false;
         g_layout_dirty = true;
         return S_OK;
     }
 
-    STDMETHODIMP Drop(IDataObject* data, DWORD, POINTL, DWORD* effect) override {
+    STDMETHODIMP Drop(IDataObject* data, DWORD, POINTL, DWORD* effect) override
+    {
         std::vector<std::wstring> paths;
         const bool ok = accept_ && extract_drop_paths(data, &paths);
         accept_ = false;
 
-        if (ok) {
+        if (ok)
+        {
             add_paths_to_file_tray(paths);
             const int tab = file_tray_tab_index(get_settings_copy());
-            if (tab >= 0) {
+            if (tab >= 0)
+            {
                 g_idle_tab = tab;
             }
             g_click_expanded = true;
             g_layout_dirty = true;
             trigger_nudge();
-            if (effect) *effect = pick_tray_drop_effect(*effect);
-        } else if (effect) {
+            if (effect)
+            {
+                *effect = pick_tray_drop_effect(*effect);
+            }
+        }
+        else if (effect)
+        {
             *effect = DROPEFFECT_NONE;
         }
         g_tray_drag_over = false;
         return S_OK;
     }
 
-   private:
+private:
     std::atomic<LONG> refs_{1};
     bool accept_ = false;
     int tab_ = -1;
 };
+
 void start_file_tray_drag(const std::wstring& path);
 
 }

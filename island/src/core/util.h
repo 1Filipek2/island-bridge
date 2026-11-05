@@ -1,9 +1,9 @@
 #pragma once
 
 #include "core/common.h"
+
 namespace island
 {
-
 
 constexpr GUID sub_type_ieee_float = {
     0x00000003,

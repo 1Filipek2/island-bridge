@@ -92,7 +92,8 @@ int main()
 
     auto v2_without_icon_field = valid;
     v2_without_icon_field[0] = 2;
-    check(!parse_message(v2_without_icon_field.data(), v2_without_icon_field.size()).has_value(), "v2 needs the icon field");
+    check(!parse_message(v2_without_icon_field.data(), v2_without_icon_field.size()).has_value(),
+          "v2 needs the icon field");
 
     auto oversized_icon = valid;
     oversized_icon[0] = 2;
@@ -150,7 +151,8 @@ int main()
 
         if (const auto message = parse_message(data.data(), data.size()))
         {
-            check(message->app.size() <= 256 && message->body.size() <= 3072 && message->icon.size() <= max_icon_bytes, "mutated fields bounded");
+            check(message->app.size() <= 256 && message->body.size() <= 3072 && message->icon.size() <= max_icon_bytes,
+                  "mutated fields bounded");
             decode_icon(message->icon);
         }
     }

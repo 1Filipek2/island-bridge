@@ -2,6 +2,7 @@
 
 #include "core/common.h"
 #include "core/pixels.h"
+
 namespace island
 {
 

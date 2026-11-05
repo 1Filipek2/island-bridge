@@ -14,7 +14,6 @@ namespace island_pipe
 namespace
 {
 
-
 std::wstring process_image_path(DWORD process_id)
 {
     OwnedHandle process(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, process_id));
@@ -87,7 +86,8 @@ bool is_trusted_client(HANDLE pipe)
         return false;
     }
 
-    return CompareStringOrdinal(actual.c_str(), static_cast<int>(actual.size()), expected.c_str(), static_cast<int>(expected.size()), TRUE) == CSTR_EQUAL;
+    return CompareStringOrdinal(actual.c_str(), static_cast<int>(actual.size()), expected.c_str(),
+                                static_cast<int>(expected.size()), TRUE) == CSTR_EQUAL;
 }
 
 std::wstring current_user_sid()
@@ -150,15 +150,10 @@ HANDLE create_pipe()
     attributes.lpSecurityDescriptor = descriptor;
     attributes.bInheritHandle = FALSE;
 
-    const HANDLE pipe = CreateNamedPipeW(
-        pipe_name,
-        PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
-        PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
-        1,
-        0,
-        max_message_bytes,
-        0,
-        &attributes);
+    const HANDLE pipe =
+        CreateNamedPipeW(pipe_name, PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
+                         PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS, 1, 0,
+                         max_message_bytes, 0, &attributes);
 
     LocalFree(descriptor);
     return pipe;
@@ -270,7 +265,8 @@ Prepared prepare(const PipeMessage& message)
 std::wstring local_time_label()
 {
     wchar_t buffer[32] = {};
-    const int written = GetTimeFormatEx(LOCALE_NAME_USER_DEFAULT, TIME_NOSECONDS, nullptr, nullptr, buffer, static_cast<int>(std::size(buffer)));
+    const int written = GetTimeFormatEx(LOCALE_NAME_USER_DEFAULT, TIME_NOSECONDS, nullptr, nullptr, buffer,
+                                        static_cast<int>(std::size(buffer)));
     return written > 1 ? std::wstring(buffer, static_cast<std::size_t>(written - 1)) : std::wstring{};
 }
 
@@ -281,11 +277,14 @@ void remember(const Prepared& prepared)
         return;
     }
 
-    notification_center::Incoming incoming{prepared.key, prepared.app, prepared.line, local_time_label(), prepared.icon};
+    notification_center::Incoming incoming{prepared.key, prepared.app, prepared.line, local_time_label(),
+                                           prepared.icon};
 
     {
         std::lock_guard lock(g_state_mutex);
-        auto next = g_state.notification_center ? std::make_shared<notification_center::History>(*g_state.notification_center) : std::make_shared<notification_center::History>();
+        auto next = g_state.notification_center
+                        ? std::make_shared<notification_center::History>(*g_state.notification_center)
+                        : std::make_shared<notification_center::History>();
         next->record(std::move(incoming));
         g_state.notification_center = std::move(next);
     }
@@ -411,7 +410,8 @@ void serve_client(HANDLE pipe, OVERLAPPED& overlapped)
     {
         ResetEvent(overlapped.hEvent);
         DWORD transferred = 0;
-        bool completed = ReadFile(pipe, buffer.data(), static_cast<DWORD>(buffer.size()), &transferred, &overlapped) != FALSE;
+        bool completed =
+            ReadFile(pipe, buffer.data(), static_cast<DWORD>(buffer.size()), &transferred, &overlapped) != FALSE;
 
         if (!completed)
         {
@@ -465,7 +465,6 @@ void serve_client(HANDLE pipe, OVERLAPPED& overlapped)
 
 namespace island_pipe
 {
-
 
 DWORD WINAPI thread_proc(void*)
 {

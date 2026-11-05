@@ -4,6 +4,7 @@
 #include "core/layout.h"
 #include "core/model.h"
 #include "notifications/notification_center.h"
+
 namespace island
 {
 
@@ -16,7 +17,8 @@ bool file_tray_clear_hit_test(const MediaContentPoint& pt);
 bool file_tray_paste_hit_test(const MediaContentPoint& pt);
 bool file_tray_remove_hit_test(const MediaContentPoint& pt, int row);
 
-struct NotificationCenterHit {
+struct NotificationCenterHit
+{
     int row = -1;
     int action = -1;
 };
@@ -32,19 +34,23 @@ bool media_art_hit_test(const MediaContentPoint& pt);
 bool media_lyrics_button_hit_test(const MediaContentPoint& raw_pt);
 
 // ── Source dock: slot layout + hit testing ──────────────────────────────────
-struct DockSlots {
+struct DockSlots
+{
     int count = 0;                      // slots drawn
-    int source_index[3] = {-1, -1, -1};  // index into mediaSources; -1 = the "+N" slot
+    int source_index[3] = {-1, -1, -1}; // index into mediaSources; -1 = the "+N" slot
     int overflow = 0;                   // N in "+N" (0 = none)
 };
+
 DockSlots compute_dock_slots(int source_count, int active_index);
 
-struct DockHit {
+struct DockHit
+{
     int slot = -1;
-    bool overflow = false;  // the "+N" slot
+    bool overflow = false; // the "+N" slot
     bool is_active = false;
     std::wstring aumid;
 };
+
 DockHit resolve_source_dock_hit(const MediaContentPoint& pt);
 
 }

@@ -6,17 +6,21 @@
 namespace island
 {
 
-
-void set_click_through(HWND hwnd, bool click_through) {
+void set_click_through(HWND hwnd, bool click_through)
+{
     LONG_PTR ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
     const bool has = (ex_style & WS_EX_TRANSPARENT) != 0;
-    if (click_through == has) {
+    if (click_through == has)
+    {
         return;
     }
 
-    if (click_through) {
+    if (click_through)
+    {
         ex_style |= WS_EX_TRANSPARENT;
-    } else {
+    }
+    else
+    {
         ex_style &= ~WS_EX_TRANSPARENT;
     }
 
@@ -24,11 +28,13 @@ void set_click_through(HWND hwnd, bool click_through) {
     SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 }
 
-void handle_status_click_at_point(HWND hwnd, LPARAM l_param) {
+void handle_status_click_at_point(HWND hwnd, LPARAM l_param)
+{
     return;
 }
 
-void start_focus_timer(int minutes, bool is_break) {
+void start_focus_timer(int minutes, bool is_break)
+{
     {
         std::lock_guard lock(g_state_mutex);
         g_state.timer.active = true;
@@ -42,17 +48,22 @@ void start_focus_timer(int minutes, bool is_break) {
     trigger_nudge();
 }
 
-void toggle_timer_pause() {
+void toggle_timer_pause()
+{
     {
         std::lock_guard lock(g_state_mutex);
-        if (!g_state.timer.active) {
+        if (!g_state.timer.active)
+        {
             return;
         }
         const double now = now_seconds();
-        if (g_state.timer.running) {
+        if (g_state.timer.running)
+        {
             g_state.timer.remaining_at_pause = std::max(0.0, g_state.timer.ends_at - now);
             g_state.timer.running = false;
-        } else {
+        }
+        else
+        {
             g_state.timer.ends_at = now + g_state.timer.remaining_at_pause;
             g_state.timer.running = true;
         }
@@ -60,7 +71,8 @@ void toggle_timer_pause() {
     trigger_nudge();
 }
 
-void stop_focus_timer() {
+void stop_focus_timer()
+{
     {
         std::lock_guard lock(g_state_mutex);
         g_state.timer.active = false;
@@ -70,21 +82,24 @@ void stop_focus_timer() {
     trigger_nudge();
 }
 
-void toggle_endpoint_mute() {
+void toggle_endpoint_mute()
+{
     ComPtr<IMMDeviceEnumerator> enumerator;
     ComPtr<IMMDevice> device;
     ComPtr<IAudioEndpointVolume> volume;
 
-    HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr,
-                                  CLSCTX_ALL, IID_PPV_ARGS(&enumerator));
-    if (SUCCEEDED(hr)) {
+    HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL, IID_PPV_ARGS(&enumerator));
+    if (SUCCEEDED(hr))
+    {
         hr = enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device);
     }
-    if (SUCCEEDED(hr)) {
+    if (SUCCEEDED(hr))
+    {
         hr = device->Activate(__uuidof(IAudioEndpointVolume), CLSCTX_ALL, nullptr,
                               reinterpret_cast<void**>(volume.GetAddressOf()));
     }
-    if (SUCCEEDED(hr)) {
+    if (SUCCEEDED(hr))
+    {
         BOOL muted = FALSE;
         volume->GetMute(&muted);
         volume->SetMute(!muted, nullptr);
@@ -94,48 +109,63 @@ void toggle_endpoint_mute() {
 }
 
 // Shared by the scrubber's live drag updates and its on-release commit.
-void seek_media_to_ticks(int64_t target_ticks) {
-    std::thread([target_ticks]() {
-        winrt::init_apartment(winrt::apartment_type::multi_threaded);
-        try {
-            using Manager = winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager;
-            auto manager = Manager::RequestAsync().get();
-            if (manager) {
-                auto sessions = manager.GetSessions();
-                std::wstring current_aumid;
+void seek_media_to_ticks(int64_t target_ticks)
+{
+    std::thread(
+        [target_ticks]()
+        {
+            winrt::init_apartment(winrt::apartment_type::multi_threaded);
+            try
+            {
+                using Manager = winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager;
+                auto manager = Manager::RequestAsync().get();
+                if (manager)
                 {
-                    std::lock_guard lock(g_state_mutex);
-                    current_aumid = g_state.media.source_app_user_model_id;
-                }
-                winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession session = nullptr;
-                for (auto const& s : sessions) {
-                    if (s.SourceAppUserModelId().c_str() == current_aumid) {
-                        session = s;
-                        break;
+                    auto sessions = manager.GetSessions();
+                    std::wstring current_aumid;
+                    {
+                        std::lock_guard lock(g_state_mutex);
+                        current_aumid = g_state.media.source_app_user_model_id;
+                    }
+                    winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession session = nullptr;
+                    for (auto const& s : sessions)
+                    {
+                        if (s.SourceAppUserModelId().c_str() == current_aumid)
+                        {
+                            session = s;
+                            break;
+                        }
+                    }
+                    if (!session)
+                    {
+                        session = manager.GetCurrentSession();
+                    }
+
+                    if (session)
+                    {
+                        session.TryChangePlaybackPositionAsync(target_ticks).get();
                     }
                 }
-                if (!session) session = manager.GetCurrentSession();
-
-                if (session) {
-                    session.TryChangePlaybackPositionAsync(target_ticks).get();
-                }
             }
-        } catch (...) {}
-    }).detach();
+            catch (...)
+            {
+            }
+        })
+        .detach();
 }
-
 
 namespace
 {
 
-
 // Resolves the SMTC session matching the island's current media source, falling
 // back to whatever Windows reports as the current session. Must be called on a
 // thread with an initialised apartment.
-winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession resolve_media_session() {
+winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession resolve_media_session()
+{
     using Manager = winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager;
     auto manager = Manager::RequestAsync().get();
-    if (!manager) {
+    if (!manager)
+    {
         return nullptr;
     }
 
@@ -145,9 +175,12 @@ winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession resolv
         current_aumid = g_state.media.source_app_user_model_id;
     }
 
-    if (!current_aumid.empty()) {
-        for (auto const& s : manager.GetSessions()) {
-            if (s.SourceAppUserModelId().c_str() == current_aumid) {
+    if (!current_aumid.empty())
+    {
+        for (auto const& s : manager.GetSessions())
+        {
+            if (s.SourceAppUserModelId().c_str() == current_aumid)
+            {
                 return s;
             }
         }
@@ -156,8 +189,6 @@ winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession resolv
 }
 
 }
-
-
 
 // Sends a transport command: 0 = previous, 1 = play/pause, 2 = next.
 //
@@ -169,112 +200,145 @@ winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession resolv
 // answering false would then be driven twice -- skipping two tracks, or toggling
 // play/pause straight back. The keys are only synthesized when SMTC could not
 // act at all, where there is nothing to double-drive and no better option.
-void send_media_transport_command(int cmd) {
-    std::thread([cmd]() {
-        winrt::init_apartment(winrt::apartment_type::multi_threaded);
+void send_media_transport_command(int cmd)
+{
+    std::thread(
+        [cmd]()
+        {
+            winrt::init_apartment(winrt::apartment_type::multi_threaded);
 
-        bool session_attempted = false;
-        bool reported_success = false;
-        try {
-            auto session = resolve_media_session();
-            if (session) {
-                session_attempted = true;
-                if (cmd == 0) {
-                    reported_success = session.TrySkipPreviousAsync().get();
-                } else if (cmd == 1) {
-                    reported_success = session.TryTogglePlayPauseAsync().get();
-                } else if (cmd == 2) {
-                    reported_success = session.TrySkipNextAsync().get();
+            bool session_attempted = false;
+            bool reported_success = false;
+            try
+            {
+                auto session = resolve_media_session();
+                if (session)
+                {
+                    session_attempted = true;
+                    if (cmd == 0)
+                    {
+                        reported_success = session.TrySkipPreviousAsync().get();
+                    }
+                    else if (cmd == 1)
+                    {
+                        reported_success = session.TryTogglePlayPauseAsync().get();
+                    }
+                    else if (cmd == 2)
+                    {
+                        reported_success = session.TrySkipNextAsync().get();
+                    }
                 }
             }
-        } catch (...) {
-            session_attempted = false;
-        }
-
-        if (session_attempted) {
-            if (!reported_success) {
-                // Not escalated to a media key on purpose (see above). Logged so
-                // a player that genuinely refuses transport control is
-                // diagnosable from the mod log.
-                host::log(L"Media transport command %d was refused by the session.", cmd);
+            catch (...)
+            {
+                session_attempted = false;
             }
-            return;
-        }
 
-        BYTE vk = 0;
-        if (cmd == 0) {
-            vk = VK_MEDIA_PREV_TRACK;
-        } else if (cmd == 1) {
-            vk = VK_MEDIA_PLAY_PAUSE;
-        } else if (cmd == 2) {
-            vk = VK_MEDIA_NEXT_TRACK;
-        }
-        if (vk != 0) {
-            keybd_event(vk, 0, KEYEVENTF_EXTENDEDKEY, 0);
-            keybd_event(vk, 0, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
-        }
-    }).detach();
+            if (session_attempted)
+            {
+                if (!reported_success)
+                {
+                    // Not escalated to a media key on purpose (see above). Logged so
+                    // a player that genuinely refuses transport control is
+                    // diagnosable from the mod log.
+                    host::log(L"Media transport command %d was refused by the session.", cmd);
+                }
+                return;
+            }
+
+            BYTE vk = 0;
+            if (cmd == 0)
+            {
+                vk = VK_MEDIA_PREV_TRACK;
+            }
+            else if (cmd == 1)
+            {
+                vk = VK_MEDIA_PLAY_PAUSE;
+            }
+            else if (cmd == 2)
+            {
+                vk = VK_MEDIA_NEXT_TRACK;
+            }
+            if (vk != 0)
+            {
+                keybd_event(vk, 0, KEYEVENTF_EXTENDEDKEY, 0);
+                keybd_event(vk, 0, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+            }
+        })
+        .detach();
 }
-
 
 namespace
 {
 
-
-struct WindowSearch {
+struct WindowSearch
+{
     std::wstring target_title;
     std::wstring target_app;
     HWND found_hwnd = nullptr;
     HWND fallback_hwnd = nullptr;
 };
 
-BOOL CALLBACK enum_windows_proc(HWND hwnd, LPARAM l_param) {
-    if (!IsWindowVisible(hwnd)) {
+BOOL CALLBACK enum_windows_proc(HWND hwnd, LPARAM l_param)
+{
+    if (!IsWindowVisible(hwnd))
+    {
         return TRUE;
     }
 
     auto* search = reinterpret_cast<WindowSearch*>(l_param);
 
     wchar_t title[512];
-    if (GetWindowTextW(hwnd, title, ARRAYSIZE(title)) > 0) {
+    if (GetWindowTextW(hwnd, title, ARRAYSIZE(title)) > 0)
+    {
         std::wstring w_title(title);
         // Case-insensitive check if window title contains currently playing media title
-        auto it = std::search(
-            w_title.begin(), w_title.end(),
-            search->target_title.begin(), search->target_title.end(),
-            [](wchar_t ch1, wchar_t ch2) { return towlower(ch1) == towlower(ch2); }
-        );
+        auto it = std::search(w_title.begin(), w_title.end(), search->target_title.begin(), search->target_title.end(),
+                              [](wchar_t ch1, wchar_t ch2)
+                              {
+                                  return towlower(ch1) == towlower(ch2);
+                              });
 
-        if (it != w_title.end()) {
+        if (it != w_title.end())
+        {
             search->found_hwnd = hwnd;
             return FALSE; // found exact title, stop enumerating
         }
     }
 
     // Fallback: check if the window belongs to the target app (by process executable name)
-    if (!search->fallback_hwnd && !search->target_app.empty()) {
+    if (!search->fallback_hwnd && !search->target_app.empty())
+    {
         DWORD pid = 0;
         GetWindowThreadProcessId(hwnd, &pid);
-        if (pid != 0) {
+        if (pid != 0)
+        {
             std::wstring exe_path;
-            if (process_image_name_for_pid(pid, &exe_path)) {
+            if (process_image_name_for_pid(pid, &exe_path))
+            {
                 std::wstring target_lower = to_lower_copy(search->target_app);
                 std::wstring exe_lower = to_lower_copy(exe_path);
 
                 // Remove quotes from target AppUserModelId if any
-                if (target_lower.size() >= 2 && target_lower.front() == L'"' && target_lower.back() == L'"') {
+                if (target_lower.size() >= 2 && target_lower.front() == L'"' && target_lower.back() == L'"')
+                {
                     target_lower = target_lower.substr(1, target_lower.size() - 2);
                 }
 
-                if (exe_lower == target_lower) {
+                if (exe_lower == target_lower)
+                {
                     search->fallback_hwnd = hwnd;
-                } else {
+                }
+                else
+                {
                     std::wstring exe_name = exe_lower;
                     size_t slash_pos = exe_name.find_last_of(L"\\/");
-                    if (slash_pos != std::wstring::npos) {
+                    if (slash_pos != std::wstring::npos)
+                    {
                         exe_name = exe_name.substr(slash_pos + 1);
                     }
-                    if (exe_name == target_lower || exe_name == target_lower + L".exe") {
+                    if (exe_name == target_lower || exe_name == target_lower + L".exe")
+                    {
                         search->fallback_hwnd = hwnd;
                     }
                 }
@@ -287,9 +351,8 @@ BOOL CALLBACK enum_windows_proc(HWND hwnd, LPARAM l_param) {
 
 }
 
-
-
-void open_relevant_app() {
+void open_relevant_app()
+{
     std::wstring title;
     std::wstring app;
     {
@@ -299,7 +362,8 @@ void open_relevant_app() {
     }
 
     // Try to find and focus window containing track title (ideal for browser playing YouTube/Spotify)
-    if (!title.empty() || !app.empty()) {
+    if (!title.empty() || !app.empty())
+    {
         WindowSearch search;
         search.target_title = title;
         search.target_app = app;
@@ -307,8 +371,10 @@ void open_relevant_app() {
 
         HWND hwnd_to_focus = search.found_hwnd ? search.found_hwnd : search.fallback_hwnd;
 
-        if (hwnd_to_focus) {
-            if (IsIconic(hwnd_to_focus)) {
+        if (hwnd_to_focus)
+        {
+            if (IsIconic(hwnd_to_focus))
+            {
                 ShowWindow(hwnd_to_focus, SW_RESTORE);
             }
             SetForegroundWindow(hwnd_to_focus);
@@ -317,45 +383,54 @@ void open_relevant_app() {
     }
 
     // Fallback: Launch or focus via AppUserModelId or Path
-    if (!app.empty()) {
+    if (!app.empty())
+    {
         std::wstring execute_path = app;
 
         // Remove surrounding quotes if any
-        if (execute_path.size() >= 2 && execute_path.front() == L'"' && execute_path.back() == L'"') {
+        if (execute_path.size() >= 2 && execute_path.front() == L'"' && execute_path.back() == L'"')
+        {
             execute_path = execute_path.substr(1, execute_path.size() - 2);
         }
 
         bool is_file_path = (execute_path.find(L":\\") != std::wstring::npos ||
-                           (execute_path.size() >= 4 && execute_path.substr(execute_path.size() - 4) == L".exe"));
+                             (execute_path.size() >= 4 && execute_path.substr(execute_path.size() - 4) == L".exe"));
 
-        if (is_file_path) {
-            if (GetFileAttributesW(execute_path.c_str()) == INVALID_FILE_ATTRIBUTES) {
+        if (is_file_path)
+        {
+            if (GetFileAttributesW(execute_path.c_str()) == INVALID_FILE_ATTRIBUTES)
+            {
                 // Path doesn't exist. Try 64-bit Program Files if it was in x86
                 size_t x86_pos = execute_path.find(L" (x86)");
-                if (x86_pos != std::wstring::npos) {
+                if (x86_pos != std::wstring::npos)
+                {
                     std::wstring alt_path = execute_path;
                     alt_path.erase(x86_pos, 6);
-                    if (GetFileAttributesW(alt_path.c_str()) != INVALID_FILE_ATTRIBUTES) {
+                    if (GetFileAttributesW(alt_path.c_str()) != INVALID_FILE_ATTRIBUTES)
+                    {
                         execute_path = alt_path;
                     }
                 }
 
                 // If it STILL doesn't exist after trying alternatives, just gracefully abort!
                 // Trying to guess 'brave.exe' triggers broken Windows Registry App Paths.
-                if (GetFileAttributesW(execute_path.c_str()) == INVALID_FILE_ATTRIBUTES) {
+                if (GetFileAttributesW(execute_path.c_str()) == INVALID_FILE_ATTRIBUTES)
+                {
                     return;
                 }
             }
 
-            SHELLEXECUTEINFOW sei = { sizeof(sei) };
+            SHELLEXECUTEINFOW sei = {sizeof(sei)};
             sei.fMask = SEE_MASK_FLAG_NO_UI;
             sei.lpFile = execute_path.c_str();
             sei.nShow = SW_SHOWNORMAL;
             ShellExecuteExW(&sei);
-        } else {
+        }
+        else
+        {
             // It's a UWP/Desktop AppUserModelId, launch via AppsFolder
             std::wstring shell_path = L"shell:AppsFolder\\" + execute_path;
-            SHELLEXECUTEINFOW sei = { sizeof(sei) };
+            SHELLEXECUTEINFOW sei = {sizeof(sei)};
             sei.fMask = SEE_MASK_FLAG_NO_UI;
             sei.lpFile = shell_path.c_str();
             sei.nShow = SW_SHOWNORMAL;
@@ -367,7 +442,8 @@ void open_relevant_app() {
     ShellExecuteW(nullptr, L"open", L"ms-settings:", nullptr, nullptr, SW_SHOWNORMAL);
 }
 
-void dismiss_transient_state() {
+void dismiss_transient_state()
+{
     std::lock_guard lock(g_state_mutex);
     g_state.clipboard.active = false;
     g_state.notification.active = false;
@@ -380,6 +456,5 @@ void dismiss_transient_state() {
     g_state.battery.active = false;
     host::set_int_value(L"ProgressPercent", -1);
 }
-
 
 }

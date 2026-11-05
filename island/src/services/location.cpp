@@ -168,35 +168,37 @@ void fix_access(void* refresh_event)
         return;
     }
 
-    std::thread([value, refresh_event]
-    {
-        if (value == Status::Denied)
+    std::thread(
+        [value, refresh_event]
         {
-            open_privacy_settings();
-
-            for (const DWORD delay_ms : settings_recheck_ms)
+            if (value == Status::Denied)
             {
-                Sleep(delay_ms);
+                open_privacy_settings();
 
-                if (refresh_event)
+                for (const DWORD delay_ms : settings_recheck_ms)
+                {
+                    Sleep(delay_ms);
+
+                    if (refresh_event)
+                    {
+                        SetEvent(static_cast<HANDLE>(refresh_event));
+                    }
+                }
+            }
+            else
+            {
+                const bool enabled = enable_service();
+                host::log(L"Location: enabling the service %s", enabled ? L"succeeded" : L"failed");
+
+                if (enabled && refresh_event)
                 {
                     SetEvent(static_cast<HANDLE>(refresh_event));
                 }
             }
-        }
-        else
-        {
-            const bool enabled = enable_service();
-            host::log(L"Location: enabling the service %s", enabled ? L"succeeded" : L"failed");
 
-            if (enabled && refresh_event)
-            {
-                SetEvent(static_cast<HANDLE>(refresh_event));
-            }
-        }
-
-        fixing = false;
-    }).detach();
+            fixing = false;
+        })
+        .detach();
 }
 
 }

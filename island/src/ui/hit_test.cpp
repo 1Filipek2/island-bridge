@@ -6,13 +6,13 @@
 namespace island
 {
 
-
 // ── Media dashboard hit-testing (see the notes next to MediaLayout) ──────────
 
 // Converts a client-area mouse position into the media dashboard's content
 // space. Returns valid == false when DrawMedia has not painted recently, so a
 // stale frame can never produce a phantom hit.
-MediaContentPoint media_content_from_client(int client_x, int client_y) {
+MediaContentPoint media_content_from_client(int client_x, int client_y)
+{
     MediaContentPoint out;
 
     // Seqlock read: retry until a write is not in progress and the counter has
@@ -20,10 +20,12 @@ MediaContentPoint media_content_from_client(int client_x, int client_y) {
     float left = 0.0f, top = 0.0f, right = 0.0f, bottom = 0.0f, scale = 1.0f;
     float trim = 0.0f;
     unsigned long long stamp = 0;
-    for (int attempt = 0; attempt < 8; ++attempt) {
+    for (int attempt = 0; attempt < 8; ++attempt)
+    {
         const unsigned before = g_media_hit_seq.load(std::memory_order_relaxed);
-        if (before & 1u) {
-            continue;  // write in progress
+        if (before & 1u)
+        {
+            continue; // write in progress
         }
         std::atomic_thread_fence(std::memory_order_acquire);
 
@@ -36,23 +38,27 @@ MediaContentPoint media_content_from_client(int client_x, int client_y) {
         stamp = g_media_hit_stamp.load(std::memory_order_relaxed);
 
         std::atomic_thread_fence(std::memory_order_acquire);
-        if (g_media_hit_seq.load(std::memory_order_relaxed) == before) {
+        if (g_media_hit_seq.load(std::memory_order_relaxed) == before)
+        {
             break;
         }
-        stamp = 0;  // torn; force another attempt (or bail out below)
+        stamp = 0; // torn; force another attempt (or bail out below)
     }
 
-    if (stamp == 0 || GetTickCount64() - stamp > 500) {
+    if (stamp == 0 || GetTickCount64() - stamp > 500)
+    {
         return out;
     }
 
-    if (scale < 0.05f) {
+    if (scale < 0.05f)
+    {
         scale = 1.0f;
     }
 
     const float width = right - left - std::max(0.0f, trim);
     const float height = bottom - top;
-    if (width <= 1.0f || height <= 1.0f) {
+    if (width <= 1.0f || height <= 1.0f)
+    {
         return out;
     }
 
@@ -71,18 +77,18 @@ MediaContentPoint media_content_from_client(int client_x, int client_y) {
     return out;
 }
 
-
 namespace
 {
-
 
 // The immersive lyrics view draws the transport block (scrubber, controls, dock,
 // lyrics button) slightly smaller. This maps a content-space point back into that
 // block's own design space, so the hit tests below keep using the MediaLayout
 // constants. A no-op unless the immersive view is showing.
-MediaContentPoint media_player_zone_point(const MediaContentPoint& pt) {
+MediaContentPoint media_player_zone_point(const MediaContentPoint& pt)
+{
     const float mix = g_immersive_mix_pub.load(std::memory_order_relaxed);
-    if (!pt.valid || mix <= 0.001f) {
+    if (!pt.valid || mix <= 0.001f)
+    {
         return pt;
     }
     const float s = 1.0f + (immersive_layout::player_scale - 1.0f) * mix;
@@ -95,32 +101,36 @@ MediaContentPoint media_player_zone_point(const MediaContentPoint& pt) {
 
 }
 
-
-
 // Returns 0 = previous, 1 = play/pause, 2 = next, or -1 for no button.
-int media_transport_hit_test(const MediaContentPoint& raw_pt) {
+int media_transport_hit_test(const MediaContentPoint& raw_pt)
+{
     const MediaContentPoint pt = media_player_zone_point(raw_pt);
-    if (!pt.valid || pt.height <= media_layout::expanded_min_height) {
+    if (!pt.valid || pt.height <= media_layout::expanded_min_height)
+    {
         return -1;
     }
 
     const float center_x = pt.width * 0.5f;
     const float dy = pt.y - media_layout::controls_y;
 
-    struct Target {
+    struct Target
+    {
         float offset_x;
         float radius;
         int command;
     };
+
     const Target targets[] = {
         {-media_layout::control_spacing, media_layout::nav_button_radius, 0},
         {0.0f, media_layout::play_button_radius, 1},
         {media_layout::control_spacing, media_layout::nav_button_radius, 2},
     };
 
-    for (const Target& t : targets) {
+    for (const Target& t : targets)
+    {
         const float reach = t.radius + media_layout::control_hit_pad;
-        if (std::fabs(dy) <= reach && std::fabs(pt.x - (center_x + t.offset_x)) <= reach) {
+        if (std::fabs(dy) <= reach && std::fabs(pt.x - (center_x + t.offset_x)) <= reach)
+        {
             return t.command;
         }
     }
@@ -129,21 +139,24 @@ int media_transport_hit_test(const MediaContentPoint& raw_pt) {
 
 // Fraction along the scrubber bar (0..1) for a content-space point, or -1 when
 // the point is not on the bar.
-float media_scrub_fraction_from_content(const MediaContentPoint& raw_pt) {
+float media_scrub_fraction_from_content(const MediaContentPoint& raw_pt)
+{
     const MediaContentPoint pt = media_player_zone_point(raw_pt);
-    if (!pt.valid || pt.height <= media_layout::expanded_min_height) {
+    if (!pt.valid || pt.height <= media_layout::expanded_min_height)
+    {
         return -1.0f;
     }
 
     const float bar_left = media_layout::scrub_inset_left;
     const float bar_right = pt.width - media_layout::scrub_inset_right;
-    if (bar_right - bar_left <= 1.0f) {
+    if (bar_right - bar_left <= 1.0f)
+    {
         return -1.0f;
     }
 
     if (std::fabs(pt.y - media_layout::k_scrubber_y) > media_layout::scrub_hit_half_height ||
-        pt.x < bar_left - media_layout::scrub_hit_pad_x ||
-        pt.x > bar_right + media_layout::scrub_hit_pad_x) {
+        pt.x < bar_left - media_layout::scrub_hit_pad_x || pt.x > bar_right + media_layout::scrub_hit_pad_x)
+    {
         return -1.0f;
     }
 
@@ -152,14 +165,17 @@ float media_scrub_fraction_from_content(const MediaContentPoint& raw_pt) {
 
 // Clamped fraction for an ongoing drag, ignoring the on-bar test so the scrub
 // keeps tracking once the press has been captured.
-float media_scrub_fraction_unbounded(const MediaContentPoint& raw_pt) {
+float media_scrub_fraction_unbounded(const MediaContentPoint& raw_pt)
+{
     const MediaContentPoint pt = media_player_zone_point(raw_pt);
-    if (!pt.valid) {
+    if (!pt.valid)
+    {
         return -1.0f;
     }
     const float bar_left = media_layout::scrub_inset_left;
     const float bar_right = pt.width - media_layout::scrub_inset_right;
-    if (bar_right - bar_left <= 1.0f) {
+    if (bar_right - bar_left <= 1.0f)
+    {
         return -1.0f;
     }
     return clamp((clamp(pt.x, bar_left, bar_right) - bar_left) / (bar_right - bar_left), 0.0f, 1.0f);
@@ -167,16 +183,20 @@ float media_scrub_fraction_unbounded(const MediaContentPoint& raw_pt) {
 
 // Index of the File Tray row under a content-space point, or -1. Rows are drawn
 // newest-first, so index 0 is the most recently dropped file.
-int file_tray_row_at_content_point(const MediaContentPoint& pt, int item_count) {
-    if (!pt.valid || item_count <= 0 || pt.height <= media_layout::expanded_min_height) {
+int file_tray_row_at_content_point(const MediaContentPoint& pt, int item_count)
+{
+    if (!pt.valid || item_count <= 0 || pt.height <= media_layout::expanded_min_height)
+    {
         return -1;
     }
-    if (pt.x < file_tray_layout::k_pad_x || pt.x > pt.width - file_tray_layout::k_pad_x) {
+    if (pt.x < file_tray_layout::k_pad_x || pt.x > pt.width - file_tray_layout::k_pad_x)
+    {
         return -1;
     }
 
     const float list_bottom = pt.height - file_tray_layout::k_list_bottom_inset;
-    if (pt.y < file_tray_layout::k_list_top || pt.y > list_bottom) {
+    if (pt.y < file_tray_layout::k_list_top || pt.y > list_bottom)
+    {
         return -1;
     }
 
@@ -184,20 +204,24 @@ int file_tray_row_at_content_point(const MediaContentPoint& pt, int item_count) 
     const int index = static_cast<int>((pt.y - file_tray_layout::k_list_top) / stride);
     // Reject the gap between rows so hovering dead space highlights nothing.
     const float row_top = file_tray_layout::k_list_top + index * stride;
-    if (pt.y > row_top + file_tray_layout::k_row_height) {
+    if (pt.y > row_top + file_tray_layout::k_row_height)
+    {
         return -1;
     }
 
     const int capacity = file_tray_layout::visible_row_capacity(pt.height);
-    if (index < 0 || index >= capacity || index >= item_count) {
+    if (index < 0 || index >= capacity || index >= item_count)
+    {
         return -1;
     }
     return index;
 }
 
 // True when the point is over the bin button in the File Tray header.
-bool file_tray_clear_hit_test(const MediaContentPoint& pt) {
-    if (!pt.valid || pt.height <= media_layout::expanded_min_height) {
+bool file_tray_clear_hit_test(const MediaContentPoint& pt)
+{
+    if (!pt.valid || pt.height <= media_layout::expanded_min_height)
+    {
         return false;
     }
     constexpr float k_slop = 3.0f;
@@ -205,139 +229,168 @@ bool file_tray_clear_hit_test(const MediaContentPoint& pt) {
     const float left = right - file_tray_layout::clear_btn_size;
     const float top = file_tray_layout::clear_btn_top;
     const float bottom = top + file_tray_layout::clear_btn_size;
-    return pt.x >= left - k_slop && pt.x <= right + k_slop &&
-           pt.y >= top - k_slop && pt.y <= bottom + k_slop;
+    return pt.x >= left - k_slop && pt.x <= right + k_slop && pt.y >= top - k_slop && pt.y <= bottom + k_slop;
 }
 
 // True when the point is over the paste button (left of the bin) in the File Tray header.
-bool file_tray_paste_hit_test(const MediaContentPoint& pt) {
-    if (!pt.valid || pt.height <= media_layout::expanded_min_height) {
+bool file_tray_paste_hit_test(const MediaContentPoint& pt)
+{
+    if (!pt.valid || pt.height <= media_layout::expanded_min_height)
+    {
         return false;
     }
     constexpr float k_slop = 3.0f;
-    const float right = pt.width - file_tray_layout::k_pad_x - file_tray_layout::clear_btn_size -
-                        file_tray_layout::paste_btn_gap;
+    const float right =
+        pt.width - file_tray_layout::k_pad_x - file_tray_layout::clear_btn_size - file_tray_layout::paste_btn_gap;
     const float left = right - file_tray_layout::clear_btn_size;
     const float top = file_tray_layout::clear_btn_top;
     const float bottom = top + file_tray_layout::clear_btn_size;
-    return pt.x >= left - k_slop && pt.x <= right + k_slop &&
-           pt.y >= top - k_slop && pt.y <= bottom + k_slop;
+    return pt.x >= left - k_slop && pt.x <= right + k_slop && pt.y >= top - k_slop && pt.y <= bottom + k_slop;
 }
 
 // True when the point is over the cut button of the given visible row.
-bool file_tray_remove_hit_test(const MediaContentPoint& pt, int row) {
-    if (!pt.valid || row < 0 || pt.height <= media_layout::expanded_min_height) {
+bool file_tray_remove_hit_test(const MediaContentPoint& pt, int row)
+{
+    if (!pt.valid || row < 0 || pt.height <= media_layout::expanded_min_height)
+    {
         return false;
     }
     constexpr float k_slop = 3.0f;
     const float half = file_tray_layout::remove_btn_size * 0.5f + k_slop;
     const float center_x = pt.width - file_tray_layout::k_pad_x - file_tray_layout::remove_btn_margin -
-                          file_tray_layout::remove_btn_size * 0.5f;
+                           file_tray_layout::remove_btn_size * 0.5f;
     const float center_y = file_tray_layout::k_list_top +
-                          static_cast<float>(row) * (file_tray_layout::k_row_height + file_tray_layout::k_row_gap) +
-                          file_tray_layout::k_row_height * 0.5f;
+                           static_cast<float>(row) * (file_tray_layout::k_row_height + file_tray_layout::k_row_gap) +
+                           file_tray_layout::k_row_height * 0.5f;
     return std::fabs(pt.x - center_x) <= half && std::fabs(pt.y - center_y) <= half;
 }
 
-const notification_center::Group* open_notification_group(const SharedState& state) {
-    if (!state.notification_center_view.open() || !state.notification_center) {
+const notification_center::Group* open_notification_group(const SharedState& state)
+{
+    if (!state.notification_center_view.open() || !state.notification_center)
+    {
         return nullptr;
     }
     return state.notification_center->find(state.notification_center_view.key);
 }
 
-NotificationCenterHit notification_center_hit_test(const MediaContentPoint& pt) {
+NotificationCenterHit notification_center_hit_test(const MediaContentPoint& pt)
+{
     NotificationCenterHit hit;
-    if (!pt.valid || pt.height <= media_layout::expanded_min_height) {
+    if (!pt.valid || pt.height <= media_layout::expanded_min_height)
+    {
         return hit;
     }
     std::lock_guard lock(g_state_mutex);
-    if (open_notification_group(g_state)) {
-        if (notification_center::clear_hit(pt.x, pt.y, pt.width)) {
+    if (open_notification_group(g_state))
+    {
+        if (notification_center::clear_hit(pt.x, pt.y, pt.width))
+        {
             hit.action = notification_center_clear;
-        } else if (notification_center::back_hit(pt.x, pt.y, pt.width)) {
+        }
+        else if (notification_center::back_hit(pt.x, pt.y, pt.width))
+        {
             hit.action = notification_center_back;
         }
         return hit;
     }
-    const int group_count = g_state.notification_center ? static_cast<int>(g_state.notification_center->groups().size()) : 0;
+    const int group_count =
+        g_state.notification_center ? static_cast<int>(g_state.notification_center->groups().size()) : 0;
     hit.row = notification_center::row_at(pt.x, pt.y, pt.width, pt.height, group_count);
-    if (group_count > 0 && notification_center::clear_hit(pt.x, pt.y, pt.width)) {
+    if (group_count > 0 && notification_center::clear_hit(pt.x, pt.y, pt.width))
+    {
         hit.action = notification_center_clear;
-    } else if (notification_center::remove_hit(pt.x, pt.y, pt.width, hit.row)) {
+    }
+    else if (notification_center::remove_hit(pt.x, pt.y, pt.width, hit.row))
+    {
         hit.action = hit.row;
     }
     return hit;
 }
 
-
 namespace
 {
 
-
-void set_notification_center_view(notification_center::View view) {
+void set_notification_center_view(notification_center::View view)
+{
     g_notification_center_detail_open.store(view.open(), std::memory_order_relaxed);
     g_state.notification_center_view = std::move(view);
 }
 
 }
 
-
-
-void close_notification_center_detail() {
-    if (!g_notification_center_detail_open.load(std::memory_order_relaxed)) {
+void close_notification_center_detail()
+{
+    if (!g_notification_center_detail_open.load(std::memory_order_relaxed))
+    {
         return;
     }
     std::lock_guard lock(g_state_mutex);
     set_notification_center_view({});
 }
 
-void handle_notification_center_click(const NotificationCenterHit& hit) {
+void handle_notification_center_click(const NotificationCenterHit& hit)
+{
     std::lock_guard lock(g_state_mutex);
     const notification_center::History* history = g_state.notification_center.get();
-    if (!history) {
+    if (!history)
+    {
         set_notification_center_view({});
         return;
     }
 
-    if (const notification_center::Group* open = open_notification_group(g_state)) {
-        if (hit.action == notification_center_clear) {
+    if (const notification_center::Group* open = open_notification_group(g_state))
+    {
+        if (hit.action == notification_center_clear)
+        {
             auto next = std::make_shared<notification_center::History>(*history);
             next->remove(open->key);
             g_state.notification_center = std::move(next);
         }
-        if (hit.action == notification_center_clear || hit.action == notification_center_back) {
+        if (hit.action == notification_center_clear || hit.action == notification_center_back)
+        {
             set_notification_center_view({});
         }
         return;
     }
 
-    if (hit.action == notification_center_clear) {
+    if (hit.action == notification_center_clear)
+    {
         g_state.notification_center.reset();
         set_notification_center_view({});
-    } else if (hit.action >= 0) {
+    }
+    else if (hit.action >= 0)
+    {
         auto next = std::make_shared<notification_center::History>(*history);
-        if (next->remove(static_cast<std::size_t>(hit.action))) {
+        if (next->remove(static_cast<std::size_t>(hit.action)))
+        {
             g_state.notification_center = std::move(next);
         }
-    } else if (hit.row >= 0 && static_cast<std::size_t>(hit.row) < history->groups().size()) {
-        set_notification_center_view(notification_center::View{history->groups()[static_cast<std::size_t>(hit.row)].key, 0});
+    }
+    else if (hit.row >= 0 && static_cast<std::size_t>(hit.row) < history->groups().size())
+    {
+        set_notification_center_view(
+            notification_center::View{history->groups()[static_cast<std::size_t>(hit.row)].key, 0});
     }
 }
 
-bool scroll_notification_center_detail(int step) {
-    if (!g_notification_center_detail_open.load(std::memory_order_relaxed)) {
+bool scroll_notification_center_detail(int step)
+{
+    if (!g_notification_center_detail_open.load(std::memory_order_relaxed))
+    {
         return false;
     }
     std::lock_guard lock(g_state_mutex);
     const notification_center::Group* open = open_notification_group(g_state);
-    if (!open) {
+    if (!open)
+    {
         return false;
     }
     notification_center::View& view = g_state.notification_center_view;
-    const std::size_t next = notification_center::scrolled(view.offset, step, open->entries.size(),
-                                                           g_notification_center_detail_rows.load(std::memory_order_relaxed));
-    if (next != view.offset) {
+    const std::size_t next = notification_center::scrolled(
+        view.offset, step, open->entries.size(), g_notification_center_detail_rows.load(std::memory_order_relaxed));
+    if (next != view.offset)
+    {
         view.offset = next;
         g_layout_dirty = true;
     }
@@ -345,43 +398,54 @@ bool scroll_notification_center_detail(int step) {
 }
 
 // True when the point is over the expanded layout's album art.
-bool media_art_hit_test(const MediaContentPoint& pt) {
-    if (!pt.valid || pt.height <= media_layout::expanded_min_height) {
+bool media_art_hit_test(const MediaContentPoint& pt)
+{
+    if (!pt.valid || pt.height <= media_layout::expanded_min_height)
+    {
         return false;
     }
-    if (g_immersive_mix_pub.load(std::memory_order_relaxed) > 0.5f) {
+    if (g_immersive_mix_pub.load(std::memory_order_relaxed) > 0.5f)
+    {
         return pt.x >= immersive_layout::art_left &&
-               pt.x <= immersive_layout::art_left + immersive_layout::k_art_size &&
-               pt.y >= immersive_layout::art_top &&
+               pt.x <= immersive_layout::art_left + immersive_layout::k_art_size && pt.y >= immersive_layout::art_top &&
                pt.y <= immersive_layout::art_top + immersive_layout::k_art_size;
     }
-    return pt.x >= media_layout::art_inset_x &&
-           pt.x <= media_layout::art_inset_x + media_layout::k_art_size &&
-           pt.y >= media_layout::art_inset_y &&
-           pt.y <= media_layout::art_inset_y + media_layout::k_art_size;
+    return pt.x >= media_layout::art_inset_x && pt.x <= media_layout::art_inset_x + media_layout::k_art_size &&
+           pt.y >= media_layout::art_inset_y && pt.y <= media_layout::art_inset_y + media_layout::k_art_size;
 }
 
 // True when the point is over the immersive-lyrics toggle button.
-bool media_lyrics_button_hit_test(const MediaContentPoint& raw_pt) {
+bool media_lyrics_button_hit_test(const MediaContentPoint& raw_pt)
+{
     const MediaContentPoint pt = media_player_zone_point(raw_pt);
-    if (!pt.valid || pt.height <= media_layout::expanded_min_height) {
+    if (!pt.valid || pt.height <= media_layout::expanded_min_height)
+    {
         return false;
     }
     const float cx = pt.width - immersive_layout::btn_inset_right - immersive_layout::btn_radius;
     const float reach = immersive_layout::btn_radius + immersive_layout::btn_hit_pad;
-    return std::fabs(pt.x - cx) <= reach &&
-           std::fabs(pt.y - media_layout::controls_y) <= reach;
+    return std::fabs(pt.x - cx) <= reach && std::fabs(pt.y - media_layout::controls_y) <= reach;
 }
 
 // Drawing and hit testing call this with the same inputs, so they always agree.
-DockSlots compute_dock_slots(int source_count, int active_index) {
+DockSlots compute_dock_slots(int source_count, int active_index)
+{
     DockSlots d;
-    if (source_count < 2) return d;
-    if (source_count <= media_layout::dock_max_slots) {
+    if (source_count < 2)
+    {
+        return d;
+    }
+    if (source_count <= media_layout::dock_max_slots)
+    {
         d.count = source_count;
-        for (int i = 0; i < source_count; ++i) d.source_index[i] = i;
-    } else {
-        d.count = 3;  // first, the active one, and "+N" for the rest
+        for (int i = 0; i < source_count; ++i)
+        {
+            d.source_index[i] = i;
+        }
+    }
+    else
+    {
+        d.count = 3; // first, the active one, and "+N" for the rest
         d.source_index[0] = 0;
         d.source_index[1] = active_index >= 2 ? active_index : 1;
         d.source_index[2] = -1;
@@ -390,24 +454,30 @@ DockSlots compute_dock_slots(int source_count, int active_index) {
     return d;
 }
 
-
 namespace
 {
 
-
 // Slot under a content-space point, or -1. Boundaries sit in the middle of the gaps,
 // so the targets tile the pill (28px+ each) with no dead space.
-int media_source_dock_hit_test(const MediaContentPoint& raw_pt, int slot_count) {
+int media_source_dock_hit_test(const MediaContentPoint& raw_pt, int slot_count)
+{
     const MediaContentPoint pt = media_player_zone_point(raw_pt);
-    if (slot_count < 2 || !pt.valid || pt.height <= media_layout::expanded_min_height) {
+    if (slot_count < 2 || !pt.valid || pt.height <= media_layout::expanded_min_height)
+    {
         return -1;
     }
     const float half_h = std::max(media_layout::dock_hit_min, media_layout::k_dock_height) * 0.5f;
-    if (std::fabs(pt.y - media_layout::controls_y) > half_h) return -1;
+    if (std::fabs(pt.y - media_layout::controls_y) > half_h)
+    {
+        return -1;
+    }
 
     const float left = media_layout::dock_left;
     const float right = left + media_layout::dock_width(slot_count);
-    if (pt.x < left || pt.x > right) return -1;
+    if (pt.x < left || pt.x > right)
+    {
+        return -1;
+    }
 
     const float stride = media_layout::dock_slot + media_layout::dock_gap;
     const float origin = left + media_layout::dock_pad - media_layout::dock_gap * 0.5f;
@@ -417,20 +487,23 @@ int media_source_dock_hit_test(const MediaContentPoint& raw_pt, int slot_count) 
 
 }
 
-
-
-DockHit resolve_source_dock_hit(const MediaContentPoint& pt) {
+DockHit resolve_source_dock_hit(const MediaContentPoint& pt)
+{
     DockHit hit;
     std::lock_guard lock(g_state_mutex);
     const int count = static_cast<int>(g_state.media_sources.size());
     const int active = active_media_source_index(g_state);
     const DockSlots slots = compute_dock_slots(count, active);
     const int slot = media_source_dock_hit_test(pt, slots.count);
-    if (slot < 0) return hit;
+    if (slot < 0)
+    {
+        return hit;
+    }
 
     hit.slot = slot;
     const int idx = slots.source_index[slot];
-    if (idx < 0) {
+    if (idx < 0)
+    {
         hit.overflow = true;
         return hit;
     }
@@ -438,6 +511,5 @@ DockHit resolve_source_dock_hit(const MediaContentPoint& pt) {
     hit.is_active = (idx == active);
     return hit;
 }
-
 
 }

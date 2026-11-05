@@ -19,19 +19,20 @@ namespace island
 namespace
 {
 
-
-
-bool start_threads() {
+bool start_threads()
+{
     g_stop_event = CreateEventW(nullptr, TRUE, FALSE, nullptr);
     g_settings_changed_event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     g_media_refresh_event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-    if (!g_stop_event || !g_settings_changed_event) {
+    if (!g_stop_event || !g_settings_changed_event)
+    {
         return false;
     }
 
     g_running = true;
     g_render_thread = CreateThread(nullptr, 0, render_thread_proc, nullptr, 0, nullptr);
-    if (!g_render_thread) {
+    if (!g_render_thread)
+    {
         return false;
     }
 
@@ -50,21 +51,29 @@ bool start_threads() {
     return true;
 }
 
-void stop_threads() {
+void stop_threads()
+{
     unsubscribe_dnd_notification();
-    if (g_keyboard_thread_id != 0) {
+    if (g_keyboard_thread_id != 0)
+    {
         PostThreadMessageW(g_keyboard_thread_id, WM_QUIT, 0, 0);
     }
-    if (g_mouse_thread_id != 0) {
+    if (g_mouse_thread_id != 0)
+    {
         PostThreadMessageW(g_mouse_thread_id, WM_QUIT, 0, 0);
     }
-    if (g_stop_event) {
+    if (g_stop_event)
+    {
         SetEvent(g_stop_event);
     }
 
-    HANDLE handles[] = {g_render_thread, g_media_thread, g_audio_thread, g_weather_thread, g_github_thread, g_lyrics_thread, g_notification_thread, g_keyboard_thread, g_mouse_thread, g_bluetooth_thread, g_island_pipe_thread};
-    for (HANDLE handle : handles) {
-        if (handle) {
+    HANDLE handles[] = {g_render_thread, g_media_thread,     g_audio_thread,        g_weather_thread,
+                        g_github_thread, g_lyrics_thread,    g_notification_thread, g_keyboard_thread,
+                        g_mouse_thread,  g_bluetooth_thread, g_island_pipe_thread};
+    for (HANDLE handle : handles)
+    {
+        if (handle)
+        {
             WaitForSingleObject(handle, 3000);
             CloseHandle(handle);
         }
@@ -84,15 +93,18 @@ void stop_threads() {
     g_bluetooth_thread = nullptr;
     g_island_pipe_thread = nullptr;
 
-    if (g_stop_event) {
+    if (g_stop_event)
+    {
         CloseHandle(g_stop_event);
         g_stop_event = nullptr;
     }
-    if (g_settings_changed_event) {
+    if (g_settings_changed_event)
+    {
         CloseHandle(g_settings_changed_event);
         g_settings_changed_event = nullptr;
     }
-    if (g_media_refresh_event) {
+    if (g_media_refresh_event)
+    {
         CloseHandle(g_media_refresh_event);
         g_media_refresh_event = nullptr;
     }
@@ -106,10 +118,12 @@ void stop_threads() {
 
 using namespace island;
 
-bool island_start() {
+bool island_start()
+{
     load_settings();
 
-    if (!start_threads()) {
+    if (!start_threads())
+    {
         stop_threads();
         return false;
     }
@@ -119,19 +133,23 @@ bool island_start() {
     return true;
 }
 
-void island_settings_changed() {
+void island_settings_changed()
+{
     load_settings();
     toast_listener::sync_thread();
 }
 
-void island_stop() {
-    if (g_hwnd) {
+void island_stop()
+{
+    if (g_hwnd)
+    {
         PostMessageW(g_hwnd, WM_CLOSE, 0, 0);
     }
     stop_threads();
     host::log(L"Island stopped.");
 }
 
-HANDLE island_render_thread() {
+HANDLE island_render_thread()
+{
     return g_render_thread;
 }

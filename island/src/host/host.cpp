@@ -48,7 +48,8 @@ std::wstring local_app_data()
 HKEY open_key(const wchar_t* subkey, REGSAM access)
 {
     HKEY key = nullptr;
-    const LSTATUS status = RegCreateKeyExW(HKEY_CURRENT_USER, subkey, 0, nullptr, REG_OPTION_NON_VOLATILE, access, nullptr, &key, nullptr);
+    const LSTATUS status =
+        RegCreateKeyExW(HKEY_CURRENT_USER, subkey, 0, nullptr, REG_OPTION_NON_VOLATILE, access, nullptr, &key, nullptr);
     return status == ERROR_SUCCESS ? key : nullptr;
 }
 
@@ -89,7 +90,8 @@ bool read_string(HKEY key, const wchar_t* name, std::wstring& value)
 
     DWORD size = 0;
 
-    if (RegGetValueW(key, nullptr, name, RRF_RT_REG_SZ, nullptr, nullptr, &size) != ERROR_SUCCESS || size > max_string_bytes)
+    if (RegGetValueW(key, nullptr, name, RRF_RT_REG_SZ, nullptr, nullptr, &size) != ERROR_SUCCESS ||
+        size > max_string_bytes)
     {
         return false;
     }
@@ -133,7 +135,8 @@ void sanitize(wchar_t* text)
     {
         const wchar_t value = *cursor;
         const bool control = value < 0x20 || value == 0x7F || (value >= 0x80 && value < 0xA0);
-        const bool bidi = (value >= 0x202A && value <= 0x202E) || (value >= 0x2066 && value <= 0x2069) || value == 0x200E || value == 0x200F;
+        const bool bidi = (value >= 0x202A && value <= 0x202E) || (value >= 0x2066 && value <= 0x2069) ||
+                          value == 0x200E || value == 0x200F;
 
         if (control || bidi)
         {
@@ -148,7 +151,8 @@ void write_log_line(const wchar_t* message)
     GetLocalTime(&now);
 
     wchar_t line[log_line_chars + 32] = {};
-    _snwprintf_s(line, _TRUNCATE, L"%04u-%02u-%02u %02u:%02u:%02u.%03u %s\r\n", now.wYear, now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond, now.wMilliseconds, message);
+    _snwprintf_s(line, _TRUNCATE, L"%04u-%02u-%02u %02u:%02u:%02u.%03u %s\r\n", now.wYear, now.wMonth, now.wDay,
+                 now.wHour, now.wMinute, now.wSecond, now.wMilliseconds, message);
     const std::string bytes = to_utf8(line);
 
     std::lock_guard lock(log_mutex);
@@ -159,7 +163,9 @@ void write_log_line(const wchar_t* message)
         std::filesystem::rename(log_file, log_backup, error);
     }
 
-    HANDLE file = CreateFileW(log_file.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    HANDLE file =
+        CreateFileW(log_file.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                    OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 
     if (file == INVALID_HANDLE_VALUE)
     {
@@ -259,7 +265,8 @@ bool set_int_value(const wchar_t* name, int value)
     }
 
     const DWORD data = static_cast<DWORD>(value);
-    return RegSetValueExW(state_key, name, 0, REG_DWORD, reinterpret_cast<const BYTE*>(&data), sizeof(data)) == ERROR_SUCCESS;
+    return RegSetValueExW(state_key, name, 0, REG_DWORD, reinterpret_cast<const BYTE*>(&data), sizeof(data)) ==
+           ERROR_SUCCESS;
 }
 
 bool storage_path(wchar_t* buffer, std::size_t size)
@@ -281,7 +288,9 @@ void rearm_settings_watch()
 {
     if (settings_key && settings_event)
     {
-        RegNotifyChangeKeyValue(settings_key, TRUE, REG_NOTIFY_CHANGE_NAME | REG_NOTIFY_CHANGE_LAST_SET | REG_NOTIFY_THREAD_AGNOSTIC, settings_event, TRUE);
+        RegNotifyChangeKeyValue(settings_key, TRUE,
+                                REG_NOTIFY_CHANGE_NAME | REG_NOTIFY_CHANGE_LAST_SET | REG_NOTIFY_THREAD_AGNOSTIC,
+                                settings_event, TRUE);
     }
 }
 

@@ -10,47 +10,48 @@ namespace island
 namespace
 {
 
-
-
-BluetoothDeviceCategory classify_bluetooth_device(
-    const winrt::Windows::Devices::Enumeration::DeviceInformation& info) {
+BluetoothDeviceCategory classify_bluetooth_device(const winrt::Windows::Devices::Enumeration::DeviceInformation& info)
+{
     // 1) Name-based heuristic first — cheap, synchronous, and correct for
     //    the overwhelming majority of consumer devices, which advertise a
     //    descriptive friendly name.
     std::wstring name = to_lower_copy(std::wstring(info.Name().c_str()));
 
-    if (name.find(L"headphone") != std::wstring::npos ||
-        name.find(L"headset") != std::wstring::npos ||
-        name.find(L"earbud") != std::wstring::npos ||
-        name.find(L"buds") != std::wstring::npos ||
-        name.find(L"airpods") != std::wstring::npos) {
+    if (name.find(L"headphone") != std::wstring::npos || name.find(L"headset") != std::wstring::npos ||
+        name.find(L"earbud") != std::wstring::npos || name.find(L"buds") != std::wstring::npos ||
+        name.find(L"airpods") != std::wstring::npos)
+    {
         return BluetoothDeviceCategory::Headphones;
     }
-    if (name.find(L"speaker") != std::wstring::npos ||
-        name.find(L"soundbar") != std::wstring::npos ||
-        name.find(L"boombox") != std::wstring::npos) {
+    if (name.find(L"speaker") != std::wstring::npos || name.find(L"soundbar") != std::wstring::npos ||
+        name.find(L"boombox") != std::wstring::npos)
+    {
         return BluetoothDeviceCategory::Speaker;
     }
-    if (name.find(L"mouse") != std::wstring::npos) {
+    if (name.find(L"mouse") != std::wstring::npos)
+    {
         return BluetoothDeviceCategory::Mouse;
     }
-    if (name.find(L"keyboard") != std::wstring::npos) {
+    if (name.find(L"keyboard") != std::wstring::npos)
+    {
         return BluetoothDeviceCategory::Keyboard;
     }
-    if (name.find(L"iphone") != std::wstring::npos ||
-        name.find(L"phone") != std::wstring::npos ||
-        name.find(L"galaxy") != std::wstring::npos ||
-        name.find(L"pixel") != std::wstring::npos) {
+    if (name.find(L"iphone") != std::wstring::npos || name.find(L"phone") != std::wstring::npos ||
+        name.find(L"galaxy") != std::wstring::npos || name.find(L"pixel") != std::wstring::npos)
+    {
         return BluetoothDeviceCategory::Phone;
     }
 
     // 2) Fall back to the classic Bluetooth Class-of-Device major-class bits.
-    try {
+    try
+    {
         using winrt::Windows::Devices::Bluetooth::BluetoothDevice;
         using winrt::Windows::Devices::Bluetooth::BluetoothMajorClass;
         auto device = BluetoothDevice::FromIdAsync(info.Id()).get();
-        if (device) {
-            switch (device.ClassOfDevice().MajorClass()) {
+        if (device)
+        {
+            switch (device.ClassOfDevice().MajorClass())
+            {
                 case BluetoothMajorClass::Phone:
                     return BluetoothDeviceCategory::Phone;
                 case BluetoothMajorClass::AudioVideo:
@@ -61,7 +62,9 @@ BluetoothDeviceCategory classify_bluetooth_device(
                     break;
             }
         }
-    } catch (...) {
+    }
+    catch (...)
+    {
         // Not every device id resolves to a classic BluetoothDevice — BLE-only
         // peripherals in particular will throw here. Fall through.
     }
@@ -73,46 +76,55 @@ BluetoothDeviceCategory classify_bluetooth_device(
 // characteristic (0x2A19). Only works for devices that expose battery this
 // way — mostly BLE and BLE-dual-mode devices. Classic-only devices will
 // fail the GetGattServicesForUuidAsync call and we just report -1 (unknown).
-int try_read_bluetooth_battery_percent_ble(winrt::hstring const& device_id) {
+int try_read_bluetooth_battery_percent_ble(winrt::hstring const& device_id)
+{
     using namespace winrt::Windows::Devices::Bluetooth;
     using namespace winrt::Windows::Devices::Bluetooth::GenericAttributeProfile;
 
-    try {
+    try
+    {
         auto ble_device = BluetoothLEDevice::FromIdAsync(device_id).get();
-        if (!ble_device) {
+        if (!ble_device)
+        {
             return -1;
         }
 
-        auto services_result = ble_device.GetGattServicesForUuidAsync(
-            GattServiceUuids::Battery(), BluetoothCacheMode::Uncached).get();
-        if (services_result.Status() != GattCommunicationStatus::Success ||
-            services_result.Services().Size() == 0) {
+        auto services_result =
+            ble_device.GetGattServicesForUuidAsync(GattServiceUuids::Battery(), BluetoothCacheMode::Uncached).get();
+        if (services_result.Status() != GattCommunicationStatus::Success || services_result.Services().Size() == 0)
+        {
             return -1;
         }
 
         auto service = services_result.Services().GetAt(0);
-        auto chars_result = service.GetCharacteristicsForUuidAsync(
-            GattCharacteristicUuids::BatteryLevel(), BluetoothCacheMode::Uncached).get();
-        if (chars_result.Status() != GattCommunicationStatus::Success ||
-            chars_result.Characteristics().Size() == 0) {
+        auto chars_result =
+            service
+                .GetCharacteristicsForUuidAsync(GattCharacteristicUuids::BatteryLevel(), BluetoothCacheMode::Uncached)
+                .get();
+        if (chars_result.Status() != GattCommunicationStatus::Success || chars_result.Characteristics().Size() == 0)
+        {
             return -1;
         }
 
         auto characteristic = chars_result.Characteristics().GetAt(0);
         auto read_result = characteristic.ReadValueAsync(BluetoothCacheMode::Uncached).get();
-        if (read_result.Status() != GattCommunicationStatus::Success) {
+        if (read_result.Status() != GattCommunicationStatus::Success)
+        {
             return -1;
         }
 
         auto buffer = read_result.Value();
-        if (buffer.Length() < 1) {
+        if (buffer.Length() < 1)
+        {
             return -1;
         }
 
         auto reader = winrt::Windows::Storage::Streams::DataReader::FromBuffer(buffer);
         uint8_t raw = reader.ReadByte();
         return clamp_int(static_cast<int>(raw), 0, 100);
-    } catch (...) {
+    }
+    catch (...)
+    {
         return -1;
     }
 }
@@ -129,8 +141,10 @@ static const GUID guid_dev_class_bluetooth = {
 static const DEVPROPKEY pkey_bluetooth_battery = {
     {0x104ea319, 0x6ee2, 0x4701, {0xbd, 0x47, 0x8d, 0xdb, 0xf4, 0x25, 0xbb, 0xe5}}, 2};
 
-int try_read_classic_bluetooth_battery_percent(uint64_t address) {
-    if (!address) {
+int try_read_classic_bluetooth_battery_percent(uint64_t address)
+{
+    if (!address)
+    {
         host::log(L"BT battery: no address to search for.");
         return -1;
     }
@@ -144,14 +158,16 @@ int try_read_classic_bluetooth_battery_percent(uint64_t address) {
     // regardless of which device setup class it landed in. This is broader
     // than filtering by GUID_DEVCLASS_BLUETOOTH and matches what battery
     // tray utilities do.
-    HDEVINFO device_info_set = SetupDiGetClassDevsExW(
-        nullptr, L"BTHENUM", nullptr, DIGCF_ALLCLASSES | DIGCF_PRESENT,
-        nullptr, nullptr, nullptr);
+    HDEVINFO device_info_set = SetupDiGetClassDevsExW(nullptr, L"BTHENUM", nullptr, DIGCF_ALLCLASSES | DIGCF_PRESENT,
+                                                      nullptr, nullptr, nullptr);
 
-    if (device_info_set == INVALID_HANDLE_VALUE) {
-        host::log(L"BT battery: SetupDiGetClassDevsExW(BTHENUM) failed (0x%lx), falling back to class GUID.", GetLastError());
+    if (device_info_set == INVALID_HANDLE_VALUE)
+    {
+        host::log(L"BT battery: SetupDiGetClassDevsExW(BTHENUM) failed (0x%lx), falling back to class GUID.",
+                  GetLastError());
         device_info_set = SetupDiGetClassDevsW(&guid_dev_class_bluetooth, nullptr, nullptr, DIGCF_PRESENT);
-        if (device_info_set == INVALID_HANDLE_VALUE) {
+        if (device_info_set == INVALID_HANDLE_VALUE)
+        {
             host::log(L"BT battery: fallback enumeration also failed.");
             return -1;
         }
@@ -162,14 +178,16 @@ int try_read_classic_bluetooth_battery_percent(uint64_t address) {
     SP_DEVINFO_DATA dev_info_data = {};
     dev_info_data.cbSize = sizeof(dev_info_data);
 
-    for (DWORD i = 0; SetupDiEnumDeviceInfo(device_info_set, i, &dev_info_data); ++i) {
+    for (DWORD i = 0; SetupDiEnumDeviceInfo(device_info_set, i, &dev_info_data); ++i)
+    {
         wchar_t instance_id[512] = {};
-        if (!SetupDiGetDeviceInstanceIdW(device_info_set, &dev_info_data, instance_id,
-                                         ARRAYSIZE(instance_id), nullptr)) {
+        if (!SetupDiGetDeviceInstanceIdW(device_info_set, &dev_info_data, instance_id, ARRAYSIZE(instance_id), nullptr))
+        {
             continue;
         }
 
-        if (to_lower_copy(instance_id).find(addr_lower) == std::wstring::npos) {
+        if (to_lower_copy(instance_id).find(addr_lower) == std::wstring::npos)
+        {
             continue;
         }
 
@@ -179,19 +197,24 @@ int try_read_classic_bluetooth_battery_percent(uint64_t address) {
         DEVPROPTYPE prop_type = 0;
         BYTE battery = 0;
         DWORD required = 0;
-        if (SetupDiGetDevicePropertyW(device_info_set, &dev_info_data, &pkey_bluetooth_battery,
-                                      &prop_type, &battery, sizeof(battery), &required, 0)) {
+        if (SetupDiGetDevicePropertyW(device_info_set, &dev_info_data, &pkey_bluetooth_battery, &prop_type, &battery,
+                                      sizeof(battery), &required, 0))
+        {
             host::log(L"BT battery: property present on this devnode, type=%lu value=%u", prop_type, battery);
-            if (prop_type == DEVPROP_TYPE_BYTE && battery != 0xFF) {
+            if (prop_type == DEVPROP_TYPE_BYTE && battery != 0xFF)
+            {
                 result = clamp_int(static_cast<int>(battery), 0, 100);
                 break;
             }
-        } else {
+        }
+        else
+        {
             host::log(L"BT battery: PKEY_Bluetooth_Battery not set on this devnode yet (error 0x%lx).", GetLastError());
         }
     }
 
-    if (matched_count == 0) {
+    if (matched_count == 0)
+    {
         host::log(L"BT battery: no devnode instance ID contained address %s.", addr_lower.c_str());
     }
 
@@ -199,29 +222,36 @@ int try_read_classic_bluetooth_battery_percent(uint64_t address) {
     return result;
 }
 
-int try_read_bluetooth_battery_percent(winrt::hstring const& device_id) {
+int try_read_bluetooth_battery_percent(winrt::hstring const& device_id)
+{
     int result = -1;
 
     // Try the classic per-devnode battery property first — this is what
     // Settings > Bluetooth & devices reads, and it's what covers most
     // headsets/earbuds/speakers that pair over classic Bluetooth (BR/EDR)
     // rather than BLE.
-    try {
+    try
+    {
         using winrt::Windows::Devices::Bluetooth::BluetoothDevice;
         auto classic_device = BluetoothDevice::FromIdAsync(device_id).get();
-        if (classic_device) {
+        if (classic_device)
+        {
             result = try_read_classic_bluetooth_battery_percent(classic_device.BluetoothAddress());
         }
-    } catch (...) {
+    }
+    catch (...)
+    {
         // Not resolvable as a classic BluetoothDevice (BLE-only peripheral) — fall through.
     }
 
-    if (result < 0) {
+    if (result < 0)
+    {
         // Fall back to BLE GATT Battery Service for BLE / dual-mode devices.
         result = try_read_bluetooth_battery_percent_ble(device_id);
     }
 
-    if (result >= 0) {
+    if (result >= 0)
+    {
         // Remember this reading so a later disconnect (when the device can
         // no longer be queried) can still show the last known level.
         std::lock_guard lock(g_bluetooth_battery_cache_mutex);
@@ -233,7 +263,8 @@ int try_read_bluetooth_battery_percent(winrt::hstring const& device_id) {
 
 // Returns the last battery percent we successfully read for this device
 // while it was connected, or -1 if we never learned one.
-int get_last_known_bluetooth_battery_percent(const std::wstring& device_id) {
+int get_last_known_bluetooth_battery_percent(const std::wstring& device_id)
+{
     std::lock_guard lock(g_bluetooth_battery_cache_mutex);
     auto it = g_bluetooth_battery_cache.find(device_id);
     return it != g_bluetooth_battery_cache.end() ? it->second : -1;
@@ -241,7 +272,8 @@ int get_last_known_bluetooth_battery_percent(const std::wstring& device_id) {
 
 // Small per-device cache so a Removed event (which only carries an Id, not
 // a full DeviceInformation) can still show a name/icon on disconnect.
-struct BluetoothTrackedDevice {
+struct BluetoothTrackedDevice
+{
     std::wstring name;
     BluetoothDeviceCategory category;
 };
@@ -249,37 +281,50 @@ struct BluetoothTrackedDevice {
 // Fork: only devices whose name contains one of the semicolon-separated
 // entries of Modules.BluetoothAllowList (case-insensitive) get a card.
 // An empty list shows every device.
-bool is_bluetooth_card_allowed(const std::wstring& device_name) {
+bool is_bluetooth_card_allowed(const std::wstring& device_name)
+{
     const std::wstring list = to_lower_copy(get_string_setting_copy(L"Modules.BluetoothAllowList"));
     const std::wstring name = to_lower_copy(device_name);
     bool any_entry = false;
     size_t start = 0;
-    while (start <= list.size()) {
+    while (start <= list.size())
+    {
         size_t end = list.find(L';', start);
-        if (end == std::wstring::npos) end = list.size();
+        if (end == std::wstring::npos)
+        {
+            end = list.size();
+        }
         std::wstring entry = list.substr(start, end - start);
         start = end + 1;
         const size_t first = entry.find_first_not_of(L" \t");
-        if (first == std::wstring::npos) continue;
+        if (first == std::wstring::npos)
+        {
+            continue;
+        }
         entry = entry.substr(first, entry.find_last_not_of(L" \t") - first + 1);
         any_entry = true;
-        if (!name.empty() && name.find(entry) != std::wstring::npos) return true;
+        if (!name.empty() && name.find(entry) != std::wstring::npos)
+        {
+            return true;
+        }
     }
     return !any_entry;
 }
 
-void handle_bluetooth_connected(
-    const winrt::Windows::Devices::Enumeration::DeviceInformation& info,
-    std::unordered_map<std::wstring, BluetoothTrackedDevice>& cache,
-    std::mutex& cache_mutex) {
+void handle_bluetooth_connected(const winrt::Windows::Devices::Enumeration::DeviceInformation& info,
+                                std::unordered_map<std::wstring, BluetoothTrackedDevice>& cache,
+                                std::mutex& cache_mutex)
+{
     std::wstring name = info.Name().c_str();
-    if (name.empty()) {
+    if (name.empty())
+    {
         return;
     }
 
     // Re-read the default output once (event-driven, no polling).
     g_volume_endpoint_stale = true;
-    if (HWND recheck_hwnd = g_hwnd) {
+    if (HWND recheck_hwnd = g_hwnd)
+    {
         PostMessageW(recheck_hwnd, WM_NULL, 0, 0);
     }
 
@@ -289,11 +334,13 @@ void handle_bluetooth_connected(
         cache[std::wstring(info.Id().c_str())] = BluetoothTrackedDevice{name, category};
     }
 
-    if (!g_settings.bluetooth_indicator) {
+    if (!g_settings.bluetooth_indicator)
+    {
         return;
     }
 
-    if (category == BluetoothDeviceCategory::Phone || !is_bluetooth_card_allowed(name)) {
+    if (category == BluetoothDeviceCategory::Phone || !is_bluetooth_card_allowed(name))
+    {
         // Fork: see HandleBluetoothDisconnected; phones and devices outside the
         // allow list are not shown.
         host::log(L"Bluetooth: connected (card suppressed) - %s", name.c_str());
@@ -311,9 +358,7 @@ void handle_bluetooth_connected(
     snapshot.device_name = name;
     snapshot.category = category;
     snapshot.expires_at = now_seconds() + 4.0;
-    snapshot.battery_percent = g_settings.bluetooth_show_battery
-        ? try_read_bluetooth_battery_percent(info.Id())
-        : -1;
+    snapshot.battery_percent = g_settings.bluetooth_show_battery ? try_read_bluetooth_battery_percent(info.Id()) : -1;
 
     {
         std::lock_guard lock(g_state_mutex);
@@ -326,36 +371,44 @@ void handle_bluetooth_connected(
     // query the device. Keep retrying in the background for a while; if a
     // value shows up and this connection is still the one being displayed,
     // patch it into the live state and re-render.
-    if (g_settings.bluetooth_show_battery && snapshot.battery_percent < 0) {
-        std::thread([device_id, my_generation]() {
-            winrt::init_apartment(winrt::apartment_type::multi_threaded);
-            for (int attempt = 0; attempt < 6; ++attempt) {
-                Sleep(1500);
-                if (g_bluetooth_connect_generation.load() != my_generation) {
-                    break;  // a newer connect/disconnect event superseded this one
-                }
-
-                int battery = try_read_bluetooth_battery_percent(winrt::hstring(device_id));
-                if (battery >= 0) {
-                    std::lock_guard lock(g_state_mutex);
-                    if (g_bluetooth_connect_generation.load() == my_generation &&
-                        g_state.bluetooth_device.connected) {
-                        g_state.bluetooth_device.battery_percent = battery;
-                        host::log(L"Bluetooth: battery arrived late (%d%%) on retry %d.", battery, attempt + 1);
+    if (g_settings.bluetooth_show_battery && snapshot.battery_percent < 0)
+    {
+        std::thread(
+            [device_id, my_generation]()
+            {
+                winrt::init_apartment(winrt::apartment_type::multi_threaded);
+                for (int attempt = 0; attempt < 6; ++attempt)
+                {
+                    Sleep(1500);
+                    if (g_bluetooth_connect_generation.load() != my_generation)
+                    {
+                        break; // a newer connect/disconnect event superseded this one
                     }
-                    trigger_nudge();
-                    break;
+
+                    int battery = try_read_bluetooth_battery_percent(winrt::hstring(device_id));
+                    if (battery >= 0)
+                    {
+                        std::lock_guard lock(g_state_mutex);
+                        if (g_bluetooth_connect_generation.load() == my_generation &&
+                            g_state.bluetooth_device.connected)
+                        {
+                            g_state.bluetooth_device.battery_percent = battery;
+                            host::log(L"Bluetooth: battery arrived late (%d%%) on retry %d.", battery, attempt + 1);
+                        }
+                        trigger_nudge();
+                        break;
+                    }
                 }
-            }
-            winrt::uninit_apartment();
-        }).detach();
+                winrt::uninit_apartment();
+            })
+            .detach();
     }
 }
 
-void handle_bluetooth_disconnected(
-    winrt::hstring const& id,
-    std::unordered_map<std::wstring, BluetoothTrackedDevice>& cache,
-    std::mutex& cache_mutex) {
+void handle_bluetooth_disconnected(winrt::hstring const& id,
+                                   std::unordered_map<std::wstring, BluetoothTrackedDevice>& cache,
+                                   std::mutex& cache_mutex)
+{
     {
         // Fork: phones (iPhone via Phone Link) drop and re-open their links
         // constantly, so their connect/disconnect cards are just noise.
@@ -364,22 +417,25 @@ void handle_bluetooth_disconnected(
         // Unknown devices (never seen connecting) are blocked too, so a stranger's
         // device can't pop a nameless "Bluetooth Device" card.
         if (it == cache.end() || it->second.category == BluetoothDeviceCategory::Phone ||
-            !is_bluetooth_card_allowed(it->second.name)) {
+            !is_bluetooth_card_allowed(it->second.name))
+        {
             host::log(L"Bluetooth: disconnected (card suppressed) - %s",
-                   it != cache.end() ? it->second.name.c_str() : L"(unknown)");
+                      it != cache.end() ? it->second.name.c_str() : L"(unknown)");
             return;
         }
     }
 
-    ++g_bluetooth_connect_generation;  // cancel any pending battery retry for the old connection
+    ++g_bluetooth_connect_generation; // cancel any pending battery retry for the old connection
 
     // Re-read the default output once (event-driven, no polling).
     g_volume_endpoint_stale = true;
-    if (HWND recheck_hwnd = g_hwnd) {
+    if (HWND recheck_hwnd = g_hwnd)
+    {
         PostMessageW(recheck_hwnd, WM_NULL, 0, 0);
     }
 
-    if (!g_settings.bluetooth_indicator) {
+    if (!g_settings.bluetooth_indicator)
+    {
         return;
     }
 
@@ -388,12 +444,14 @@ void handle_bluetooth_disconnected(
     {
         std::lock_guard lock(cache_mutex);
         auto it = cache.find(std::wstring(id.c_str()));
-        if (it != cache.end()) {
+        if (it != cache.end())
+        {
             name = it->second.name;
             category = it->second.category;
         }
     }
-    if (name.empty()) {
+    if (name.empty())
+    {
         name = L"Bluetooth Device";
     }
 
@@ -416,17 +474,16 @@ void handle_bluetooth_disconnected(
 
 }
 
-
-
-DWORD WINAPI bluetooth_thread_proc(void*) {
+DWORD WINAPI bluetooth_thread_proc(void*)
+{
     winrt::init_apartment(winrt::apartment_type::multi_threaded);
 
+    using winrt::Windows::Devices::Bluetooth::BluetoothConnectionStatus;
+    using winrt::Windows::Devices::Bluetooth::BluetoothDevice;
+    using winrt::Windows::Devices::Bluetooth::BluetoothLEDevice;
     using winrt::Windows::Devices::Enumeration::DeviceInformation;
     using winrt::Windows::Devices::Enumeration::DeviceInformationUpdate;
     using winrt::Windows::Devices::Enumeration::DeviceWatcher;
-    using winrt::Windows::Devices::Bluetooth::BluetoothDevice;
-    using winrt::Windows::Devices::Bluetooth::BluetoothLEDevice;
-    using winrt::Windows::Devices::Bluetooth::BluetoothConnectionStatus;
 
     std::unordered_map<std::wstring, BluetoothTrackedDevice> device_cache;
     std::mutex cache_mutex;
@@ -435,71 +492,82 @@ DWORD WINAPI bluetooth_thread_proc(void*) {
     // Watching the "Connected" selector directly means a device APPEARING
     // in the watcher (Added) is a connect, and DISAPPEARING (Removed) is a
     // disconnect — no property polling or IsConnected lookups required.
-    auto start_watcher = [&](winrt::hstring const& selector, const wchar_t* label) {
-        try {
+    auto start_watcher = [&](winrt::hstring const& selector, const wchar_t* label)
+    {
+        try
+        {
             DeviceWatcher watcher = DeviceInformation::CreateWatcher(selector);
             auto enum_done = std::make_shared<std::atomic<bool>>(false);
 
             watcher.EnumerationCompleted(
-                [enum_done](DeviceWatcher const&, winrt::Windows::Foundation::IInspectable const&) {
+                [enum_done](DeviceWatcher const&, winrt::Windows::Foundation::IInspectable const&)
+                {
                     *enum_done = true;
                 });
 
-            watcher.Added([&device_cache, &cache_mutex, enum_done](
-                              DeviceWatcher const&, DeviceInformation const& info) {
-                // Devices reported before EnumerationCompleted are the
-                // watcher's initial snapshot (already connected when the mod
-                // started) — cache them silently so a later disconnect still
-                // resolves a name, but don't pop a card for a connection the
-                // user didn't just cause.
-                if (!*enum_done) {
-                    std::wstring name = info.Name().c_str();
-                    if (!name.empty()) {
-                        std::lock_guard lock(cache_mutex);
-                        device_cache[std::wstring(info.Id().c_str())] =
-                            BluetoothTrackedDevice{name, classify_bluetooth_device(info)};
+            watcher.Added(
+                [&device_cache, &cache_mutex, enum_done](DeviceWatcher const&, DeviceInformation const& info)
+                {
+                    // Devices reported before EnumerationCompleted are the
+                    // watcher's initial snapshot (already connected when the mod
+                    // started) — cache them silently so a later disconnect still
+                    // resolves a name, but don't pop a card for a connection the
+                    // user didn't just cause.
+                    if (!*enum_done)
+                    {
+                        std::wstring name = info.Name().c_str();
+                        if (!name.empty())
+                        {
+                            std::lock_guard lock(cache_mutex);
+                            device_cache[std::wstring(info.Id().c_str())] =
+                                BluetoothTrackedDevice{name, classify_bluetooth_device(info)};
+                        }
+                        return;
                     }
-                    return;
-                }
-                handle_bluetooth_connected(info, device_cache, cache_mutex);
-            });
+                    handle_bluetooth_connected(info, device_cache, cache_mutex);
+                });
 
-            watcher.Removed([&device_cache, &cache_mutex](
-                                DeviceWatcher const&, DeviceInformationUpdate const& update) {
-                handle_bluetooth_disconnected(update.Id(), device_cache, cache_mutex);
-            });
+            watcher.Removed(
+                [&device_cache, &cache_mutex](DeviceWatcher const&, DeviceInformationUpdate const& update)
+                {
+                    handle_bluetooth_disconnected(update.Id(), device_cache, cache_mutex);
+                });
 
             watcher.Start();
             watchers.push_back(watcher);
             host::log(L"Bluetooth: %s watcher started.", label);
-        } catch (...) {
+        }
+        catch (...)
+        {
             host::log(L"Bluetooth: failed to start %s watcher.", label);
         }
     };
 
-    start_watcher(
-        BluetoothDevice::GetDeviceSelectorFromConnectionStatus(BluetoothConnectionStatus::Connected),
-        L"classic");
-    start_watcher(
-        BluetoothLEDevice::GetDeviceSelectorFromConnectionStatus(BluetoothConnectionStatus::Connected),
-        L"BLE");
+    start_watcher(BluetoothDevice::GetDeviceSelectorFromConnectionStatus(BluetoothConnectionStatus::Connected),
+                  L"classic");
+    start_watcher(BluetoothLEDevice::GetDeviceSelectorFromConnectionStatus(BluetoothConnectionStatus::Connected),
+                  L"BLE");
 
     // DeviceWatcher does its work via WinRT callbacks on background threads;
     // this thread just needs to stay alive to keep the watchers rooted
     // until shutdown is signaled.
-    while (WaitForSingleObject(g_stop_event, 1000) == WAIT_TIMEOUT) {
+    while (WaitForSingleObject(g_stop_event, 1000) == WAIT_TIMEOUT)
+    {
     }
 
-    for (auto& watcher : watchers) {
-        try {
+    for (auto& watcher : watchers)
+    {
+        try
+        {
             watcher.Stop();
-        } catch (...) {
+        }
+        catch (...)
+        {
         }
     }
 
     winrt::uninit_apartment();
     return 0;
 }
-
 
 }

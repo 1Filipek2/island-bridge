@@ -10,10 +10,10 @@ namespace island
 namespace
 {
 
-
 // ── GitHub contributions tab (fork addition) ────────────────────────────────
 // Reads the public contribution calendar, so no token is needed or stored.
-struct GitHubDay {
+struct GitHubDay
+{
     std::string date;
     int row = 0;
     int column = 0;
@@ -22,24 +22,36 @@ struct GitHubDay {
 };
 
 // Pulls the value of attribute `name` from the tag text in [tagStart, tagEnd).
-std::string html_attribute(const std::string& html, size_t tag_start, size_t tag_end, const char* name) {
+std::string html_attribute(const std::string& html, size_t tag_start, size_t tag_end, const char* name)
+{
     const std::string needle = std::string(" ") + name + "=\"";
     const size_t pos = html.find(needle, tag_start);
-    if (pos == std::string::npos || pos >= tag_end) return std::string();
+    if (pos == std::string::npos || pos >= tag_end)
+    {
+        return std::string();
+    }
     const size_t begin = pos + needle.size();
     const size_t end = html.find('"', begin);
-    if (end == std::string::npos || end > tag_end) return std::string();
+    if (end == std::string::npos || end > tag_end)
+    {
+        return std::string();
+    }
     return html.substr(begin, end - begin);
 }
 
-std::vector<GitHubDay> parse_git_hub_calendar(const std::string& html) {
+std::vector<GitHubDay> parse_git_hub_calendar(const std::string& html)
+{
     static const std::string id_prefix = "contribution-day-component-";
     std::vector<GitHubDay> days;
 
     size_t cursor = 0;
-    while ((cursor = html.find("<td", cursor)) != std::string::npos) {
+    while ((cursor = html.find("<td", cursor)) != std::string::npos)
+    {
         const size_t tag_end = html.find('>', cursor);
-        if (tag_end == std::string::npos) break;
+        if (tag_end == std::string::npos)
+        {
+            break;
+        }
 
         const std::string id = html_attribute(html, cursor, tag_end, "id");
         const std::string date = html_attribute(html, cursor, tag_end, "data-date");
@@ -48,8 +60,8 @@ std::vector<GitHubDay> parse_git_hub_calendar(const std::string& html) {
 
         int row = -1, column = -1;
         if (date.size() != 10 || level.empty() || id.rfind(id_prefix, 0) != 0 ||
-            sscanf(id.c_str() + id_prefix.size(), "%d-%d", &row, &column) != 2 || row < 0 || row > 6 ||
-            column < 0) {
+            sscanf(id.c_str() + id_prefix.size(), "%d-%d", &row, &column) != 2 || row < 0 || row > 6 || column < 0)
+        {
             continue;
         }
         days.push_back({date, row, column, atoi(level.c_str()), 0});
@@ -58,29 +70,41 @@ std::vector<GitHubDay> parse_git_hub_calendar(const std::string& html) {
     // Counts only exist in the tooltips, which refer back to a cell by id.
     std::map<std::pair<int, int>, int> counts;
     cursor = 0;
-    while ((cursor = html.find("<tool-tip", cursor)) != std::string::npos) {
+    while ((cursor = html.find("<tool-tip", cursor)) != std::string::npos)
+    {
         const size_t tag_end = html.find('>', cursor);
-        if (tag_end == std::string::npos) break;
+        if (tag_end == std::string::npos)
+        {
+            break;
+        }
         const std::string target = html_attribute(html, cursor, tag_end, "for");
         int row = -1, column = -1;
-        if (target.rfind(id_prefix, 0) == 0 &&
-            sscanf(target.c_str() + id_prefix.size(), "%d-%d", &row, &column) == 2) {
+        if (target.rfind(id_prefix, 0) == 0 && sscanf(target.c_str() + id_prefix.size(), "%d-%d", &row, &column) == 2)
+        {
             // "No contributions on ..." parses as 0, "3 contributions on ..." as 3.
             counts[{row, column}] = atoi(html.c_str() + tag_end + 1);
         }
         cursor = tag_end;
     }
-    for (GitHubDay& day : days) {
+    for (GitHubDay& day : days)
+    {
         const auto found = counts.find({day.row, day.column});
-        if (found != counts.end()) day.count = found->second;
+        if (found != counts.end())
+        {
+            day.count = found->second;
+        }
     }
 
     std::sort(days.begin(), days.end(),
-              [](const GitHubDay& a, const GitHubDay& b) { return a.date < b.date; });
+              [](const GitHubDay& a, const GitHubDay& b)
+              {
+                  return a.date < b.date;
+              });
     return days;
 }
 
-void commit_git_hub_snapshot(const std::wstring& user, const std::vector<GitHubDay>& days) {
+void commit_git_hub_snapshot(const std::wstring& user, const std::vector<GitHubDay>& days)
+{
     SYSTEMTIME local{};
     GetLocalTime(&local);
     char today[16];
@@ -93,23 +117,35 @@ void commit_git_hub_snapshot(const std::wstring& user, const std::vector<GitHubD
     next.cells.fill(-1);
 
     int last_column = 0;
-    for (const GitHubDay& day : days) {
+    for (const GitHubDay& day : days)
+    {
         last_column = std::max(last_column, day.column);
         next.year_total += day.count;
-        if (day.date == today) next.today_count = day.count;
+        if (day.date == today)
+        {
+            next.today_count = day.count;
+        }
     }
 
     const int first_column = last_column - (GitHubSnapshot::weeks - 1);
-    for (const GitHubDay& day : days) {
-        if (day.column >= first_column) {
+    for (const GitHubDay& day : days)
+    {
+        if (day.column >= first_column)
+        {
             next.cells[(day.column - first_column) * 7 + day.row] = static_cast<signed char>(day.level);
         }
     }
 
     // A streak survives until the day is over, so an empty today doesn't break it.
     int index = static_cast<int>(days.size()) - 1;
-    if (index >= 0 && days[index].date == today && days[index].count == 0) --index;
-    for (; index >= 0 && days[index].count > 0; --index) ++next.streak;
+    if (index >= 0 && days[index].date == today && days[index].count == 0)
+    {
+        --index;
+    }
+    for (; index >= 0 && days[index].count > 0; --index)
+    {
+        ++next.streak;
+    }
 
     std::lock_guard lock(g_state_mutex);
     g_state.github = std::move(next);
@@ -117,45 +153,55 @@ void commit_git_hub_snapshot(const std::wstring& user, const std::vector<GitHubD
 
 }
 
-
-
-DWORD WINAPI git_hub_thread_proc(void*) {
+DWORD WINAPI git_hub_thread_proc(void*)
+{
     WaitForSingleObject(g_stop_event, 5000);
 
     static const DWORD backoff_ms[] = {60 * 1000, 5 * 60 * 1000, 15 * 60 * 1000, 30 * 60 * 1000};
     size_t backoff_index = 0;
 
-    while (WaitForSingleObject(g_stop_event, 0) == WAIT_TIMEOUT) {
-        if (!get_settings_copy().github_module) {
+    while (WaitForSingleObject(g_stop_event, 0) == WAIT_TIMEOUT)
+    {
+        if (!get_settings_copy().github_module)
+        {
             WaitForSingleObject(g_stop_event, 5000);
             continue;
         }
 
         bool committed = false;
         const std::wstring user = get_string_setting_copy(L"Modules.GitHubUser");
-        if (!user.empty()) {
+        if (!user.empty())
+        {
             const std::wstring path = L"/users/" + percent_encode_utf8(user) + L"/contributions";
             const std::vector<GitHubDay> days = parse_git_hub_calendar(http_get(L"github.com", path.c_str(), true));
-            if (!days.empty()) {
+            if (!days.empty())
+            {
                 commit_git_hub_snapshot(user, days);
                 committed = true;
                 host::log(L"GitHub: %zu days for %s", days.size(), user.c_str());
-            } else {
+            }
+            else
+            {
                 host::log(L"GitHub: no calendar in response, keeping previous data.");
             }
         }
 
         DWORD wait_ms = 30 * 60 * 1000;
-        if (committed) {
+        if (committed)
+        {
             backoff_index = 0;
-        } else {
+        }
+        else
+        {
             wait_ms = backoff_ms[backoff_index];
-            if (backoff_index + 1 < ARRAYSIZE(backoff_ms)) ++backoff_index;
+            if (backoff_index + 1 < ARRAYSIZE(backoff_ms))
+            {
+                ++backoff_index;
+            }
         }
         WaitForSingleObject(g_stop_event, wait_ms);
     }
     return 0;
 }
-
 
 }
