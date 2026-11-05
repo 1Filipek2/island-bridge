@@ -300,4 +300,745 @@
   <data name="Filter_MutedCategory" xml:space="preserve">
     <value>kategória stlmená</value>
   </data>
+  <data name="Island_Open" xml:space="preserve">
+    <value>Island</value>
+  </data>
+  <data name="Island_OpenSummary" xml:space="preserve">
+    <value>Vzhľad, moduly, skratky</value>
+  </data>
+  <data name="Island_Title" xml:space="preserve">
+    <value>Island</value>
+  </data>
+  <data name="Island_Intro" xml:space="preserve">
+    <value>Zmeny sa na islande prejavia hneď. Pri popisoch so značkou ⓘ ukáž myšou pre detaily.</value>
+  </data>
+  <data name="Island_Back" xml:space="preserve">
+    <value>Späť</value>
+  </data>
+  <data name="Island_Invalid" xml:space="preserve">
+    <value>Neplatná hodnota, ostala pôvodná.</value>
+  </data>
+  <data name="Island_PickColor" xml:space="preserve">
+    <value>Vybrať farbu</value>
+  </data>
+  <data name="Island_CityName" xml:space="preserve">
+    <value>Mesto</value>
+  </data>
+  <data name="Island_CityLatitude" xml:space="preserve">
+    <value>Šírka</value>
+  </data>
+  <data name="Island_CityLongitude" xml:space="preserve">
+    <value>Dĺžka</value>
+  </data>
+  <data name="Island_CityAdd" xml:space="preserve">
+    <value>Pridať mesto</value>
+  </data>
+  <data name="Island_CityRemove" xml:space="preserve">
+    <value>Odstrániť</value>
+  </data>
+  <data name="Island_Reset" xml:space="preserve">
+    <value>Obnoviť predvolené</value>
+  </data>
+  <data name="Island_ResetQuestion" xml:space="preserve">
+    <value>Obnoviť všetky nastavenia v tejto sekcii na predvolené?</value>
+  </data>
+  <data name="Island_ResetConfirm" xml:space="preserve">
+    <value>Obnoviť</value>
+  </data>
+  <data name="IslandFormat_Display" xml:space="preserve">
+    <value>Displej {0}</value>
+  </data>
+  <data name="IslandFormat_Scale" xml:space="preserve">
+    <value>{0}x</value>
+  </data>
+  <data name="IslandFormat_Fps" xml:space="preserve">
+    <value>{0} FPS</value>
+  </data>
+  <data name="IslandFormat_Megabytes" xml:space="preserve">
+    <value>{0} MB</value>
+  </data>
+  <data name="IslandGroup_Appearance" xml:space="preserve">
+    <value>Vzhľad a pozícia</value>
+  </data>
+  <data name="IslandGroup_Behavior" xml:space="preserve">
+    <value>Správanie</value>
+  </data>
+  <data name="IslandGroup_Animations" xml:space="preserve">
+    <value>Animácie</value>
+  </data>
+  <data name="IslandGroup_Theme" xml:space="preserve">
+    <value>Farby a téma</value>
+  </data>
+  <data name="IslandGroup_Media" xml:space="preserve">
+    <value>Médiá</value>
+  </data>
+  <data name="IslandGroup_Lyrics" xml:space="preserve">
+    <value>Texty piesní</value>
+  </data>
+  <data name="IslandGroup_ClockWeather" xml:space="preserve">
+    <value>Hodiny, dátum a počasie</value>
+  </data>
+  <data name="IslandGroup_Alerts" xml:space="preserve">
+    <value>Notifikácie a hlásenia</value>
+  </data>
+  <data name="IslandGroup_Privacy" xml:space="preserve">
+    <value>Indikátory súkromia</value>
+  </data>
+  <data name="IslandGroup_Tabs" xml:space="preserve">
+    <value>Karty a nástroje</value>
+  </data>
+  <data name="IslandGroup_GameOverlay" xml:space="preserve">
+    <value>Herný overlay</value>
+  </data>
+  <data name="IslandGroup_Shortcuts" xml:space="preserve">
+    <value>Klávesové skratky</value>
+  </data>
+  <data name="IslandGroup_Diagnostics" xml:space="preserve">
+    <value>Diagnostika</value>
+  </data>
+  <data name="Island_Appearance_Position" xml:space="preserve">
+    <value>Pozícia</value>
+  </data>
+  <data name="Island_Appearance_Position_top_center" xml:space="preserve">
+    <value>Hore v strede</value>
+  </data>
+  <data name="Island_Appearance_Position_top_left" xml:space="preserve">
+    <value>Hore vľavo</value>
+  </data>
+  <data name="Island_Appearance_Position_top_right" xml:space="preserve">
+    <value>Hore vpravo</value>
+  </data>
+  <data name="Island_Appearance_Position_bottom_center" xml:space="preserve">
+    <value>Dole v strede</value>
+  </data>
+  <data name="Island_Appearance_Position_bottom_left" xml:space="preserve">
+    <value>Dole vľavo</value>
+  </data>
+  <data name="Island_Appearance_Position_bottom_right" xml:space="preserve">
+    <value>Dole vpravo</value>
+  </data>
+  <data name="Island_Appearance_TargetMonitor" xml:space="preserve">
+    <value>Displej</value>
+  </data>
+  <data name="Island_Appearance_TargetMonitor_Hint" xml:space="preserve">
+    <value>Ak zvolený displej chýba, island použije hlavný.</value>
+  </data>
+  <data name="Island_Appearance_TargetMonitor_primary" xml:space="preserve">
+    <value>Hlavný</value>
+  </data>
+  <data name="Island_Appearance_TargetMonitor_follow" xml:space="preserve">
+    <value>Podľa myši</value>
+  </data>
+  <data name="Island_Appearance_ShapeStyle" xml:space="preserve">
+    <value>Tvar</value>
+  </data>
+  <data name="Island_Appearance_ShapeStyle_default" xml:space="preserve">
+    <value>Pilulka</value>
+  </data>
+  <data name="Island_Appearance_ShapeStyle_w11" xml:space="preserve">
+    <value>Box Windows 11</value>
+  </data>
+  <data name="Island_Appearance_ShapeStyle_notch" xml:space="preserve">
+    <value>Výrez</value>
+  </data>
+  <data name="Island_Appearance_SizeScale" xml:space="preserve">
+    <value>Veľkosť</value>
+  </data>
+  <data name="Island_Appearance_AutoDpiScale" xml:space="preserve">
+    <value>Škálovať podľa DPI displeja</value>
+  </data>
+  <data name="Island_Appearance_BorderMergedMode" xml:space="preserve">
+    <value>Prilepiť k okraju obrazovky</value>
+  </data>
+  <data name="Island_Appearance_BorderMergedMode_Hint" xml:space="preserve">
+    <value>Bez medzery medzi islandom a okrajom obrazovky.</value>
+  </data>
+  <data name="Island_Appearance_OffsetX" xml:space="preserve">
+    <value>Vodorovný posun</value>
+  </data>
+  <data name="Island_Appearance_OffsetY" xml:space="preserve">
+    <value>Zvislý posun</value>
+  </data>
+  <data name="Island_Appearance_SeparateExpandedOffsetY" xml:space="preserve">
+    <value>Iný zvislý posun po rozbalení</value>
+  </data>
+  <data name="Island_Appearance_OffsetYExpanded" xml:space="preserve">
+    <value>Zvislý posun po rozbalení</value>
+  </data>
+  <data name="Island_Behavior_AlwaysOnTop" xml:space="preserve">
+    <value>Vždy navrchu</value>
+  </data>
+  <data name="Island_Behavior_ExpandOnHover" xml:space="preserve">
+    <value>Rozbaliť pri prejdení myšou</value>
+  </data>
+  <data name="Island_Behavior_ExpandOnHover_Hint" xml:space="preserve">
+    <value>Keď je vypnuté, island sa rozbalí kliknutím.</value>
+  </data>
+  <data name="Island_Behavior_AutoHideIdleSeconds" xml:space="preserve">
+    <value>Skryť pri nečinnosti</value>
+  </data>
+  <data name="Island_Behavior_AutoHideIdleSeconds_0" xml:space="preserve">
+    <value>Nikdy</value>
+  </data>
+  <data name="Island_Behavior_AutoHideIdleSeconds__1" xml:space="preserve">
+    <value>Hneď</value>
+  </data>
+  <data name="Island_Behavior_AutoHideIdleSeconds_5" xml:space="preserve">
+    <value>Po 5 s</value>
+  </data>
+  <data name="Island_Behavior_AutoHideIdleSeconds_10" xml:space="preserve">
+    <value>Po 10 s</value>
+  </data>
+  <data name="Island_Behavior_AutoHideIdleSeconds_30" xml:space="preserve">
+    <value>Po 30 s</value>
+  </data>
+  <data name="Island_Behavior_AutoHideIdleSeconds_60" xml:space="preserve">
+    <value>Po 60 s</value>
+  </data>
+  <data name="Island_Behavior_AutoHideFullscreen" xml:space="preserve">
+    <value>Skryť pri aplikáciách na celú obrazovku</value>
+  </data>
+  <data name="Island_Behavior_UnhideOnHover" xml:space="preserve">
+    <value>Ukázať skrytý island pri prejdení myšou</value>
+  </data>
+  <data name="Island_Behavior_UnhideOnHover_Hint" xml:space="preserve">
+    <value>Klávesová skratka na skrytie a zobrazenie funguje vždy.</value>
+  </data>
+  <data name="Island_Animations_TargetFPS" xml:space="preserve">
+    <value>Snímková frekvencia</value>
+  </data>
+  <data name="Island_Animations_TargetFPS_auto" xml:space="preserve">
+    <value>Podľa displeja</value>
+  </data>
+  <data name="Island_Animations_AnimationStyle" xml:space="preserve">
+    <value>Štýl pružiny</value>
+  </data>
+  <data name="Island_Animations_AnimationStyle_default" xml:space="preserve">
+    <value>Vyvážený</value>
+  </data>
+  <data name="Island_Animations_AnimationStyle_smooth" xml:space="preserve">
+    <value>Plynulý</value>
+  </data>
+  <data name="Island_Animations_AnimationStyle_bouncy" xml:space="preserve">
+    <value>Pružný</value>
+  </data>
+  <data name="Island_Animations_AnimationStyle_snappy" xml:space="preserve">
+    <value>Svižný</value>
+  </data>
+  <data name="Island_Animations_AnimationSpeed" xml:space="preserve">
+    <value>Rýchlosť</value>
+  </data>
+  <data name="Island_Animations_AnimationSpeed_very_slow" xml:space="preserve">
+    <value>Veľmi pomalá</value>
+  </data>
+  <data name="Island_Animations_AnimationSpeed_slow" xml:space="preserve">
+    <value>Pomalá</value>
+  </data>
+  <data name="Island_Animations_AnimationSpeed_normal" xml:space="preserve">
+    <value>Normálna</value>
+  </data>
+  <data name="Island_Animations_AnimationSpeed_fast" xml:space="preserve">
+    <value>Rýchla</value>
+  </data>
+  <data name="Island_Animations_AnimationSpeed_very_fast" xml:space="preserve">
+    <value>Veľmi rýchla</value>
+  </data>
+  <data name="Island_Animations_AnimationSpeed_ultra_fast" xml:space="preserve">
+    <value>Ultra rýchla</value>
+  </data>
+  <data name="Island_Animations_ExpandedMediaTransitions" xml:space="preserve">
+    <value>Animovať rozbalený prehrávač</value>
+  </data>
+  <data name="Island_Animations_ExpandedMediaTransitions_Hint" xml:space="preserve">
+    <value>Názov, obal a tlačidlá sa pri zmene skladby animujú.</value>
+  </data>
+  <data name="Island_Animations_PillCoverSpin" xml:space="preserve">
+    <value>Otočiť obal v pilulke</value>
+  </data>
+  <data name="Island_Animations_PillCoverSpin_Hint" xml:space="preserve">
+    <value>Pri zmene skladby.</value>
+  </data>
+  <data name="Island_Themes_ThemePreset" xml:space="preserve">
+    <value>Téma</value>
+  </data>
+  <data name="Island_Themes_ThemePreset_obsidian" xml:space="preserve">
+    <value>Obsidián</value>
+  </data>
+  <data name="Island_Themes_ThemePreset_graphite" xml:space="preserve">
+    <value>Grafit</value>
+  </data>
+  <data name="Island_Themes_ThemePreset_slate" xml:space="preserve">
+    <value>Bridlica</value>
+  </data>
+  <data name="Island_Themes_ThemePreset_nord" xml:space="preserve">
+    <value>Nord</value>
+  </data>
+  <data name="Island_Themes_ThemePreset_evergreen" xml:space="preserve">
+    <value>Ihličnan</value>
+  </data>
+  <data name="Island_Themes_ThemePreset_espresso" xml:space="preserve">
+    <value>Espresso</value>
+  </data>
+  <data name="Island_Themes_ThemePreset_plum" xml:space="preserve">
+    <value>Slivka</value>
+  </data>
+  <data name="Island_Themes_ThemePreset_porcelain" xml:space="preserve">
+    <value>Porcelán (svetlá)</value>
+  </data>
+  <data name="Island_Themes_ThemePreset_custom" xml:space="preserve">
+    <value>Vlastné farby</value>
+  </data>
+  <data name="Island_Themes_PillBgColor" xml:space="preserve">
+    <value>Pozadie</value>
+  </data>
+  <data name="Island_Themes_PillBgColor_Hint" xml:space="preserve">
+    <value>Farba iná ako predvolená prepíše tému. Osem číslic pridá priehľadnosť.</value>
+  </data>
+  <data name="Island_Themes_TextPrimaryColor" xml:space="preserve">
+    <value>Hlavný text</value>
+  </data>
+  <data name="Island_Themes_TextPrimaryColor_Hint" xml:space="preserve">
+    <value>Farba iná ako predvolená prepíše tému.</value>
+  </data>
+  <data name="Island_Themes_TextSecondaryColor" xml:space="preserve">
+    <value>Vedľajší text</value>
+  </data>
+  <data name="Island_Themes_TextSecondaryColor_Hint" xml:space="preserve">
+    <value>Farba iná ako predvolená prepíše tému.</value>
+  </data>
+  <data name="Island_Themes_ContourBorderMode" xml:space="preserve">
+    <value>Okraj</value>
+  </data>
+  <data name="Island_Themes_ContourBorderMode_default" xml:space="preserve">
+    <value>Podľa témy</value>
+  </data>
+  <data name="Island_Themes_ContourBorderMode_auto" xml:space="preserve">
+    <value>Z obalu albumu</value>
+  </data>
+  <data name="Island_Themes_ContourBorderMode_borderless" xml:space="preserve">
+    <value>Žiadny</value>
+  </data>
+  <data name="Island_Themes_ContourBorderHex" xml:space="preserve">
+    <value>Farba okraja</value>
+  </data>
+  <data name="Island_Themes_ContourBorderHex_Hint" xml:space="preserve">
+    <value>Farba iná ako predvolená prepíše tému.</value>
+  </data>
+  <data name="Island_Themes_AccentColorMode" xml:space="preserve">
+    <value>Farba zvýraznenia</value>
+  </data>
+  <data name="Island_Themes_AccentColorMode_auto" xml:space="preserve">
+    <value>Z obalu albumu</value>
+  </data>
+  <data name="Island_Themes_AccentColorMode_system" xml:space="preserve">
+    <value>Farba Windows</value>
+  </data>
+  <data name="Island_Themes_AccentColorMode_custom" xml:space="preserve">
+    <value>Vlastná</value>
+  </data>
+  <data name="Island_Themes_CustomAccentHex" xml:space="preserve">
+    <value>Vlastné zvýraznenie</value>
+  </data>
+  <data name="Island_Themes_CalendarAccent" xml:space="preserve">
+    <value>Zvýraznenie kalendára</value>
+  </data>
+  <data name="Island_Themes_CalendarAccent_red" xml:space="preserve">
+    <value>Podľa islandu</value>
+  </data>
+  <data name="Island_Themes_CalendarAccent_system" xml:space="preserve">
+    <value>Farba Windows</value>
+  </data>
+  <data name="Island_Themes_ClockAccentGlow" xml:space="preserve">
+    <value>Žiara za hodinami</value>
+  </data>
+  <data name="Island_Themes_PillOpacity" xml:space="preserve">
+    <value>Nepriehľadnosť</value>
+  </data>
+  <data name="Island_Themes_TintIntensity" xml:space="preserve">
+    <value>Tónovanie pozadia</value>
+  </data>
+  <data name="Island_Themes_BackdropMaterial" xml:space="preserve">
+    <value>Materiál pozadia</value>
+  </data>
+  <data name="Island_Themes_BackdropMaterial_Hint" xml:space="preserve">
+    <value>Vyžaduje zapnuté efekty priehľadnosti vo Windows.</value>
+  </data>
+  <data name="Island_Themes_BackdropMaterial_none" xml:space="preserve">
+    <value>Vypnutý</value>
+  </data>
+  <data name="Island_Themes_BackdropMaterial_blur" xml:space="preserve">
+    <value>Rozmazanie</value>
+  </data>
+  <data name="Island_Themes_BackdropMaterial_acrylic" xml:space="preserve">
+    <value>Akryl</value>
+  </data>
+  <data name="Island_Themes_BackdropFillOpacity" xml:space="preserve">
+    <value>Výplň materiálu</value>
+  </data>
+  <data name="Island_Themes_BackdropFillOpacity_Hint" xml:space="preserve">
+    <value>Nižšia hodnota prepustí viac rozmazania.</value>
+  </data>
+  <data name="Island_Themes_BackdropTint" xml:space="preserve">
+    <value>Tónovanie materiálu</value>
+  </data>
+  <data name="Island_Themes_MaterialDepth" xml:space="preserve">
+    <value>Tieňovanie hĺbky</value>
+  </data>
+  <data name="Island_Themes_DropShadow" xml:space="preserve">
+    <value>Vrhnutý tieň</value>
+  </data>
+  <data name="Island_Themes_AccentBloom" xml:space="preserve">
+    <value>Žiara zvýraznenia</value>
+  </data>
+  <data name="Island_Themes_TextScale" xml:space="preserve">
+    <value>Veľkosť textu</value>
+  </data>
+  <data name="Island_Themes_FontFamily" xml:space="preserve">
+    <value>Písmo</value>
+  </data>
+  <data name="Island_Themes_FontFamily_Placeholder" xml:space="preserve">
+    <value>Predvolené, napríklad Segoe UI</value>
+  </data>
+  <data name="Island_Modules_Media" xml:space="preserve">
+    <value>Prehrávač médií</value>
+  </data>
+  <data name="Island_Modules_MediaAutoExpand" xml:space="preserve">
+    <value>Rozbaliť pri zmene skladby</value>
+  </data>
+  <data name="Island_Modules_MediaExpandBlocklist" xml:space="preserve">
+    <value>Nikdy nerozbaľovať pre</value>
+  </data>
+  <data name="Island_Modules_MediaExpandBlocklist_Hint" xml:space="preserve">
+    <value>Názvy aplikácií alebo stránok oddelené čiarkou.</value>
+  </data>
+  <data name="Island_Modules_MediaExpandBlocklist_Placeholder" xml:space="preserve">
+    <value>chrome, tiktok, youtube</value>
+  </data>
+  <data name="Island_Modules_MediaPillClock" xml:space="preserve">
+    <value>Hodiny v pilulke médií</value>
+  </data>
+  <data name="Island_Appearance_ProgressStyle" xml:space="preserve">
+    <value>Ukazovateľ priebehu</value>
+  </data>
+  <data name="Island_Appearance_ProgressStyle_slim" xml:space="preserve">
+    <value>Tenký</value>
+  </data>
+  <data name="Island_Appearance_ProgressStyle_wavy" xml:space="preserve">
+    <value>Vlnitý</value>
+  </data>
+  <data name="Island_Appearance_ProgressStyle_squiggle" xml:space="preserve">
+    <value>Kľukatý</value>
+  </data>
+  <data name="Island_Appearance_ProgressStyle_bar" xml:space="preserve">
+    <value>Hrubý</value>
+  </data>
+  <data name="Island_Appearance_SpectrumStyle" xml:space="preserve">
+    <value>Vizualizér</value>
+  </data>
+  <data name="Island_Appearance_SpectrumStyle_Hint" xml:space="preserve">
+    <value>Matica, plazma a guľa analyzujú zvuk systému.</value>
+  </data>
+  <data name="Island_Appearance_SpectrumStyle_bars" xml:space="preserve">
+    <value>Stĺpce</value>
+  </data>
+  <data name="Island_Appearance_SpectrumStyle_led" xml:space="preserve">
+    <value>Matica</value>
+  </data>
+  <data name="Island_Appearance_SpectrumStyle_plasma" xml:space="preserve">
+    <value>Plazma</value>
+  </data>
+  <data name="Island_Appearance_SpectrumStyle_orb" xml:space="preserve">
+    <value>Guľa</value>
+  </data>
+  <data name="Island_Modules_MediaTabLyrics" xml:space="preserve">
+    <value>Tlačidlo textov v prehrávači</value>
+  </data>
+  <data name="Island_Modules_LyricsVisualizer" xml:space="preserve">
+    <value>Vizualizér pri textoch</value>
+  </data>
+  <data name="Island_Modules_KaraokeLyrics" xml:space="preserve">
+    <value>Karaoke zvýraznenie</value>
+  </data>
+  <data name="Island_Modules_KaraokeLetterGlow" xml:space="preserve">
+    <value>Žiara písmen</value>
+  </data>
+  <data name="Island_Modules_LyricsNeighborLinesVisible" xml:space="preserve">
+    <value>Zreteľné susedné riadky</value>
+  </data>
+  <data name="Island_Modules_LyricsOffsetMs" xml:space="preserve">
+    <value>Posun textov, reproduktory</value>
+  </data>
+  <data name="Island_Modules_LyricsOffsetMs_Hint" xml:space="preserve">
+    <value>Kladná hodnota zobrazí text skôr.</value>
+  </data>
+  <data name="Island_Modules_LyricsOffsetBluetoothMs" xml:space="preserve">
+    <value>Posun textov, Bluetooth</value>
+  </data>
+  <data name="Island_Modules_LyricsOffsetBluetoothMs_Hint" xml:space="preserve">
+    <value>Kladná hodnota zobrazí text skôr. Bluetooth zvyčajne potrebuje zápornú.</value>
+  </data>
+  <data name="Island_Modules_LyricsCache" xml:space="preserve">
+    <value>Ukladať texty na disk</value>
+  </data>
+  <data name="Island_Modules_LyricsCacheMaxMB" xml:space="preserve">
+    <value>Veľkosť úložiska</value>
+  </data>
+  <data name="Island_Modules_LyricsCacheMaxMB_0" xml:space="preserve">
+    <value>Vypnuté</value>
+  </data>
+  <data name="Island_Modules_Language" xml:space="preserve">
+    <value>Jazyk islandu</value>
+  </data>
+  <data name="Island_Modules_Language_auto" xml:space="preserve">
+    <value>Podľa Windows</value>
+  </data>
+  <data name="Island_Modules_ClockFormat" xml:space="preserve">
+    <value>Formát času</value>
+  </data>
+  <data name="Island_Modules_ClockFormat_system" xml:space="preserve">
+    <value>Podľa Windows</value>
+  </data>
+  <data name="Island_Modules_ClockFormat_12h" xml:space="preserve">
+    <value>12-hodinový</value>
+  </data>
+  <data name="Island_Modules_ClockFormat_24h" xml:space="preserve">
+    <value>24-hodinový</value>
+  </data>
+  <data name="Island_Modules_ShowSeconds" xml:space="preserve">
+    <value>Zobraziť sekundy</value>
+  </data>
+  <data name="Island_Modules_DateFormat" xml:space="preserve">
+    <value>Formát dátumu</value>
+  </data>
+  <data name="Island_Modules_DateFormat_Hint" xml:space="preserve">
+    <value>yyyy, MM, M, dd, d, MMM, MMMM, ddd, dddd. Ostatné znaky sa zobrazia tak, ako sú.</value>
+  </data>
+  <data name="Island_Modules_DateFormat_Placeholder" xml:space="preserve">
+    <value>Podľa Windows, napríklad dd.MM.yyyy</value>
+  </data>
+  <data name="Island_Modules_DateFirst" xml:space="preserve">
+    <value>Dátum nad časom</value>
+  </data>
+  <data name="Island_Modules_FirstDayOfWeek" xml:space="preserve">
+    <value>Prvý deň týždňa</value>
+  </data>
+  <data name="Island_Modules_FirstDayOfWeek_auto" xml:space="preserve">
+    <value>Podľa Windows</value>
+  </data>
+  <data name="Island_Modules_FirstDayOfWeek_monday" xml:space="preserve">
+    <value>Pondelok</value>
+  </data>
+  <data name="Island_Modules_FirstDayOfWeek_sunday" xml:space="preserve">
+    <value>Nedeľa</value>
+  </data>
+  <data name="Island_Modules_Weather" xml:space="preserve">
+    <value>Počasie</value>
+  </data>
+  <data name="Island_Modules_WeatherFahrenheit" xml:space="preserve">
+    <value>Fahrenheit</value>
+  </data>
+  <data name="Island_Modules_WeatherCities" xml:space="preserve">
+    <value>Mestá</value>
+  </data>
+  <data name="Island_Modules_WeatherCities_Hint" xml:space="preserve">
+    <value>Mesto alebo Auto vyberieš v ponuke islandu (pravý klik). Auto použije polohu z Windows, inak tieto mestá.</value>
+  </data>
+  <data name="Island_Modules_NotificationCenter" xml:space="preserve">
+    <value>Karta notifikačného centra</value>
+  </data>
+  <data name="Island_Modules_NotificationRespectDnD" xml:space="preserve">
+    <value>Rešpektovať režim Nerušiť</value>
+  </data>
+  <data name="Island_Modules_DoNotDisturbIndicator" xml:space="preserve">
+    <value>Hlásenie režimu Nerušiť</value>
+  </data>
+  <data name="Island_Modules_StatusCountdownProgress" xml:space="preserve">
+    <value>Odpočet na hláseniach</value>
+  </data>
+  <data name="Island_Modules_Volume" xml:space="preserve">
+    <value>Hlasitosť</value>
+  </data>
+  <data name="Island_Modules_Brightness" xml:space="preserve">
+    <value>Jas</value>
+  </data>
+  <data name="Island_Modules_CapsLock" xml:space="preserve">
+    <value>Caps Lock a Num Lock</value>
+  </data>
+  <data name="Island_Modules_Battery" xml:space="preserve">
+    <value>Slabá batéria</value>
+  </data>
+  <data name="Island_Modules_Progress" xml:space="preserve">
+    <value>Priebeh sťahovania a kopírovania</value>
+  </data>
+  <data name="Island_Modules_Clipboard" xml:space="preserve">
+    <value>Náhľad schránky</value>
+  </data>
+  <data name="Island_Modules_BluetoothIndicator" xml:space="preserve">
+    <value>Bluetooth zariadenia</value>
+  </data>
+  <data name="Island_Modules_BluetoothShowBattery" xml:space="preserve">
+    <value>Batéria Bluetooth zariadení</value>
+  </data>
+  <data name="Island_Modules_BluetoothAllowList" xml:space="preserve">
+    <value>Len zariadenia s názvom</value>
+  </data>
+  <data name="Island_Modules_BluetoothAllowList_Hint" xml:space="preserve">
+    <value>Slová oddelené bodkočiarkou; prázdne zobrazí všetky. Telefóny sa nezobrazujú nikdy.</value>
+  </data>
+  <data name="Island_Modules_BluetoothAllowList_Placeholder" xml:space="preserve">
+    <value>Všetky zariadenia</value>
+  </data>
+  <data name="Island_Indicators_PrivacyDots" xml:space="preserve">
+    <value>Bodky súkromia</value>
+  </data>
+  <data name="Island_Indicators_PrivacyDots_Hint" xml:space="preserve">
+    <value>Ukážu, keď sa používa mikrofón alebo kamera.</value>
+  </data>
+  <data name="Island_Indicators_PrivacyDotsMic" xml:space="preserve">
+    <value>Mikrofón</value>
+  </data>
+  <data name="Island_Indicators_PrivacyDotsMicHex" xml:space="preserve">
+    <value>Farba mikrofónu</value>
+  </data>
+  <data name="Island_Indicators_PrivacyDotsCam" xml:space="preserve">
+    <value>Kamera</value>
+  </data>
+  <data name="Island_Indicators_PrivacyDotsCamHex" xml:space="preserve">
+    <value>Farba kamery</value>
+  </data>
+  <data name="Island_Modules_GitHubModule" xml:space="preserve">
+    <value>Karta GitHub</value>
+  </data>
+  <data name="Island_Modules_GitHubUser" xml:space="preserve">
+    <value>Používateľ GitHubu</value>
+  </data>
+  <data name="Island_Modules_GitHubUser_Hint" xml:space="preserve">
+    <value>Verejný profil, bez tokenu.</value>
+  </data>
+  <data name="Island_Modules_HardwareMonitorModule" xml:space="preserve">
+    <value>Karta monitora hardvéru</value>
+  </data>
+  <data name="Island_Modules_TimerModule" xml:space="preserve">
+    <value>Časovač sústredenia</value>
+  </data>
+  <data name="Island_Modules_TimerModule_Hint" xml:space="preserve">
+    <value>Spúšťa sa z ponuky islandu (pravý klik).</value>
+  </data>
+  <data name="Island_Modules_FileTrayModule" xml:space="preserve">
+    <value>Zásobník súborov</value>
+  </data>
+  <data name="Island_Modules_FileTrayModule_Hint" xml:space="preserve">
+    <value>Pretiahni súbory na island. Ukladajú sa len cesty.</value>
+  </data>
+  <data name="Island_Modules_FileTrayMaxItems" xml:space="preserve">
+    <value>Kapacita zásobníka</value>
+  </data>
+  <data name="Island_Modules_FileTrayPersist" xml:space="preserve">
+    <value>Pamätať si položky zásobníka</value>
+  </data>
+  <data name="Island_Modules_QuickLookup" xml:space="preserve">
+    <value>Rýchle vyhľadávanie</value>
+  </data>
+  <data name="Island_Modules_QuickLookup_Hint" xml:space="preserve">
+    <value>Otvára sa skratkou. Hľadá vo Wiktionary a Wikipédii.</value>
+  </data>
+  <data name="Island_Modules_GameOverlay" xml:space="preserve">
+    <value>Herný overlay</value>
+  </data>
+  <data name="Island_Modules_GameOverlay_Hint" xml:space="preserve">
+    <value>Nahradí hodiny údajmi FPS, CPU a RAM.</value>
+  </data>
+  <data name="Island_Modules_GameOverlayCompact" xml:space="preserve">
+    <value>Kompaktný</value>
+  </data>
+  <data name="Island_Modules_ShowMetricText" xml:space="preserve">
+    <value>Popisy v pruhoch</value>
+  </data>
+  <data name="Island_Modules_GameOverlayShowFps" xml:space="preserve">
+    <value>FPS</value>
+  </data>
+  <data name="Island_Modules_GameOverlayShowCpu" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="Island_Modules_GameOverlayShowGpu" xml:space="preserve">
+    <value>GPU</value>
+  </data>
+  <data name="Island_Modules_GameOverlayShowRam" xml:space="preserve">
+    <value>RAM</value>
+  </data>
+  <data name="Island_Modules_GameOverlayShowDisk" xml:space="preserve">
+    <value>Disk</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowHotkeyEnabled" xml:space="preserve">
+    <value>Skratka na skrytie a zobrazenie</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowHotkeyEnabled_Hint" xml:space="preserve">
+    <value>Jediný spôsob, ako vrátiť skrytý island.</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowModifiers" xml:space="preserve">
+    <value>Modifikátory</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowModifiers_ctrl_alt" xml:space="preserve">
+    <value>Ctrl + Alt</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowModifiers_ctrl_shift" xml:space="preserve">
+    <value>Ctrl + Shift</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowModifiers_alt_shift" xml:space="preserve">
+    <value>Alt + Shift</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowModifiers_win_alt" xml:space="preserve">
+    <value>Win + Alt</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowModifiers_ctrl_alt_shift" xml:space="preserve">
+    <value>Ctrl + Alt + Shift</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowKey" xml:space="preserve">
+    <value>Kláves</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowKey_Hint" xml:space="preserve">
+    <value>A až Z alebo 0 až 9.</value>
+  </data>
+  <data name="Island_Shortcuts_LookupModifiers" xml:space="preserve">
+    <value>Modifikátory vyhľadávania</value>
+  </data>
+  <data name="Island_Shortcuts_LookupModifiers_ctrl_alt" xml:space="preserve">
+    <value>Ctrl + Alt</value>
+  </data>
+  <data name="Island_Shortcuts_LookupModifiers_ctrl_shift" xml:space="preserve">
+    <value>Ctrl + Shift</value>
+  </data>
+  <data name="Island_Shortcuts_LookupModifiers_alt_shift" xml:space="preserve">
+    <value>Alt + Shift</value>
+  </data>
+  <data name="Island_Shortcuts_LookupModifiers_win_alt" xml:space="preserve">
+    <value>Win + Alt</value>
+  </data>
+  <data name="Island_Shortcuts_LookupModifiers_ctrl_alt_shift" xml:space="preserve">
+    <value>Ctrl + Alt + Shift</value>
+  </data>
+  <data name="Island_Shortcuts_LookupKey" xml:space="preserve">
+    <value>Kláves vyhľadávania</value>
+  </data>
+  <data name="Island_Shortcuts_LookupKey_Hint" xml:space="preserve">
+    <value>Space, A až Z alebo 0 až 9.</value>
+  </data>
+  <data name="Island_Diagnostics_Logging" xml:space="preserve">
+    <value>Log islandu</value>
+  </data>
+  <data name="Island_Diagnostics_Logging_Hint" xml:space="preserve">
+    <value>Zapisuje island.log k logom IslandBridge, bez textu správ.</value>
+  </data>
+  <data name="Settings_Open" xml:space="preserve">
+    <value>Nastavenia</value>
+  </data>
+  <data name="Settings_OpenSummary" xml:space="preserve">
+    <value>Štart, vzhľad, filtre</value>
+  </data>
+  <data name="Settings_Title" xml:space="preserve">
+    <value>Nastavenia</value>
+  </data>
+  <data name="Section_Privacy" xml:space="preserve">
+    <value>Súkromie</value>
+  </data>
 </root>
