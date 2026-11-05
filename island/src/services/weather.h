@@ -22,7 +22,8 @@ std::vector<WeatherCityEntry> LoadWeatherCities();
 // WeatherCityIndex == -1 (the default) means "Auto": the city nearest to the
 // PC's IP-based location is used.
 static constexpr int kWeatherCityAuto = -1;
-static constexpr UINT kWeatherCityAutoMenuId = 96;  // free slot between cities (80..95) and media (100..)
+static constexpr UINT kWeatherCityAutoMenuId = 96;
+static constexpr UINT kWeatherLocationFixMenuId = 97;  // free slot between cities (80..95) and media (100..)
 inline std::atomic<int> g_autoWeatherCityIndex{-1};        // last nearest city found, -1 = unknown
 bool IsWeatherCityAuto();
 int GetActiveWeatherCityIndex(size_t cityCount);

@@ -9,6 +9,7 @@
 #include "core/settings.h"
 #include "core/state.h"
 #include "core/util.h"
+#include "services/location.h"
 #include "services/weather.h"
 
 namespace island
@@ -281,6 +282,13 @@ void ShowContextMenu(HWND hwnd, POINT screenPoint) {
             }
             AppendMenuW(weatherMenu, MF_STRING | (autoCity ? MF_CHECKED : 0), kWeatherCityAutoMenuId,
                         autoLabel.c_str());
+            const location::Status locationStatus = location::status();
+            if (autoCity && location::can_fix(locationStatus)) {
+                AppendMenuW(weatherMenu, MF_STRING, kWeatherLocationFixMenuId,
+                            locationStatus == location::Status::ServiceDisabled
+                                ? Loc(L"Turn on precise location...")
+                                : Loc(L"Allow precise location..."));
+            }
             AppendMenuW(weatherMenu, MF_SEPARATOR, 0, nullptr);
             for (size_t i = 0; i < weatherCities.size(); ++i) {
                 AppendMenuW(weatherMenu,
@@ -320,6 +328,11 @@ void ShowContextMenu(HWND hwnd, POINT screenPoint) {
         cmd <= kThemeMenuIdBase + static_cast<UINT>(kCustomThemeIndex)) {
         host::set_int_value(kThemeValueName, static_cast<int>(cmd - kThemeMenuIdBase));
         LoadSettings();
+        return;
+    }
+
+    if (cmd == kWeatherLocationFixMenuId) {
+        location::fix_access(g_settingsChangedEvent);
         return;
     }
 
