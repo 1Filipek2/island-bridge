@@ -27,6 +27,7 @@ public sealed partial class MainWindow : Window
 {
     private const int WidthDip = 380;
     private const int MaxHeightDip = 720;
+    private const int FitSlackDip = 14;
     private const int EdgeMarginDip = 12;
     private const int RecentCollapsedCount = 1;
     private const int RecentScrollGutter = 12;
@@ -45,6 +46,9 @@ public sealed partial class MainWindow : Window
     private bool _minimized;
     private bool _minimizeApplied;
     private bool _recentExpanded;
+    private IslandSettingsView? _islandView;
+    private PointInt32 _anchor;
+    private bool _fitted;
 
     internal MainWindow(AppHost host, PointInt32? anchor, long requestedAt)
     {
@@ -53,7 +57,9 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
 
         ConfigureChrome();
-        PlaceNear(anchor);
+        _anchor = anchor ?? CursorPosition();
+        Place(MaxHeightDip);
+        Root.Loaded += OnRootLoaded;
 
         foreach (var toggle in new[] { IgnoreSilentSwitch, PreviewsSwitch, WindowsToastsSwitch, AutostartSwitch, MinimizedSwitch })
         {
@@ -115,18 +121,32 @@ public sealed partial class MainWindow : Window
         Title = _host.Localizer["App_Name"];
     }
 
-    private void PlaceNear(PointInt32? anchor)
+    private void Place(double heightDip)
     {
-        var point = anchor ?? CursorPosition();
+        var point = _anchor;
         var area = DisplayArea.GetFromPoint(point, DisplayAreaFallback.Nearest).WorkArea;
         var scale = Scale;
         var margin = (int)(EdgeMarginDip * scale);
         var width = (int)(WidthDip * scale);
-        var height = Math.Min((int)(MaxHeightDip * scale), area.Height - (2 * margin));
+        var height = Math.Min((int)Math.Ceiling(Math.Min(heightDip, MaxHeightDip) * scale), area.Height - (2 * margin));
 
         var x = Math.Clamp(point.X - (width / 2), area.X + margin, area.X + area.Width - width - margin);
         var y = Math.Clamp(point.Y - height - margin, area.Y + margin, area.Y + area.Height - height - margin);
         AppWindow.MoveAndResize(new RectInt32(x, y, width, height));
+    }
+
+    // The window takes the height of the main page, so it opens without a scroll bar; the
+    // settings pages scroll inside that height.
+    private void OnRootLoaded(object sender, RoutedEventArgs args)
+    {
+        if (_fitted)
+        {
+            return;
+        }
+
+        _fitted = true;
+        Root.Measure(new Windows.Foundation.Size(WidthDip, double.PositiveInfinity));
+        Place(Root.DesiredSize.Height + FitSlackDip);
     }
 
     private static unsafe PointInt32 CursorPosition()
@@ -157,9 +177,14 @@ public sealed partial class MainWindow : Window
         RecentHeader.Text = localizer["Section_Recent"];
         RecentEmpty.Text = localizer["Recent_Empty"];
         DeviceHeader.Text = localizer["Section_Device"];
-        FindButton.Content = localizer["Device_Find"];
-        ReconnectButton.Content = localizer["Device_Reconnect"];
-        ForgetButton.Content = localizer["Device_Forget"];
+        SetIconLabel(FindButton, localizer["Device_Find"]);
+        SetIconLabel(ReconnectButton, localizer["Device_Reconnect"]);
+        SetIconLabel(ForgetButton, localizer["Device_Forget"]);
+        AppSettingsText.Text = localizer["Settings_Open"];
+        AppSettingsSummary.Text = localizer["Settings_OpenSummary"];
+        SettingsTitle.Text = localizer["Settings_Title"];
+        SetIconLabel(SettingsBackButton, localizer["Island_Back"]);
+        PrivacyHeader.Text = localizer["Section_Privacy"];
         DeviceHelp.Text = localizer["Device_Help"];
         StartupHeader.Text = localizer["Section_Startup"];
         AutostartLabel.Text = localizer["Setting_Autostart"];
@@ -170,6 +195,8 @@ public sealed partial class MainWindow : Window
         ToolTipService.SetToolTip(CloseButton, localizer["Caption_Close"]);
         DelayLabel.Text = localizer["Setting_Delay"];
         AppearanceHeader.Text = localizer["Section_Appearance"];
+        IslandSettingsText.Text = localizer["Island_Open"];
+        IslandSettingsSummary.Text = localizer["Island_OpenSummary"];
         LanguageLabel.Text = localizer["Setting_Language"];
         ThemeLabel.Text = localizer["Setting_Theme"];
         FiltersExpander.Header = localizer["Section_Filters"];
@@ -330,13 +357,19 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private static void MakeCompact(ToggleSwitch toggle)
+    internal static void MakeCompact(ToggleSwitch toggle)
     {
         toggle.OnContent = string.Empty;
         toggle.OffContent = string.Empty;
         toggle.MinWidth = 0;
         toggle.HorizontalAlignment = HorizontalAlignment.Right;
         toggle.Margin = new Thickness(0, -6, -12, -6);
+    }
+
+    private static void SetIconLabel(Button button, string label)
+    {
+        ToolTipService.SetToolTip(button, label);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, label);
     }
 
     private static string Version()
@@ -418,6 +451,13 @@ public sealed partial class MainWindow : Window
         if (args.Key == VirtualKey.Escape)
         {
             args.Handled = true;
+
+            if (MainScroller.Visibility != Visibility.Visible)
+            {
+                ShowMainPage();
+                return;
+            }
+
             Close();
         }
     }
@@ -513,6 +553,47 @@ public sealed partial class MainWindow : Window
         }
 
         RefreshAutostart();
+    }
+
+    private void OnIslandSettingsClick(object sender, RoutedEventArgs args)
+    {
+        if (_islandView is null)
+        {
+            _islandView = new IslandSettingsView(_host);
+            _islandView.BackRequested += OnIslandBackRequested;
+            IslandScroller.Content = _islandView;
+        }
+
+        ShowPage(IslandScroller);
+        _islandView.FocusBack();
+    }
+
+    private void OnAppSettingsClick(object sender, RoutedEventArgs args)
+    {
+        ShowPage(SettingsScroller);
+        SettingsBackButton.Focus(FocusState.Programmatic);
+    }
+
+    private void OnSettingsBackClick(object sender, RoutedEventArgs args) => ShowMainPage();
+
+    private void OnIslandBackRequested(object? sender, EventArgs args) => ShowMainPage();
+
+    private void ShowPage(ScrollViewer page)
+    {
+        foreach (var scroller in new[] { MainScroller, SettingsScroller, IslandScroller })
+        {
+            scroller.Visibility = scroller == page ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        page.ChangeView(null, 0, null, disableAnimation: true);
+    }
+
+    private void ShowMainPage()
+    {
+        _islandView?.Flush();
+        var from = SettingsScroller.Visibility == Visibility.Visible ? AppSettingsButton : IslandSettingsButton;
+        ShowPage(MainScroller);
+        from.Focus(FocusState.Programmatic);
     }
 
     private void OnRecentToggleClick(object sender, RoutedEventArgs args)
@@ -613,12 +694,21 @@ public sealed partial class MainWindow : Window
         LoadValues();
         UpdateStatus();
         UpdateRecent();
+        _islandView?.Rebuild();
         _ready = true;
     });
 
     private void OnClosed(object sender, WindowEventArgs args)
     {
         _closed = true;
+        Root.Loaded -= OnRootLoaded;
+        _islandView?.Flush();
+
+        if (_islandView is not null)
+        {
+            _islandView.BackRequested -= OnIslandBackRequested;
+        }
+
         PauseSegments.SegmentSelected -= OnPauseSelected;
         DelaySegments.SegmentSelected -= OnDelaySelected;
         LanguageSegments.SegmentSelected -= OnLanguageSelected;

@@ -300,4 +300,745 @@
   <data name="Filter_MutedCategory" xml:space="preserve">
     <value>category muted</value>
   </data>
+  <data name="Island_Open" xml:space="preserve">
+    <value>Island</value>
+  </data>
+  <data name="Island_OpenSummary" xml:space="preserve">
+    <value>Look, modules, keys</value>
+  </data>
+  <data name="Island_Title" xml:space="preserve">
+    <value>Island</value>
+  </data>
+  <data name="Island_Intro" xml:space="preserve">
+    <value>Changes apply to the island right away. Hover a label marked with ⓘ for details.</value>
+  </data>
+  <data name="Island_Back" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="Island_Invalid" xml:space="preserve">
+    <value>That value is not valid, the previous one was kept.</value>
+  </data>
+  <data name="Island_PickColor" xml:space="preserve">
+    <value>Pick a color</value>
+  </data>
+  <data name="Island_CityName" xml:space="preserve">
+    <value>City</value>
+  </data>
+  <data name="Island_CityLatitude" xml:space="preserve">
+    <value>Latitude</value>
+  </data>
+  <data name="Island_CityLongitude" xml:space="preserve">
+    <value>Longitude</value>
+  </data>
+  <data name="Island_CityAdd" xml:space="preserve">
+    <value>Add city</value>
+  </data>
+  <data name="Island_CityRemove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Island_Reset" xml:space="preserve">
+    <value>Reset section</value>
+  </data>
+  <data name="Island_ResetQuestion" xml:space="preserve">
+    <value>Reset every setting in this section to its default?</value>
+  </data>
+  <data name="Island_ResetConfirm" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="IslandFormat_Display" xml:space="preserve">
+    <value>Display {0}</value>
+  </data>
+  <data name="IslandFormat_Scale" xml:space="preserve">
+    <value>{0}x</value>
+  </data>
+  <data name="IslandFormat_Fps" xml:space="preserve">
+    <value>{0} FPS</value>
+  </data>
+  <data name="IslandFormat_Megabytes" xml:space="preserve">
+    <value>{0} MB</value>
+  </data>
+  <data name="IslandGroup_Appearance" xml:space="preserve">
+    <value>Appearance and position</value>
+  </data>
+  <data name="IslandGroup_Behavior" xml:space="preserve">
+    <value>Behavior</value>
+  </data>
+  <data name="IslandGroup_Animations" xml:space="preserve">
+    <value>Animations</value>
+  </data>
+  <data name="IslandGroup_Theme" xml:space="preserve">
+    <value>Colors and theme</value>
+  </data>
+  <data name="IslandGroup_Media" xml:space="preserve">
+    <value>Media</value>
+  </data>
+  <data name="IslandGroup_Lyrics" xml:space="preserve">
+    <value>Lyrics</value>
+  </data>
+  <data name="IslandGroup_ClockWeather" xml:space="preserve">
+    <value>Clock, date and weather</value>
+  </data>
+  <data name="IslandGroup_Alerts" xml:space="preserve">
+    <value>Notifications and alerts</value>
+  </data>
+  <data name="IslandGroup_Privacy" xml:space="preserve">
+    <value>Privacy indicators</value>
+  </data>
+  <data name="IslandGroup_Tabs" xml:space="preserve">
+    <value>Tabs and tools</value>
+  </data>
+  <data name="IslandGroup_GameOverlay" xml:space="preserve">
+    <value>Game overlay</value>
+  </data>
+  <data name="IslandGroup_Shortcuts" xml:space="preserve">
+    <value>Shortcuts</value>
+  </data>
+  <data name="IslandGroup_Diagnostics" xml:space="preserve">
+    <value>Diagnostics</value>
+  </data>
+  <data name="Island_Appearance_Position" xml:space="preserve">
+    <value>Position</value>
+  </data>
+  <data name="Island_Appearance_Position_top_center" xml:space="preserve">
+    <value>Top center</value>
+  </data>
+  <data name="Island_Appearance_Position_top_left" xml:space="preserve">
+    <value>Top left</value>
+  </data>
+  <data name="Island_Appearance_Position_top_right" xml:space="preserve">
+    <value>Top right</value>
+  </data>
+  <data name="Island_Appearance_Position_bottom_center" xml:space="preserve">
+    <value>Bottom center</value>
+  </data>
+  <data name="Island_Appearance_Position_bottom_left" xml:space="preserve">
+    <value>Bottom left</value>
+  </data>
+  <data name="Island_Appearance_Position_bottom_right" xml:space="preserve">
+    <value>Bottom right</value>
+  </data>
+  <data name="Island_Appearance_TargetMonitor" xml:space="preserve">
+    <value>Display</value>
+  </data>
+  <data name="Island_Appearance_TargetMonitor_Hint" xml:space="preserve">
+    <value>If the chosen display is missing, the island uses the primary one.</value>
+  </data>
+  <data name="Island_Appearance_TargetMonitor_primary" xml:space="preserve">
+    <value>Primary</value>
+  </data>
+  <data name="Island_Appearance_TargetMonitor_follow" xml:space="preserve">
+    <value>Follow the mouse</value>
+  </data>
+  <data name="Island_Appearance_ShapeStyle" xml:space="preserve">
+    <value>Shape</value>
+  </data>
+  <data name="Island_Appearance_ShapeStyle_default" xml:space="preserve">
+    <value>Pill</value>
+  </data>
+  <data name="Island_Appearance_ShapeStyle_w11" xml:space="preserve">
+    <value>Windows 11 box</value>
+  </data>
+  <data name="Island_Appearance_ShapeStyle_notch" xml:space="preserve">
+    <value>Notch</value>
+  </data>
+  <data name="Island_Appearance_SizeScale" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="Island_Appearance_AutoDpiScale" xml:space="preserve">
+    <value>Scale with display DPI</value>
+  </data>
+  <data name="Island_Appearance_BorderMergedMode" xml:space="preserve">
+    <value>Attach to the screen edge</value>
+  </data>
+  <data name="Island_Appearance_BorderMergedMode_Hint" xml:space="preserve">
+    <value>No gap between the island and the edge of the screen.</value>
+  </data>
+  <data name="Island_Appearance_OffsetX" xml:space="preserve">
+    <value>Horizontal offset</value>
+  </data>
+  <data name="Island_Appearance_OffsetY" xml:space="preserve">
+    <value>Vertical offset</value>
+  </data>
+  <data name="Island_Appearance_SeparateExpandedOffsetY" xml:space="preserve">
+    <value>Separate vertical offset when expanded</value>
+  </data>
+  <data name="Island_Appearance_OffsetYExpanded" xml:space="preserve">
+    <value>Vertical offset when expanded</value>
+  </data>
+  <data name="Island_Behavior_AlwaysOnTop" xml:space="preserve">
+    <value>Always on top</value>
+  </data>
+  <data name="Island_Behavior_ExpandOnHover" xml:space="preserve">
+    <value>Expand on hover</value>
+  </data>
+  <data name="Island_Behavior_ExpandOnHover_Hint" xml:space="preserve">
+    <value>When off, click the island to expand it.</value>
+  </data>
+  <data name="Island_Behavior_AutoHideIdleSeconds" xml:space="preserve">
+    <value>Hide when idle</value>
+  </data>
+  <data name="Island_Behavior_AutoHideIdleSeconds_0" xml:space="preserve">
+    <value>Never</value>
+  </data>
+  <data name="Island_Behavior_AutoHideIdleSeconds__1" xml:space="preserve">
+    <value>Right away</value>
+  </data>
+  <data name="Island_Behavior_AutoHideIdleSeconds_5" xml:space="preserve">
+    <value>After 5 s</value>
+  </data>
+  <data name="Island_Behavior_AutoHideIdleSeconds_10" xml:space="preserve">
+    <value>After 10 s</value>
+  </data>
+  <data name="Island_Behavior_AutoHideIdleSeconds_30" xml:space="preserve">
+    <value>After 30 s</value>
+  </data>
+  <data name="Island_Behavior_AutoHideIdleSeconds_60" xml:space="preserve">
+    <value>After 60 s</value>
+  </data>
+  <data name="Island_Behavior_AutoHideFullscreen" xml:space="preserve">
+    <value>Hide during full screen apps</value>
+  </data>
+  <data name="Island_Behavior_UnhideOnHover" xml:space="preserve">
+    <value>Show a hidden island on hover</value>
+  </data>
+  <data name="Island_Behavior_UnhideOnHover_Hint" xml:space="preserve">
+    <value>The hide and show hotkey always works.</value>
+  </data>
+  <data name="Island_Animations_TargetFPS" xml:space="preserve">
+    <value>Frame rate</value>
+  </data>
+  <data name="Island_Animations_TargetFPS_auto" xml:space="preserve">
+    <value>Match the display</value>
+  </data>
+  <data name="Island_Animations_AnimationStyle" xml:space="preserve">
+    <value>Spring style</value>
+  </data>
+  <data name="Island_Animations_AnimationStyle_default" xml:space="preserve">
+    <value>Balanced</value>
+  </data>
+  <data name="Island_Animations_AnimationStyle_smooth" xml:space="preserve">
+    <value>Smooth</value>
+  </data>
+  <data name="Island_Animations_AnimationStyle_bouncy" xml:space="preserve">
+    <value>Bouncy</value>
+  </data>
+  <data name="Island_Animations_AnimationStyle_snappy" xml:space="preserve">
+    <value>Snappy</value>
+  </data>
+  <data name="Island_Animations_AnimationSpeed" xml:space="preserve">
+    <value>Speed</value>
+  </data>
+  <data name="Island_Animations_AnimationSpeed_very_slow" xml:space="preserve">
+    <value>Very slow</value>
+  </data>
+  <data name="Island_Animations_AnimationSpeed_slow" xml:space="preserve">
+    <value>Slow</value>
+  </data>
+  <data name="Island_Animations_AnimationSpeed_normal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="Island_Animations_AnimationSpeed_fast" xml:space="preserve">
+    <value>Fast</value>
+  </data>
+  <data name="Island_Animations_AnimationSpeed_very_fast" xml:space="preserve">
+    <value>Very fast</value>
+  </data>
+  <data name="Island_Animations_AnimationSpeed_ultra_fast" xml:space="preserve">
+    <value>Ultra fast</value>
+  </data>
+  <data name="Island_Animations_ExpandedMediaTransitions" xml:space="preserve">
+    <value>Animate the expanded player</value>
+  </data>
+  <data name="Island_Animations_ExpandedMediaTransitions_Hint" xml:space="preserve">
+    <value>Title, cover and buttons animate when the song changes.</value>
+  </data>
+  <data name="Island_Animations_PillCoverSpin" xml:space="preserve">
+    <value>Spin the cover in the pill</value>
+  </data>
+  <data name="Island_Animations_PillCoverSpin_Hint" xml:space="preserve">
+    <value>When the song changes.</value>
+  </data>
+  <data name="Island_Themes_ThemePreset" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="Island_Themes_ThemePreset_obsidian" xml:space="preserve">
+    <value>Obsidian</value>
+  </data>
+  <data name="Island_Themes_ThemePreset_graphite" xml:space="preserve">
+    <value>Graphite</value>
+  </data>
+  <data name="Island_Themes_ThemePreset_slate" xml:space="preserve">
+    <value>Slate</value>
+  </data>
+  <data name="Island_Themes_ThemePreset_nord" xml:space="preserve">
+    <value>Nord</value>
+  </data>
+  <data name="Island_Themes_ThemePreset_evergreen" xml:space="preserve">
+    <value>Evergreen</value>
+  </data>
+  <data name="Island_Themes_ThemePreset_espresso" xml:space="preserve">
+    <value>Espresso</value>
+  </data>
+  <data name="Island_Themes_ThemePreset_plum" xml:space="preserve">
+    <value>Plum</value>
+  </data>
+  <data name="Island_Themes_ThemePreset_porcelain" xml:space="preserve">
+    <value>Porcelain (light)</value>
+  </data>
+  <data name="Island_Themes_ThemePreset_custom" xml:space="preserve">
+    <value>Custom colors</value>
+  </data>
+  <data name="Island_Themes_PillBgColor" xml:space="preserve">
+    <value>Background</value>
+  </data>
+  <data name="Island_Themes_PillBgColor_Hint" xml:space="preserve">
+    <value>A color other than the default overrides the theme. Eight digits add transparency.</value>
+  </data>
+  <data name="Island_Themes_TextPrimaryColor" xml:space="preserve">
+    <value>Primary text</value>
+  </data>
+  <data name="Island_Themes_TextPrimaryColor_Hint" xml:space="preserve">
+    <value>A color other than the default overrides the theme.</value>
+  </data>
+  <data name="Island_Themes_TextSecondaryColor" xml:space="preserve">
+    <value>Secondary text</value>
+  </data>
+  <data name="Island_Themes_TextSecondaryColor_Hint" xml:space="preserve">
+    <value>A color other than the default overrides the theme.</value>
+  </data>
+  <data name="Island_Themes_ContourBorderMode" xml:space="preserve">
+    <value>Border</value>
+  </data>
+  <data name="Island_Themes_ContourBorderMode_default" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="Island_Themes_ContourBorderMode_auto" xml:space="preserve">
+    <value>From album art</value>
+  </data>
+  <data name="Island_Themes_ContourBorderMode_borderless" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="Island_Themes_ContourBorderHex" xml:space="preserve">
+    <value>Border color</value>
+  </data>
+  <data name="Island_Themes_ContourBorderHex_Hint" xml:space="preserve">
+    <value>A color other than the default overrides the theme.</value>
+  </data>
+  <data name="Island_Themes_AccentColorMode" xml:space="preserve">
+    <value>Accent color</value>
+  </data>
+  <data name="Island_Themes_AccentColorMode_auto" xml:space="preserve">
+    <value>From album art</value>
+  </data>
+  <data name="Island_Themes_AccentColorMode_system" xml:space="preserve">
+    <value>Windows accent</value>
+  </data>
+  <data name="Island_Themes_AccentColorMode_custom" xml:space="preserve">
+    <value>Custom</value>
+  </data>
+  <data name="Island_Themes_CustomAccentHex" xml:space="preserve">
+    <value>Custom accent</value>
+  </data>
+  <data name="Island_Themes_CalendarAccent" xml:space="preserve">
+    <value>Calendar accent</value>
+  </data>
+  <data name="Island_Themes_CalendarAccent_red" xml:space="preserve">
+    <value>Island accent</value>
+  </data>
+  <data name="Island_Themes_CalendarAccent_system" xml:space="preserve">
+    <value>Windows accent</value>
+  </data>
+  <data name="Island_Themes_ClockAccentGlow" xml:space="preserve">
+    <value>Glow behind the clock</value>
+  </data>
+  <data name="Island_Themes_PillOpacity" xml:space="preserve">
+    <value>Opacity</value>
+  </data>
+  <data name="Island_Themes_TintIntensity" xml:space="preserve">
+    <value>Background tint</value>
+  </data>
+  <data name="Island_Themes_BackdropMaterial" xml:space="preserve">
+    <value>Backdrop</value>
+  </data>
+  <data name="Island_Themes_BackdropMaterial_Hint" xml:space="preserve">
+    <value>Needs transparency effects turned on in Windows.</value>
+  </data>
+  <data name="Island_Themes_BackdropMaterial_none" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Island_Themes_BackdropMaterial_blur" xml:space="preserve">
+    <value>Blur</value>
+  </data>
+  <data name="Island_Themes_BackdropMaterial_acrylic" xml:space="preserve">
+    <value>Acrylic</value>
+  </data>
+  <data name="Island_Themes_BackdropFillOpacity" xml:space="preserve">
+    <value>Backdrop fill</value>
+  </data>
+  <data name="Island_Themes_BackdropFillOpacity_Hint" xml:space="preserve">
+    <value>Lower values let more of the blur through.</value>
+  </data>
+  <data name="Island_Themes_BackdropTint" xml:space="preserve">
+    <value>Backdrop tint</value>
+  </data>
+  <data name="Island_Themes_MaterialDepth" xml:space="preserve">
+    <value>Depth shading</value>
+  </data>
+  <data name="Island_Themes_DropShadow" xml:space="preserve">
+    <value>Drop shadow</value>
+  </data>
+  <data name="Island_Themes_AccentBloom" xml:space="preserve">
+    <value>Accent glow</value>
+  </data>
+  <data name="Island_Themes_TextScale" xml:space="preserve">
+    <value>Text size</value>
+  </data>
+  <data name="Island_Themes_FontFamily" xml:space="preserve">
+    <value>Font</value>
+  </data>
+  <data name="Island_Themes_FontFamily_Placeholder" xml:space="preserve">
+    <value>System default, for example Segoe UI</value>
+  </data>
+  <data name="Island_Modules_Media" xml:space="preserve">
+    <value>Media player</value>
+  </data>
+  <data name="Island_Modules_MediaAutoExpand" xml:space="preserve">
+    <value>Expand on track change</value>
+  </data>
+  <data name="Island_Modules_MediaExpandBlocklist" xml:space="preserve">
+    <value>Never expand for</value>
+  </data>
+  <data name="Island_Modules_MediaExpandBlocklist_Hint" xml:space="preserve">
+    <value>App or site names separated by commas.</value>
+  </data>
+  <data name="Island_Modules_MediaExpandBlocklist_Placeholder" xml:space="preserve">
+    <value>chrome, tiktok, youtube</value>
+  </data>
+  <data name="Island_Modules_MediaPillClock" xml:space="preserve">
+    <value>Clock in the media pill</value>
+  </data>
+  <data name="Island_Appearance_ProgressStyle" xml:space="preserve">
+    <value>Progress bar</value>
+  </data>
+  <data name="Island_Appearance_ProgressStyle_slim" xml:space="preserve">
+    <value>Slim</value>
+  </data>
+  <data name="Island_Appearance_ProgressStyle_wavy" xml:space="preserve">
+    <value>Wavy</value>
+  </data>
+  <data name="Island_Appearance_ProgressStyle_squiggle" xml:space="preserve">
+    <value>Squiggle</value>
+  </data>
+  <data name="Island_Appearance_ProgressStyle_bar" xml:space="preserve">
+    <value>Bar</value>
+  </data>
+  <data name="Island_Appearance_SpectrumStyle" xml:space="preserve">
+    <value>Visualizer</value>
+  </data>
+  <data name="Island_Appearance_SpectrumStyle_Hint" xml:space="preserve">
+    <value>Matrix, plasma and orb analyze the system audio.</value>
+  </data>
+  <data name="Island_Appearance_SpectrumStyle_bars" xml:space="preserve">
+    <value>Bars</value>
+  </data>
+  <data name="Island_Appearance_SpectrumStyle_led" xml:space="preserve">
+    <value>Peak matrix</value>
+  </data>
+  <data name="Island_Appearance_SpectrumStyle_plasma" xml:space="preserve">
+    <value>Plasma thread</value>
+  </data>
+  <data name="Island_Appearance_SpectrumStyle_orb" xml:space="preserve">
+    <value>Pulse orb</value>
+  </data>
+  <data name="Island_Modules_MediaTabLyrics" xml:space="preserve">
+    <value>Lyrics button in the player</value>
+  </data>
+  <data name="Island_Modules_LyricsVisualizer" xml:space="preserve">
+    <value>Visualizer next to lyrics</value>
+  </data>
+  <data name="Island_Modules_KaraokeLyrics" xml:space="preserve">
+    <value>Karaoke highlight</value>
+  </data>
+  <data name="Island_Modules_KaraokeLetterGlow" xml:space="preserve">
+    <value>Letter glow</value>
+  </data>
+  <data name="Island_Modules_LyricsNeighborLinesVisible" xml:space="preserve">
+    <value>Show neighboring lines clearly</value>
+  </data>
+  <data name="Island_Modules_LyricsOffsetMs" xml:space="preserve">
+    <value>Sync offset, speakers</value>
+  </data>
+  <data name="Island_Modules_LyricsOffsetMs_Hint" xml:space="preserve">
+    <value>Positive values show lyrics earlier.</value>
+  </data>
+  <data name="Island_Modules_LyricsOffsetBluetoothMs" xml:space="preserve">
+    <value>Sync offset, Bluetooth</value>
+  </data>
+  <data name="Island_Modules_LyricsOffsetBluetoothMs_Hint" xml:space="preserve">
+    <value>Positive values show lyrics earlier. Bluetooth usually needs a negative value.</value>
+  </data>
+  <data name="Island_Modules_LyricsCache" xml:space="preserve">
+    <value>Lyrics cache on disk</value>
+  </data>
+  <data name="Island_Modules_LyricsCacheMaxMB" xml:space="preserve">
+    <value>Cache size</value>
+  </data>
+  <data name="Island_Modules_LyricsCacheMaxMB_0" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Island_Modules_Language" xml:space="preserve">
+    <value>Island language</value>
+  </data>
+  <data name="Island_Modules_Language_auto" xml:space="preserve">
+    <value>Windows language</value>
+  </data>
+  <data name="Island_Modules_ClockFormat" xml:space="preserve">
+    <value>Clock format</value>
+  </data>
+  <data name="Island_Modules_ClockFormat_system" xml:space="preserve">
+    <value>Windows setting</value>
+  </data>
+  <data name="Island_Modules_ClockFormat_12h" xml:space="preserve">
+    <value>12-hour</value>
+  </data>
+  <data name="Island_Modules_ClockFormat_24h" xml:space="preserve">
+    <value>24-hour</value>
+  </data>
+  <data name="Island_Modules_ShowSeconds" xml:space="preserve">
+    <value>Show seconds</value>
+  </data>
+  <data name="Island_Modules_DateFormat" xml:space="preserve">
+    <value>Date format</value>
+  </data>
+  <data name="Island_Modules_DateFormat_Hint" xml:space="preserve">
+    <value>yyyy, MM, M, dd, d, MMM, MMMM, ddd, dddd. Other characters are shown as typed.</value>
+  </data>
+  <data name="Island_Modules_DateFormat_Placeholder" xml:space="preserve">
+    <value>Windows format, for example dd.MM.yyyy</value>
+  </data>
+  <data name="Island_Modules_DateFirst" xml:space="preserve">
+    <value>Date above the time</value>
+  </data>
+  <data name="Island_Modules_FirstDayOfWeek" xml:space="preserve">
+    <value>First day of the week</value>
+  </data>
+  <data name="Island_Modules_FirstDayOfWeek_auto" xml:space="preserve">
+    <value>Windows setting</value>
+  </data>
+  <data name="Island_Modules_FirstDayOfWeek_monday" xml:space="preserve">
+    <value>Monday</value>
+  </data>
+  <data name="Island_Modules_FirstDayOfWeek_sunday" xml:space="preserve">
+    <value>Sunday</value>
+  </data>
+  <data name="Island_Modules_Weather" xml:space="preserve">
+    <value>Weather</value>
+  </data>
+  <data name="Island_Modules_WeatherFahrenheit" xml:space="preserve">
+    <value>Fahrenheit</value>
+  </data>
+  <data name="Island_Modules_WeatherCities" xml:space="preserve">
+    <value>Cities</value>
+  </data>
+  <data name="Island_Modules_WeatherCities_Hint" xml:space="preserve">
+    <value>Pick a city or Auto in the island right-click menu. Auto uses the Windows location and falls back to these cities.</value>
+  </data>
+  <data name="Island_Modules_NotificationCenter" xml:space="preserve">
+    <value>Notification center tab</value>
+  </data>
+  <data name="Island_Modules_NotificationRespectDnD" xml:space="preserve">
+    <value>Respect Do not disturb</value>
+  </data>
+  <data name="Island_Modules_DoNotDisturbIndicator" xml:space="preserve">
+    <value>Do not disturb alert</value>
+  </data>
+  <data name="Island_Modules_StatusCountdownProgress" xml:space="preserve">
+    <value>Countdown bar on alerts</value>
+  </data>
+  <data name="Island_Modules_Volume" xml:space="preserve">
+    <value>Volume</value>
+  </data>
+  <data name="Island_Modules_Brightness" xml:space="preserve">
+    <value>Brightness</value>
+  </data>
+  <data name="Island_Modules_CapsLock" xml:space="preserve">
+    <value>Caps Lock and Num Lock</value>
+  </data>
+  <data name="Island_Modules_Battery" xml:space="preserve">
+    <value>Low battery</value>
+  </data>
+  <data name="Island_Modules_Progress" xml:space="preserve">
+    <value>Download and copy progress</value>
+  </data>
+  <data name="Island_Modules_Clipboard" xml:space="preserve">
+    <value>Clipboard preview</value>
+  </data>
+  <data name="Island_Modules_BluetoothIndicator" xml:space="preserve">
+    <value>Bluetooth devices</value>
+  </data>
+  <data name="Island_Modules_BluetoothShowBattery" xml:space="preserve">
+    <value>Bluetooth battery level</value>
+  </data>
+  <data name="Island_Modules_BluetoothAllowList" xml:space="preserve">
+    <value>Only devices named</value>
+  </data>
+  <data name="Island_Modules_BluetoothAllowList_Hint" xml:space="preserve">
+    <value>Words separated by semicolons; empty shows all devices. Phones are never shown.</value>
+  </data>
+  <data name="Island_Modules_BluetoothAllowList_Placeholder" xml:space="preserve">
+    <value>All devices</value>
+  </data>
+  <data name="Island_Indicators_PrivacyDots" xml:space="preserve">
+    <value>Privacy dots</value>
+  </data>
+  <data name="Island_Indicators_PrivacyDots_Hint" xml:space="preserve">
+    <value>Show when the microphone or camera is in use.</value>
+  </data>
+  <data name="Island_Indicators_PrivacyDotsMic" xml:space="preserve">
+    <value>Microphone</value>
+  </data>
+  <data name="Island_Indicators_PrivacyDotsMicHex" xml:space="preserve">
+    <value>Microphone color</value>
+  </data>
+  <data name="Island_Indicators_PrivacyDotsCam" xml:space="preserve">
+    <value>Camera</value>
+  </data>
+  <data name="Island_Indicators_PrivacyDotsCamHex" xml:space="preserve">
+    <value>Camera color</value>
+  </data>
+  <data name="Island_Modules_GitHubModule" xml:space="preserve">
+    <value>GitHub tab</value>
+  </data>
+  <data name="Island_Modules_GitHubUser" xml:space="preserve">
+    <value>GitHub user</value>
+  </data>
+  <data name="Island_Modules_GitHubUser_Hint" xml:space="preserve">
+    <value>Public profile, no token.</value>
+  </data>
+  <data name="Island_Modules_HardwareMonitorModule" xml:space="preserve">
+    <value>Hardware monitor tab</value>
+  </data>
+  <data name="Island_Modules_TimerModule" xml:space="preserve">
+    <value>Focus timer</value>
+  </data>
+  <data name="Island_Modules_TimerModule_Hint" xml:space="preserve">
+    <value>Start it from the island right-click menu.</value>
+  </data>
+  <data name="Island_Modules_FileTrayModule" xml:space="preserve">
+    <value>File tray</value>
+  </data>
+  <data name="Island_Modules_FileTrayModule_Hint" xml:space="preserve">
+    <value>Drop files on the island to park them there. Only the paths are kept.</value>
+  </data>
+  <data name="Island_Modules_FileTrayMaxItems" xml:space="preserve">
+    <value>File tray capacity</value>
+  </data>
+  <data name="Island_Modules_FileTrayPersist" xml:space="preserve">
+    <value>Remember tray items</value>
+  </data>
+  <data name="Island_Modules_QuickLookup" xml:space="preserve">
+    <value>Quick lookup</value>
+  </data>
+  <data name="Island_Modules_QuickLookup_Hint" xml:space="preserve">
+    <value>Opens with the lookup hotkey. Searches go to Wiktionary and Wikipedia.</value>
+  </data>
+  <data name="Island_Modules_GameOverlay" xml:space="preserve">
+    <value>Game overlay</value>
+  </data>
+  <data name="Island_Modules_GameOverlay_Hint" xml:space="preserve">
+    <value>Replaces the clock with FPS, CPU and RAM.</value>
+  </data>
+  <data name="Island_Modules_GameOverlayCompact" xml:space="preserve">
+    <value>Compact</value>
+  </data>
+  <data name="Island_Modules_ShowMetricText" xml:space="preserve">
+    <value>Labels in the bars</value>
+  </data>
+  <data name="Island_Modules_GameOverlayShowFps" xml:space="preserve">
+    <value>FPS</value>
+  </data>
+  <data name="Island_Modules_GameOverlayShowCpu" xml:space="preserve">
+    <value>CPU</value>
+  </data>
+  <data name="Island_Modules_GameOverlayShowGpu" xml:space="preserve">
+    <value>GPU</value>
+  </data>
+  <data name="Island_Modules_GameOverlayShowRam" xml:space="preserve">
+    <value>RAM</value>
+  </data>
+  <data name="Island_Modules_GameOverlayShowDisk" xml:space="preserve">
+    <value>Disk</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowHotkeyEnabled" xml:space="preserve">
+    <value>Hide and show hotkey</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowHotkeyEnabled_Hint" xml:space="preserve">
+    <value>The only way to bring back a hidden island.</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowModifiers" xml:space="preserve">
+    <value>Modifiers</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowModifiers_ctrl_alt" xml:space="preserve">
+    <value>Ctrl + Alt</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowModifiers_ctrl_shift" xml:space="preserve">
+    <value>Ctrl + Shift</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowModifiers_alt_shift" xml:space="preserve">
+    <value>Alt + Shift</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowModifiers_win_alt" xml:space="preserve">
+    <value>Win + Alt</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowModifiers_ctrl_alt_shift" xml:space="preserve">
+    <value>Ctrl + Alt + Shift</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowKey" xml:space="preserve">
+    <value>Key</value>
+  </data>
+  <data name="Island_Shortcuts_HideShowKey_Hint" xml:space="preserve">
+    <value>A to Z or 0 to 9.</value>
+  </data>
+  <data name="Island_Shortcuts_LookupModifiers" xml:space="preserve">
+    <value>Lookup modifiers</value>
+  </data>
+  <data name="Island_Shortcuts_LookupModifiers_ctrl_alt" xml:space="preserve">
+    <value>Ctrl + Alt</value>
+  </data>
+  <data name="Island_Shortcuts_LookupModifiers_ctrl_shift" xml:space="preserve">
+    <value>Ctrl + Shift</value>
+  </data>
+  <data name="Island_Shortcuts_LookupModifiers_alt_shift" xml:space="preserve">
+    <value>Alt + Shift</value>
+  </data>
+  <data name="Island_Shortcuts_LookupModifiers_win_alt" xml:space="preserve">
+    <value>Win + Alt</value>
+  </data>
+  <data name="Island_Shortcuts_LookupModifiers_ctrl_alt_shift" xml:space="preserve">
+    <value>Ctrl + Alt + Shift</value>
+  </data>
+  <data name="Island_Shortcuts_LookupKey" xml:space="preserve">
+    <value>Lookup key</value>
+  </data>
+  <data name="Island_Shortcuts_LookupKey_Hint" xml:space="preserve">
+    <value>Space, A to Z or 0 to 9.</value>
+  </data>
+  <data name="Island_Diagnostics_Logging" xml:space="preserve">
+    <value>Island log</value>
+  </data>
+  <data name="Island_Diagnostics_Logging_Hint" xml:space="preserve">
+    <value>Writes island.log next to the IslandBridge logs, without message text.</value>
+  </data>
+  <data name="Settings_Open" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Settings_OpenSummary" xml:space="preserve">
+    <value>Startup, look, filters</value>
+  </data>
+  <data name="Settings_Title" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Section_Privacy" xml:space="preserve">
+    <value>Privacy</value>
+  </data>
 </root>
