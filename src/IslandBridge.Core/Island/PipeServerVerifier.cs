@@ -8,16 +8,15 @@ public static partial class PipeServerVerifier
 {
     private const uint ProcessQueryLimitedInformation = 0x1000;
 
-    public static string WindhawkPath { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolderOption.DoNotVerify),
-        "Windhawk",
-        "windhawk.exe");
+    public const string IslandFileName = "IslandBridge.Island.exe";
 
-    public static bool IsWindhawk(NamedPipeClientStream pipe)
+    public static string IslandPath { get; } = Path.Combine(AppContext.BaseDirectory, IslandFileName);
+
+    public static bool IsIsland(NamedPipeClientStream pipe)
     {
         ArgumentNullException.ThrowIfNull(pipe);
         var path = ServerImagePath(pipe.SafePipeHandle);
-        return path is not null && string.Equals(path, WindhawkPath, StringComparison.OrdinalIgnoreCase);
+        return path is not null && string.Equals(Path.GetFullPath(path), Path.GetFullPath(IslandPath), StringComparison.OrdinalIgnoreCase);
     }
 
     public static string? ServerImagePath(SafePipeHandle pipe)

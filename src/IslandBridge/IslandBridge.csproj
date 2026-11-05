@@ -32,6 +32,12 @@
   <ItemGroup>
     <Content Include="Assets\IslandBridge.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <PropertyGroup>
+    <IslandExecutable>$(MSBuildThisFileDirectory)..\..\island\out\build\IslandBridge.Island.exe</IslandExecutable>
+  </PropertyGroup>
+  <ItemGroup Condition="Exists('$(IslandExecutable)')">
+    <None Include="$(IslandExecutable)" Link="IslandBridge.Island.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\IslandBridge.Core\IslandBridge.Core.csproj" />
   </ItemGroup>
