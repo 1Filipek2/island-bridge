@@ -5,10 +5,10 @@
 namespace island
 {
 
-int ActiveMediaSourceIndex(const SharedState& state);
-std::wstring GetPreferredMediaSource();
-void RequestMediaSource(const std::wstring& aumid);
-void LockMediaSource(const std::wstring& aumid);
-void RequestMediaSourceSwitch(const std::wstring& aumid);
+int active_media_source_index(const SharedState& state);
+std::wstring get_preferred_media_source();
+void request_media_source(const std::wstring& aumid);
+void lock_media_source(const std::wstring& aumid);
+void request_media_source_switch(const std::wstring& aumid);
 
 }

@@ -4,6 +4,6 @@
 namespace island
 {
 
-DWORD WINAPI MediaThreadProc(void*);
+DWORD WINAPI media_thread_proc(void*);
 
 }

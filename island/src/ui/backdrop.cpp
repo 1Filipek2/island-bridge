@@ -7,7 +7,7 @@ namespace island
 {
 
 
-void EnableBlurBehind(HWND hwnd) {
+void enable_blur_behind(HWND hwnd) {
     DWM_BLURBEHIND blur = {};
     blur.dwFlags = DWM_BB_ENABLE;
     blur.fEnable = FALSE;
@@ -15,14 +15,14 @@ void EnableBlurBehind(HWND hwnd) {
 }
 
 
-namespace Backdrop
+namespace backdrop
 {
 namespace
 {
 
 
 // True while the foreground window belongs to the Snipping Tool / screen clip UI.
-bool ScreenClipUiActive() {
+bool screen_clip_ui_active() {
     HWND fg = GetForegroundWindow();
     if (!fg) return false;
     DWORD pid = 0;
@@ -46,36 +46,36 @@ bool ScreenClipUiActive() {
 }
 }
 
-namespace Backdrop
+namespace backdrop
 {
 
 
 // While the Snipping Tool overlay is foreground the island must not raise or
 // show itself. Cached for 100 ms since this is checked every frame.
-bool ClipUiActiveCached() {
-    static std::atomic<ULONGLONG> lastCheck{0};
+bool clip_ui_active_cached() {
+    static std::atomic<ULONGLONG> last_check{0};
     static std::atomic<bool> last{false};
     const ULONGLONG now = GetTickCount64();
-    if (now - lastCheck.load() >= 100) {
-        last.store(ScreenClipUiActive());
-        lastCheck.store(now);
+    if (now - last_check.load() >= 100) {
+        last.store(screen_clip_ui_active());
+        last_check.store(now);
     }
     return last.load();
 }
 
 }
 
-namespace DwmBackdrop
+namespace dwm_backdrop
 {
 namespace
 {
 
 
 struct AccentPolicy {
-    int accentState;
-    int accentFlags;
-    DWORD gradientColor;  // ABGR: alpha = tint opacity
-    DWORD animationId;
+    int accent_state;
+    int accent_flags;
+    DWORD gradient_color;  // ABGR: alpha = tint opacity
+    DWORD animation_id;
 };
 
 struct CompositionAttribData {
@@ -86,12 +86,12 @@ struct CompositionAttribData {
 
 using SetWindowCompositionAttribute_t = BOOL(WINAPI*)(HWND, CompositionAttribData*);
 
-constexpr int kAccentDisabled = 0;
-constexpr int kAccentEnableBlurBehind = 3;
-constexpr int kAccentEnableAcrylicBlurBehind = 4;
-constexpr int kWcaAccentPolicy = 19;
-constexpr int kWcaTransitionsForcedisabled = 3;
-constexpr wchar_t kClassName[] = L"DynamicIslandBackdrop";
+constexpr int accent_disabled = 0;
+constexpr int accent_enable_blur_behind = 3;
+constexpr int accent_enable_acrylic_blur_behind = 4;
+constexpr int wca_accent_policy = 19;
+constexpr int wca_transitions_forcedisabled = 3;
+constexpr wchar_t k_class_name[] = L"DynamicIslandBackdrop";
 
 struct Slot {
     HWND hwnd = nullptr;
@@ -99,16 +99,16 @@ struct Slot {
     int radius = -1;                 // last region corner radius
     int lift = -1;                   // last region top lift (notch: flat top)
     bool visible = false;
-    bool topMost = false;
-    int accentState = -1;
-    DWORD accentColor = 0;
+    bool top_most = false;
+    int accent_state = -1;
+    DWORD accent_color = 0;
 };
 
-Slot g_slots[kMaxPills];
-SetWindowCompositionAttribute_t g_setWca = nullptr;
+Slot g_slots[max_pills];
+SetWindowCompositionAttribute_t g_set_wca = nullptr;
 bool g_resolved = false;
 bool g_supported = false;  // API present and Windows 10 1803 or newer
-bool g_classRegistered = false;
+bool g_class_registered = false;
 
 // Last Sync signature so idle presents that redraw content skip SetWindowPos work.
 struct SyncFingerprint {
@@ -119,26 +119,26 @@ struct SyncFingerprint {
     DWORD color = 0;
     int state = -1;
     bool notch = false;
-    int x[kMaxPills] = {};
-    int y[kMaxPills] = {};
-    int w[kMaxPills] = {};
-    int h[kMaxPills] = {};
-    int radius[kMaxPills] = {};
-    int lift[kMaxPills] = {};
+    int x[max_pills] = {};
+    int y[max_pills] = {};
+    int w[max_pills] = {};
+    int h[max_pills] = {};
+    int radius[max_pills] = {};
+    int lift[max_pills] = {};
 };
-SyncFingerprint g_lastSync = {};
+SyncFingerprint g_last_sync = {};
 
-bool WindowsBuildAtLeast(DWORD build) {
-    using RtlGetVersion_t = LONG(WINAPI*)(OSVERSIONINFOW*);
+bool windows_build_at_least(DWORD build) {
+    using RtlGetVersionT = LONG(WINAPI*)(OSVERSIONINFOW*);
     HMODULE nt = GetModuleHandleW(L"ntdll.dll");
-    auto fn = nt ? reinterpret_cast<RtlGetVersion_t>(GetProcAddress(nt, "RtlGetVersion")) : nullptr;
+    auto fn = nt ? reinterpret_cast<RtlGetVersionT>(GetProcAddress(nt, "RtlGetVersion")) : nullptr;
     if (!fn) return false;
     OSVERSIONINFOW vi = {};
     vi.dwOSVersionInfoSize = sizeof(vi);
     return fn(&vi) == 0 && vi.dwBuildNumber >= build;
 }
 
-LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
     switch (msg) {
         case WM_MOUSEACTIVATE:
             return MA_NOACTIVATE;
@@ -147,96 +147,96 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         case WM_ERASEBKGND:
             return 1;  // accent owns the pixels; avoid GDI flash on show/resize
     }
-    return DefWindowProcW(hwnd, msg, wParam, lParam);
+    return DefWindowProcW(hwnd, msg, w_param, l_param);
 }
 
-void Resolve() {
+void resolve() {
     if (g_resolved) return;
     g_resolved = true;
     HMODULE user32 = GetModuleHandleW(L"user32.dll");
-    g_setWca = user32 ? reinterpret_cast<SetWindowCompositionAttribute_t>(
+    g_set_wca = user32 ? reinterpret_cast<SetWindowCompositionAttribute_t>(
                             GetProcAddress(user32, "SetWindowCompositionAttribute"))
                       : nullptr;
-    g_supported = g_setWca && WindowsBuildAtLeast(17134);  // acrylic: 1803+
+    g_supported = g_set_wca && windows_build_at_least(17134);  // acrylic: 1803+
 }
 
 }
 }
 
-namespace DwmBackdrop
+namespace dwm_backdrop
 {
 
 
 // False only on Windows too old for the accent; the island then keeps its solid fill.
-bool Available() {
-    Resolve();
+bool available() {
+    resolve();
     return g_supported;
 }
 
 }
 
-namespace DwmBackdrop
+namespace dwm_backdrop
 {
 namespace
 {
 
 
-DWORD ColorToAccentAbgr(const D2D1_COLOR_F& tint, float tintAlpha) {
+DWORD color_to_accent_abgr(const D2D1_COLOR_F& tint, float tint_alpha) {
     auto to8 = [](float v) {
         return static_cast<DWORD>(std::clamp(static_cast<int>(std::lround(v * 255.0f)), 0, 255));
     };
-    DWORD alpha = to8(tintAlpha);
+    DWORD alpha = to8(tint_alpha);
     if (alpha == 0) alpha = 1;  // acrylic rejects a fully transparent tint
     return (alpha << 24) | (to8(tint.b) << 16) | (to8(tint.g) << 8) | to8(tint.r);
 }
 
-void DisableTransitions(HWND hwnd) {
+void disable_transitions(HWND hwnd) {
     BOOL disable = TRUE;
-    CompositionAttribData data = {kWcaTransitionsForcedisabled, &disable, sizeof(disable)};
-    g_setWca(hwnd, &data);
+    CompositionAttribData data = {wca_transitions_forcedisabled, &disable, sizeof(disable)};
+    g_set_wca(hwnd, &data);
 }
 
-void ApplyAccent(Slot& s, int state, DWORD color) {
-    if (!s.hwnd || !g_setWca) return;
-    if (s.accentState == state && s.accentColor == color) return;
+void apply_accent(Slot& s, int state, DWORD color) {
+    if (!s.hwnd || !g_set_wca) return;
+    if (s.accent_state == state && s.accent_color == color) return;
     AccentPolicy policy = {};
-    policy.accentState = state;
-    policy.accentFlags = 0x10;  // clip the accent to the window region
-    policy.gradientColor = color;
-    CompositionAttribData data = {kWcaAccentPolicy, &policy, sizeof(policy)};
-    g_setWca(s.hwnd, &data);
-    s.accentState = state;
-    s.accentColor = color;
+    policy.accent_state = state;
+    policy.accent_flags = 0x10;  // clip the accent to the window region
+    policy.gradient_color = color;
+    CompositionAttribData data = {wca_accent_policy, &policy, sizeof(policy)};
+    g_set_wca(s.hwnd, &data);
+    s.accent_state = state;
+    s.accent_color = color;
 }
 
-void ClearAccent(Slot& s) {
-    if (!s.hwnd || !g_setWca) {
-        s.accentState = -1;
-        s.accentColor = 0;
+void clear_accent(Slot& s) {
+    if (!s.hwnd || !g_set_wca) {
+        s.accent_state = -1;
+        s.accent_color = 0;
         return;
     }
-    if (s.accentState == kAccentDisabled) return;
+    if (s.accent_state == accent_disabled) return;
     AccentPolicy policy = {};
-    policy.accentState = kAccentDisabled;
-    CompositionAttribData data = {kWcaAccentPolicy, &policy, sizeof(policy)};
-    g_setWca(s.hwnd, &data);
-    s.accentState = kAccentDisabled;
-    s.accentColor = 0;
+    policy.accent_state = accent_disabled;
+    CompositionAttribData data = {wca_accent_policy, &policy, sizeof(policy)};
+    g_set_wca(s.hwnd, &data);
+    s.accent_state = accent_disabled;
+    s.accent_color = 0;
 }
 
-HWND CreateBackdropWindow(HWND owner) {
+HWND create_backdrop_window(HWND owner) {
     HINSTANCE inst = GetModuleHandleW(nullptr);
-    if (!g_classRegistered) {
+    if (!g_class_registered) {
         WNDCLASSEXW wc = {};
         wc.cbSize = sizeof(wc);
-        wc.lpfnWndProc = WndProc;
+        wc.lpfnWndProc = wnd_proc;
         wc.hInstance = inst;
         wc.hbrBackground = static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));  // black = clear for accent
-        wc.lpszClassName = kClassName;
+        wc.lpszClassName = k_class_name;
         if (!RegisterClassExW(&wc) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
             return nullptr;
         }
-        g_classRegistered = true;
+        g_class_registered = true;
     }
     // No WS_EX_LAYERED (it would kill the accent); WS_EX_TRANSPARENT passes the mouse.
     // Unowned (hWndParent = nullptr): In Win32, an owned popup window is strictly forced
@@ -244,61 +244,61 @@ HWND CreateBackdropWindow(HWND owner) {
     // SetForegroundWindow(island) for the right-click context menu (or Quick Lookup) would
     // bring the backdrop window in front of the island, completely covering the island's
     // content (text, icons, album art) with blur/acrylic. Unowned popups stay behind the island.
-    DWORD exStyle = WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT;
-    if (g_settings.alwaysOnTop) exStyle |= WS_EX_TOPMOST;
-    HWND hwnd = CreateWindowExW(exStyle, kClassName, L"", WS_POPUP, 0, 0, 16, 16, nullptr, nullptr,
+    DWORD ex_style = WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT;
+    if (g_settings.always_on_top) ex_style |= WS_EX_TOPMOST;
+    HWND hwnd = CreateWindowExW(ex_style, k_class_name, L"", WS_POPUP, 0, 0, 16, 16, nullptr, nullptr,
                                 inst, nullptr);
     if (!hwnd) return nullptr;
-    DisableTransitions(hwnd);
+    disable_transitions(hwnd);
     return hwnd;
 }
 
-void HideSlot(Slot& s) {
+void hide_slot(Slot& s) {
     if (s.hwnd && s.visible) {
-        ClearAccent(s);  // drop GPU blur work while hidden
+        clear_accent(s);  // drop GPU blur work while hidden
         ShowWindow(s.hwnd, SW_HIDE);
     }
     s.visible = false;
     // Force a fresh accent apply on the next show — DWM can drop it while hidden.
-    s.accentState = -1;
+    s.accent_state = -1;
 }
 
 }
 }
 
-namespace DwmBackdrop
+namespace dwm_backdrop
 {
 
 
-void HideAll() {
-    for (Slot& s : g_slots) HideSlot(s);
-    g_lastSync = {};
+void hide_all() {
+    for (Slot& s : g_slots) hide_slot(s);
+    g_last_sync = {};
 }
 
-void DestroyAll() {
+void destroy_all() {
     for (Slot& s : g_slots) {
         if (s.hwnd && IsWindow(s.hwnd)) {
             DestroyWindow(s.hwnd);
         }
         s = Slot{};
     }
-    g_lastSync = {};
-    if (g_classRegistered) {
-        UnregisterClassW(kClassName, GetModuleHandleW(nullptr));
-        g_classRegistered = false;
+    g_last_sync = {};
+    if (g_class_registered) {
+        UnregisterClassW(k_class_name, GetModuleHandleW(nullptr));
+        g_class_registered = false;
     }
 }
 
 }
 
-namespace DwmBackdrop
+namespace dwm_backdrop
 {
 namespace
 {
 
 
 // Clips the window to the pill; `lift` raises the top so a notch pill gets a flat top.
-void UpdateRegion(Slot& s, int w, int h, int radius, int lift) {
+void update_region(Slot& s, int w, int h, int radius, int lift) {
     if (s.radius == radius && s.lift == lift && s.w == w && s.h == h) return;
     const int diameter = radius * 2;
     HRGN region = CreateRoundRectRgn(0, -lift, w + 1, h + 1, diameter, diameter);
@@ -309,25 +309,25 @@ void UpdateRegion(Slot& s, int w, int h, int radius, int lift) {
     s.lift = lift;
 }
 
-void EnsureTopMost(Slot& s, bool wantTopMost) {
-    if (!s.hwnd || s.topMost == wantTopMost) return;
+void ensure_top_most(Slot& s, bool want_top_most) {
+    if (!s.hwnd || s.top_most == want_top_most) return;
     // Style-bit edits alone do not move a window between the topmost bands;
     // SetWindowPos with HWND_TOPMOST / HWND_NOTOPMOST is required.
-    SetWindowPos(s.hwnd, wantTopMost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
+    SetWindowPos(s.hwnd, want_top_most ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
-    s.topMost = wantTopMost;
+    s.top_most = want_top_most;
 }
 
 }
 }
 
-namespace DwmBackdrop
+namespace dwm_backdrop
 {
 
 
 // Keeps all active backdrop windows placed immediately behind the island window in the z-order.
 // Called around context menu popups and foreground activation so the blur never covers the island.
-void EnsureBehind(HWND island) {
+void ensure_behind(HWND island) {
     if (!island) return;
     HWND prev = island;
     for (Slot& s : g_slots) {
@@ -341,7 +341,7 @@ void EnsureBehind(HWND island) {
 
 }
 
-namespace DwmBackdrop
+namespace dwm_backdrop
 {
 namespace
 {
@@ -349,10 +349,10 @@ namespace
 
 // Places one backdrop window below `prev`. Only moves it when something changed:
 // per-frame SetWindowPos lags on some Windows 10 builds.
-void PlaceSlot(Slot& s, HWND prev, int x, int y, int w, int h, int radius, int lift,
-               bool wantTopMost) {
-    EnsureTopMost(s, wantTopMost);
-    UpdateRegion(s, w, h, radius, lift);
+void place_slot(Slot& s, HWND prev, int x, int y, int w, int h, int radius, int lift,
+               bool want_top_most) {
+    ensure_top_most(s, want_top_most);
+    update_region(s, w, h, radius, lift);
     const bool moved = x != s.x || y != s.y || w != s.w || h != s.h;
     const bool stacked = GetWindow(prev, GW_HWNDNEXT) == s.hwnd;
     if (moved || !stacked || !s.visible) {
@@ -371,33 +371,33 @@ void PlaceSlot(Slot& s, HWND prev, int x, int y, int w, int h, int radius, int l
 }
 }
 
-namespace DwmBackdrop
+namespace dwm_backdrop
 {
 
 
 // Called after every presented frame with the island's screen origin and its pills
 // (client px, including hover scale) with corner radii.
-void Sync(HWND island, POINT origin, const D2D1_RECT_F* rects, const float* radii, int count,
-          bool notch, BackdropMaterial material, const D2D1_COLOR_F& tint, float tintAlpha) {
+void sync(HWND island, POINT origin, const D2D1_RECT_F* rects, const float* radii, int count,
+          bool notch, BackdropMaterial material, const D2D1_COLOR_F& tint, float tint_alpha) {
     if (material == BackdropMaterial::None || count <= 0 || !island || !IsWindowVisible(island) ||
-        !Available() || Backdrop::ClipUiActiveCached()) {
-        HideAll();
+        !available() || backdrop::clip_ui_active_cached()) {
+        hide_all();
         return;
     }
-    count = std::min(count, kMaxPills);
+    count = std::min(count, max_pills);
 
-    int state = kAccentEnableBlurBehind;
-    DWORD color = ColorToAccentAbgr(tint, tintAlpha * 0.22f);  // soft wash so plain blur isn't harsh
+    int state = accent_enable_blur_behind;
+    DWORD color = color_to_accent_abgr(tint, tint_alpha * 0.22f);  // soft wash so plain blur isn't harsh
     if (material == BackdropMaterial::Acrylic) {
-        state = kAccentEnableAcrylicBlurBehind;
-        color = ColorToAccentAbgr(tint, tintAlpha);
+        state = accent_enable_acrylic_blur_behind;
+        color = color_to_accent_abgr(tint, tint_alpha);
     }
 
     // Precompute geometry once so we can early-out when nothing moved.
     struct Geom {
         int x, y, w, h, radius, lift;
         bool valid;
-    } geom[kMaxPills] = {};
+    } geom[max_pills] = {};
     for (int i = 0; i < count; ++i) {
         const D2D1_RECT_F& r = rects[i];
         // Inset 1px so the region's hard edge stays hidden behind the island contour.
@@ -417,12 +417,12 @@ void Sync(HWND island, POINT origin, const D2D1_RECT_F* rects, const float* radi
         geom[i] = {x, y, w, h, radius, notch ? radius : 0, true};
     }
 
-    const bool wantTopMost = g_settings.alwaysOnTop;
-    bool unchanged = g_lastSync.island == island && g_lastSync.origin.x == origin.x &&
-                     g_lastSync.origin.y == origin.y && g_lastSync.count == count &&
-                     g_lastSync.material == static_cast<int>(material) &&
-                     g_lastSync.color == color && g_lastSync.state == state &&
-                     g_lastSync.notch == notch;
+    const bool want_top_most = g_settings.always_on_top;
+    bool unchanged = g_last_sync.island == island && g_last_sync.origin.x == origin.x &&
+                     g_last_sync.origin.y == origin.y && g_last_sync.count == count &&
+                     g_last_sync.material == static_cast<int>(material) &&
+                     g_last_sync.color == color && g_last_sync.state == state &&
+                     g_last_sync.notch == notch;
     if (unchanged && count > 0 && g_slots[0].hwnd && g_slots[0].visible) {
         // If another always-on-top window slipped between the island and its backdrop, restack.
         if (GetWindow(island, GW_HWNDNEXT) != g_slots[0].hwnd) {
@@ -438,10 +438,10 @@ void Sync(HWND island, POINT origin, const D2D1_RECT_F* rects, const float* radi
                 }
                 continue;
             }
-            if (g_lastSync.x[i] != geom[i].x || g_lastSync.y[i] != geom[i].y ||
-                g_lastSync.w[i] != geom[i].w || g_lastSync.h[i] != geom[i].h ||
-                g_lastSync.radius[i] != geom[i].radius || g_lastSync.lift[i] != geom[i].lift ||
-                !g_slots[i].visible || g_slots[i].topMost != wantTopMost) {
+            if (g_last_sync.x[i] != geom[i].x || g_last_sync.y[i] != geom[i].y ||
+                g_last_sync.w[i] != geom[i].w || g_last_sync.h[i] != geom[i].h ||
+                g_last_sync.radius[i] != geom[i].radius || g_last_sync.lift[i] != geom[i].lift ||
+                !g_slots[i].visible || g_slots[i].top_most != want_top_most) {
                 unchanged = false;
                 break;
             }
@@ -451,7 +451,7 @@ void Sync(HWND island, POINT origin, const D2D1_RECT_F* rects, const float* radi
         // Accent can still need a refresh after a settings tick that didn't move geometry.
         for (int i = 0; i < count; ++i) {
             if (geom[i].valid && g_slots[i].hwnd) {
-                ApplyAccent(g_slots[i], state, color);
+                apply_accent(g_slots[i], state, color);
             }
         }
         return;
@@ -461,39 +461,39 @@ void Sync(HWND island, POINT origin, const D2D1_RECT_F* rects, const float* radi
     for (int i = 0; i < count; ++i) {
         Slot& s = g_slots[i];
         if (!geom[i].valid) {
-            HideSlot(s);
+            hide_slot(s);
             continue;
         }
         if (!s.hwnd) {
-            s.hwnd = CreateBackdropWindow(island);
-            s.topMost = wantTopMost;
+            s.hwnd = create_backdrop_window(island);
+            s.top_most = want_top_most;
             if (!s.hwnd) continue;
         }
-        ApplyAccent(s, state, color);
-        PlaceSlot(s, prev, geom[i].x, geom[i].y, geom[i].w, geom[i].h, geom[i].radius,
-                  geom[i].lift, wantTopMost);
+        apply_accent(s, state, color);
+        place_slot(s, prev, geom[i].x, geom[i].y, geom[i].w, geom[i].h, geom[i].radius,
+                  geom[i].lift, want_top_most);
         prev = s.hwnd;
     }
-    for (int i = count; i < kMaxPills; ++i) HideSlot(g_slots[i]);
+    for (int i = count; i < max_pills; ++i) hide_slot(g_slots[i]);
 
-    g_lastSync.island = island;
-    g_lastSync.origin = origin;
-    g_lastSync.count = count;
-    g_lastSync.material = static_cast<int>(material);
-    g_lastSync.color = color;
-    g_lastSync.state = state;
-    g_lastSync.notch = notch;
-    for (int i = 0; i < kMaxPills; ++i) {
+    g_last_sync.island = island;
+    g_last_sync.origin = origin;
+    g_last_sync.count = count;
+    g_last_sync.material = static_cast<int>(material);
+    g_last_sync.color = color;
+    g_last_sync.state = state;
+    g_last_sync.notch = notch;
+    for (int i = 0; i < max_pills; ++i) {
         if (i < count && geom[i].valid) {
-            g_lastSync.x[i] = geom[i].x;
-            g_lastSync.y[i] = geom[i].y;
-            g_lastSync.w[i] = geom[i].w;
-            g_lastSync.h[i] = geom[i].h;
-            g_lastSync.radius[i] = geom[i].radius;
-            g_lastSync.lift[i] = geom[i].lift;
+            g_last_sync.x[i] = geom[i].x;
+            g_last_sync.y[i] = geom[i].y;
+            g_last_sync.w[i] = geom[i].w;
+            g_last_sync.h[i] = geom[i].h;
+            g_last_sync.radius[i] = geom[i].radius;
+            g_last_sync.lift[i] = geom[i].lift;
         } else {
-            g_lastSync.x[i] = g_lastSync.y[i] = g_lastSync.w[i] = g_lastSync.h[i] = 0;
-            g_lastSync.radius[i] = g_lastSync.lift[i] = 0;
+            g_last_sync.x[i] = g_last_sync.y[i] = g_last_sync.w[i] = g_last_sync.h[i] = 0;
+            g_last_sync.radius[i] = g_last_sync.lift[i] = 0;
         }
     }
 }
@@ -504,34 +504,34 @@ void Sync(HWND island, POINT origin, const D2D1_RECT_F* rects, const float* radi
 
 // The backdrop picks up a material or tint change on the next frame; turning it
 // off hides the DWM windows immediately so the blur does not linger a frame.
-void ApplyBackdropMaterial(HWND) {
-    if (g_settings.backdropMaterial == BackdropMaterial::None) {
-        DwmBackdrop::HideAll();
+void apply_backdrop_material(HWND) {
+    if (g_settings.backdrop_material == BackdropMaterial::None) {
+        dwm_backdrop::hide_all();
     }
-    g_layoutDirty = true;
+    g_layout_dirty = true;
 }
 
 // Always unregisters before registering so a settings change never leaks the
 // previous hotkey. Safe to call before the overlay window exists (no-ops).
-void ApplyHideShowHotkey() {
+void apply_hide_show_hotkey() {
     // Quick Lookup shares this entry point so both hotkeys are registered,
     // re-registered and released in the same places (render thread only).
-    ApplyLookupHotkey();
+    apply_lookup_hotkey();
     if (!g_hwnd) {
         return;
     }
 
-    if (g_hotkeyRegistered) {
-        UnregisterHotKey(g_hwnd, ID_HIDE_SHOW_HOTKEY);
-        g_hotkeyRegistered = false;
+    if (g_hotkey_registered) {
+        UnregisterHotKey(g_hwnd, id_hide_show_hotkey);
+        g_hotkey_registered = false;
     }
 
-    if (g_settings.hideShowHotkeyEnabled) {
-        if (RegisterHotKey(g_hwnd, ID_HIDE_SHOW_HOTKEY, g_settings.hideShowModifiers,
-                           g_settings.hideShowVk)) {
-            g_registeredHotkeyModifiers = g_settings.hideShowModifiers;
-            g_registeredHotkeyVk = g_settings.hideShowVk;
-            g_hotkeyRegistered = true;
+    if (g_settings.hide_show_hotkey_enabled) {
+        if (RegisterHotKey(g_hwnd, id_hide_show_hotkey, g_settings.hide_show_modifiers,
+                           g_settings.hide_show_vk)) {
+            g_registered_hotkey_modifiers = g_settings.hide_show_modifiers;
+            g_registered_hotkey_vk = g_settings.hide_show_vk;
+            g_hotkey_registered = true;
         } else {
             host::log(L"Failed to register hide/show hotkey (error %lu).", GetLastError());
         }

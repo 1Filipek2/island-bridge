@@ -7,8 +7,8 @@ namespace island
 {
 
 
-bool DecodeImageBytesToPixels(const std::vector<uint8_t>& bytes, BitmapPixels* outPixels) {
-    if (!outPixels || bytes.empty()) {
+bool decode_image_bytes_to_pixels(const std::vector<uint8_t>& bytes, BitmapPixels* out_pixels) {
+    if (!out_pixels || bytes.empty()) {
         return false;
     }
 
@@ -85,7 +85,7 @@ bool DecodeImageBytesToPixels(const std::vector<uint8_t>& bytes, BitmapPixels* o
         uint32_t r = 0;
         uint32_t g = 0;
         uint32_t b = 0;
-        uint32_t satSum = 0;  // accumulated saturation for vibrancy-weighted winner
+        uint32_t sat_sum = 0;  // accumulated saturation for vibrancy-weighted winner
     };
 
     std::array<Bucket, 16 * 16 * 16> buckets{};
@@ -109,14 +109,14 @@ bool DecodeImageBytesToPixels(const std::vector<uint8_t>& bytes, BitmapPixels* o
             continue;
         }
 
-        const size_t bucketIndex = ((red >> 4) << 8) | ((green >> 4) << 4) | (blue >> 4);
-        Bucket& bucket = buckets[bucketIndex];
+        const size_t bucket_index = ((red >> 4) << 8) | ((green >> 4) << 4) | (blue >> 4);
+        Bucket& bucket = buckets[bucket_index];
         const uint32_t weight = 1 + static_cast<uint32_t>(saturation / 32);  // stronger vibrancy weight
         bucket.count  += weight;
         bucket.r      += red   * weight;
         bucket.g      += green * weight;
         bucket.b      += blue  * weight;
-        bucket.satSum += static_cast<uint32_t>(saturation) * weight;
+        bucket.sat_sum += static_cast<uint32_t>(saturation) * weight;
     }
 
     // --- Vibrancy-weighted winner selection ---
@@ -140,16 +140,16 @@ bool DecodeImageBytesToPixels(const std::vector<uint8_t>& bytes, BitmapPixels* o
 
     // Among those top-3, pick the one with the highest avg saturation.
     const Bucket* best = nullptr;
-    size_t bestIdx = 0;
-    float bestVibrancy = -1.0f;
+    size_t best_idx = 0;
+    float best_vibrancy = -1.0f;
     for (int s = 0; s < 3; ++s) {
         if (!top[s].b) break;
-        const float vibrancy = static_cast<float>(top[s].b->satSum) /
+        const float vibrancy = static_cast<float>(top[s].b->sat_sum) /
                                static_cast<float>(top[s].b->count);
-        if (vibrancy > bestVibrancy) {
-            bestVibrancy = vibrancy;
+        if (vibrancy > best_vibrancy) {
+            best_vibrancy = vibrancy;
             best = top[s].b;
-            bestIdx = top[s].idx;
+            best_idx = top[s].idx;
         }
     }
 
@@ -158,45 +158,45 @@ bool DecodeImageBytesToPixels(const std::vector<uint8_t>& bytes, BitmapPixels* o
         // A color straddling a bucket boundary splits its votes across up to 8
         // adjacent cells. Pool the winning bucket with all 26 face/edge/corner
         // neighbors before averaging so the final RGB is stable and representative.
-        uint64_t poolCount = 0;
-        double poolR = 0, poolG = 0, poolB = 0;
+        uint64_t pool_count = 0;
+        double pool_r = 0, pool_g = 0, pool_b = 0;
 
-        const int bi = static_cast<int>((bestIdx >> 8) & 0xF);  // red index
-        const int gi = static_cast<int>((bestIdx >> 4) & 0xF);  // green index
-        const int bli = static_cast<int>( bestIdx       & 0xF); // blue index
+        const int bi = static_cast<int>((best_idx >> 8) & 0xF);  // red index
+        const int gi = static_cast<int>((best_idx >> 4) & 0xF);  // green index
+        const int bli = static_cast<int>( best_idx       & 0xF); // blue index
 
         for (int dr = -1; dr <= 1; ++dr) {
             for (int dg = -1; dg <= 1; ++dg) {
                 for (int db = -1; db <= 1; ++db) {
                     const int ni = bi + dr, nj = gi + dg, nk = bli + db;
                     if (ni < 0 || ni > 15 || nj < 0 || nj > 15 || nk < 0 || nk > 15) continue;
-                    const size_t nIdx = (static_cast<size_t>(ni) << 8) |
+                    const size_t n_idx = (static_cast<size_t>(ni) << 8) |
                                         (static_cast<size_t>(nj) << 4) |
                                          static_cast<size_t>(nk);
-                    const Bucket& nb = buckets[nIdx];
+                    const Bucket& nb = buckets[n_idx];
                     if (nb.count == 0) continue;
-                    poolCount += nb.count;
-                    poolR += nb.r;
-                    poolG += nb.g;
-                    poolB += nb.b;
+                    pool_count += nb.count;
+                    pool_r += nb.r;
+                    pool_g += nb.g;
+                    pool_b += nb.b;
                 }
             }
         }
 
-        if (poolCount > 0) {
-            const float invC = 1.0f / static_cast<float>(poolCount);
-            const float rawR = static_cast<float>(poolR * invC) / 255.0f;
-            const float rawG = static_cast<float>(poolG * invC) / 255.0f;
-            const float rawB = static_cast<float>(poolB * invC) / 255.0f;
+        if (pool_count > 0) {
+            const float inv_c = 1.0f / static_cast<float>(pool_count);
+            const float raw_r = static_cast<float>(pool_r * inv_c) / 255.0f;
+            const float raw_g = static_cast<float>(pool_g * inv_c) / 255.0f;
+            const float raw_b = static_cast<float>(pool_b * inv_c) / 255.0f;
 
-            D2D1_COLOR_F bgColor = g_settings.pillBgColor;
-            if (bgColor.a <= 0.0f) {
-                bgColor = D2D1::ColorF(0.031f, 0.031f, 0.039f, 1.0f); // Obsidian default #08080A
+            D2D1_COLOR_F bg_color = g_settings.pill_bg_color;
+            if (bg_color.a <= 0.0f) {
+                bg_color = D2D1::ColorF(0.031f, 0.031f, 0.039f, 1.0f); // Obsidian default #08080A
             }
 
-            pixels.sampledAccent = EnsureContrastAgainstBackground(
-                D2D1::ColorF(rawR, rawG, rawB, 1.0f),
-                bgColor);
+            pixels.sampled_accent = ensure_contrast_against_background(
+                D2D1::ColorF(raw_r, raw_g, raw_b, 1.0f),
+                bg_color);
         }
         // If poolCount is somehow 0 (all neighbors empty and center also cleared),
         // the existing sampledAccent default (#4cc9f0) is kept unchanged — explicit
@@ -205,8 +205,8 @@ bool DecodeImageBytesToPixels(const std::vector<uint8_t>& bytes, BitmapPixels* o
     // else: no qualifying colorful pixel found (B&W / fully-filtered image)
     // — leave sampledAccent at the BitmapPixels default (#4cc9f0).
 
-    pixels.generation = ++g_artGenerationCounter;
-    *outPixels = std::move(pixels);
+    pixels.generation = ++g_art_generation_counter;
+    *out_pixels = std::move(pixels);
     return true;
 }
 

@@ -4,6 +4,6 @@
 namespace island
 {
 
-DWORD WINAPI BluetoothThreadProc(void*);
+DWORD WINAPI bluetooth_thread_proc(void*);
 
 }

@@ -4,8 +4,8 @@
 namespace island
 {
 
-std::wstring ReadClipboardText(HWND hwnd);
-void CaptureShellNotification(HWND hwnd);
-void CaptureClipboard(HWND hwnd);
+std::wstring read_clipboard_text(HWND hwnd);
+void capture_shell_notification(HWND hwnd);
+void capture_clipboard(HWND hwnd);
 
 }

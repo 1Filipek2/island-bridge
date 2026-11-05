@@ -5,62 +5,62 @@
 namespace island
 {
 
-bool IsForegroundFullscreen(HWND targetHwnd);
+bool is_foreground_fullscreen(HWND target_hwnd);
 
 struct MonitorEnumData {
     std::vector<HMONITOR> monitors;
 };
 
-inline BOOL CALLBACK MonitorEnumProc(HMONITOR hMonitor, HDC, LPRECT, LPARAM dwData) {
-    auto* data = reinterpret_cast<MonitorEnumData*>(dwData);
-    data->monitors.push_back(hMonitor);
+inline BOOL CALLBACK monitor_enum_proc(HMONITOR h_monitor, HDC, LPRECT, LPARAM dw_data) {
+    auto* data = reinterpret_cast<MonitorEnumData*>(dw_data);
+    data->monitors.push_back(h_monitor);
     return TRUE;
 }
 
-inline HMONITOR GetAnchorMonitorFor(int targetMonitor) {
-    HMONITOR selectedMonitor = nullptr;
+inline HMONITOR get_anchor_monitor_for(int target_monitor) {
+    HMONITOR selected_monitor = nullptr;
 
-    if (targetMonitor == -1) {
+    if (target_monitor == -1) {
         POINT pt = {0, 0};
         GetCursorPos(&pt);
-        selectedMonitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-    } else if (targetMonitor > 0) {
+        selected_monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+    } else if (target_monitor > 0) {
         MonitorEnumData data;
-        EnumDisplayMonitors(nullptr, nullptr, MonitorEnumProc, reinterpret_cast<LPARAM>(&data));
+        EnumDisplayMonitors(nullptr, nullptr, monitor_enum_proc, reinterpret_cast<LPARAM>(&data));
 
-        int index = targetMonitor - 1;
+        int index = target_monitor - 1;
         if (index >= 0 && index < static_cast<int>(data.monitors.size())) {
-            selectedMonitor = data.monitors[index];
+            selected_monitor = data.monitors[index];
         }
     }
 
-    if (!selectedMonitor) {
+    if (!selected_monitor) {
         POINT pt = {0, 0};
-        selectedMonitor = MonitorFromPoint(pt, MONITOR_DEFAULTTOPRIMARY);
+        selected_monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTOPRIMARY);
     }
-    return selectedMonitor;
+    return selected_monitor;
 }
 
-inline HMONITOR GetAnchorMonitor() {
-    return GetAnchorMonitorFor(g_settings.targetMonitor);
+inline HMONITOR get_anchor_monitor() {
+    return get_anchor_monitor_for(g_settings.target_monitor);
 }
 
 // Returns the DPI scale factor for a given monitor (1.0 = 96 DPI = 100%)
-inline float GetMonitorDpiScale(HMONITOR monitor) {
+inline float get_monitor_dpi_scale(HMONITOR monitor) {
     if (!monitor) {
         POINT pt = {0, 0};
         monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTOPRIMARY);
     }
-    UINT dpiX = 96, dpiY = 96;
-    using GetDpiForMonitor_t = HRESULT(WINAPI*)(HMONITOR, int, UINT*, UINT*);
-    static auto pGetDpiForMonitor = reinterpret_cast<GetDpiForMonitor_t>(
+    UINT dpi_x = 96, dpi_y = 96;
+    using GetDpiForMonitorT = HRESULT(WINAPI*)(HMONITOR, int, UINT*, UINT*);
+    static auto p_get_dpi_for_monitor = reinterpret_cast<GetDpiForMonitorT>(
         GetProcAddress(GetModuleHandleW(L"shcore.dll"), "GetDpiForMonitor"));
-    if (pGetDpiForMonitor && monitor) {
-        pGetDpiForMonitor(monitor, 0 /* MDT_EFFECTIVE_DPI */, &dpiX, &dpiY);
+    if (p_get_dpi_for_monitor && monitor) {
+        p_get_dpi_for_monitor(monitor, 0 /* MDT_EFFECTIVE_DPI */, &dpi_x, &dpi_y);
     }
-    return static_cast<float>(dpiX) / 96.0f;
+    return static_cast<float>(dpi_x) / 96.0f;
 }
-int GetMonitorRefreshRate(HWND hwnd);
-D2D1_COLOR_F GetSystemAccentColor();
+int get_monitor_refresh_rate(HWND hwnd);
+D2D1_COLOR_F get_system_accent_color();
 
 }

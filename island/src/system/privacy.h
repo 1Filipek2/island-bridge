@@ -4,7 +4,7 @@
 namespace island
 {
 
-void UpdateProgressSnapshot();
-void UpdatePrivacyIndicators();
+void update_progress_snapshot();
+void update_privacy_indicators();
 
 }

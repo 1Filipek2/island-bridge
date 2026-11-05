@@ -22,33 +22,33 @@ struct GitHubDay {
 };
 
 // Pulls the value of attribute `name` from the tag text in [tagStart, tagEnd).
-std::string HtmlAttribute(const std::string& html, size_t tagStart, size_t tagEnd, const char* name) {
+std::string html_attribute(const std::string& html, size_t tag_start, size_t tag_end, const char* name) {
     const std::string needle = std::string(" ") + name + "=\"";
-    const size_t pos = html.find(needle, tagStart);
-    if (pos == std::string::npos || pos >= tagEnd) return std::string();
+    const size_t pos = html.find(needle, tag_start);
+    if (pos == std::string::npos || pos >= tag_end) return std::string();
     const size_t begin = pos + needle.size();
     const size_t end = html.find('"', begin);
-    if (end == std::string::npos || end > tagEnd) return std::string();
+    if (end == std::string::npos || end > tag_end) return std::string();
     return html.substr(begin, end - begin);
 }
 
-std::vector<GitHubDay> ParseGitHubCalendar(const std::string& html) {
-    static const std::string kIdPrefix = "contribution-day-component-";
+std::vector<GitHubDay> parse_git_hub_calendar(const std::string& html) {
+    static const std::string id_prefix = "contribution-day-component-";
     std::vector<GitHubDay> days;
 
     size_t cursor = 0;
     while ((cursor = html.find("<td", cursor)) != std::string::npos) {
-        const size_t tagEnd = html.find('>', cursor);
-        if (tagEnd == std::string::npos) break;
+        const size_t tag_end = html.find('>', cursor);
+        if (tag_end == std::string::npos) break;
 
-        const std::string id = HtmlAttribute(html, cursor, tagEnd, "id");
-        const std::string date = HtmlAttribute(html, cursor, tagEnd, "data-date");
-        const std::string level = HtmlAttribute(html, cursor, tagEnd, "data-level");
-        cursor = tagEnd;
+        const std::string id = html_attribute(html, cursor, tag_end, "id");
+        const std::string date = html_attribute(html, cursor, tag_end, "data-date");
+        const std::string level = html_attribute(html, cursor, tag_end, "data-level");
+        cursor = tag_end;
 
         int row = -1, column = -1;
-        if (date.size() != 10 || level.empty() || id.rfind(kIdPrefix, 0) != 0 ||
-            sscanf(id.c_str() + kIdPrefix.size(), "%d-%d", &row, &column) != 2 || row < 0 || row > 6 ||
+        if (date.size() != 10 || level.empty() || id.rfind(id_prefix, 0) != 0 ||
+            sscanf(id.c_str() + id_prefix.size(), "%d-%d", &row, &column) != 2 || row < 0 || row > 6 ||
             column < 0) {
             continue;
         }
@@ -59,16 +59,16 @@ std::vector<GitHubDay> ParseGitHubCalendar(const std::string& html) {
     std::map<std::pair<int, int>, int> counts;
     cursor = 0;
     while ((cursor = html.find("<tool-tip", cursor)) != std::string::npos) {
-        const size_t tagEnd = html.find('>', cursor);
-        if (tagEnd == std::string::npos) break;
-        const std::string target = HtmlAttribute(html, cursor, tagEnd, "for");
+        const size_t tag_end = html.find('>', cursor);
+        if (tag_end == std::string::npos) break;
+        const std::string target = html_attribute(html, cursor, tag_end, "for");
         int row = -1, column = -1;
-        if (target.rfind(kIdPrefix, 0) == 0 &&
-            sscanf(target.c_str() + kIdPrefix.size(), "%d-%d", &row, &column) == 2) {
+        if (target.rfind(id_prefix, 0) == 0 &&
+            sscanf(target.c_str() + id_prefix.size(), "%d-%d", &row, &column) == 2) {
             // "No contributions on ..." parses as 0, "3 contributions on ..." as 3.
-            counts[{row, column}] = atoi(html.c_str() + tagEnd + 1);
+            counts[{row, column}] = atoi(html.c_str() + tag_end + 1);
         }
-        cursor = tagEnd;
+        cursor = tag_end;
     }
     for (GitHubDay& day : days) {
         const auto found = counts.find({day.row, day.column});
@@ -80,29 +80,29 @@ std::vector<GitHubDay> ParseGitHubCalendar(const std::string& html) {
     return days;
 }
 
-void CommitGitHubSnapshot(const std::wstring& user, const std::vector<GitHubDay>& days) {
+void commit_git_hub_snapshot(const std::wstring& user, const std::vector<GitHubDay>& days) {
     SYSTEMTIME local{};
     GetLocalTime(&local);
     char today[16];
     sprintf_s(today, "%04d-%02d-%02d", local.wYear, local.wMonth, local.wDay);
 
     GitHubSnapshot next;
-    next.hasData = true;
+    next.has_data = true;
     next.user = user;
-    next.lastUpdated = NowSeconds();
+    next.last_updated = now_seconds();
     next.cells.fill(-1);
 
-    int lastColumn = 0;
+    int last_column = 0;
     for (const GitHubDay& day : days) {
-        lastColumn = std::max(lastColumn, day.column);
-        next.yearTotal += day.count;
-        if (day.date == today) next.todayCount = day.count;
+        last_column = std::max(last_column, day.column);
+        next.year_total += day.count;
+        if (day.date == today) next.today_count = day.count;
     }
 
-    const int firstColumn = lastColumn - (GitHubSnapshot::kWeeks - 1);
+    const int first_column = last_column - (GitHubSnapshot::weeks - 1);
     for (const GitHubDay& day : days) {
-        if (day.column >= firstColumn) {
-            next.cells[(day.column - firstColumn) * 7 + day.row] = static_cast<signed char>(day.level);
+        if (day.column >= first_column) {
+            next.cells[(day.column - first_column) * 7 + day.row] = static_cast<signed char>(day.level);
         }
     }
 
@@ -111,7 +111,7 @@ void CommitGitHubSnapshot(const std::wstring& user, const std::vector<GitHubDay>
     if (index >= 0 && days[index].date == today && days[index].count == 0) --index;
     for (; index >= 0 && days[index].count > 0; --index) ++next.streak;
 
-    std::lock_guard lock(g_stateMutex);
+    std::lock_guard lock(g_state_mutex);
     g_state.github = std::move(next);
 }
 
@@ -119,25 +119,25 @@ void CommitGitHubSnapshot(const std::wstring& user, const std::vector<GitHubDay>
 
 
 
-DWORD WINAPI GitHubThreadProc(void*) {
-    WaitForSingleObject(g_stopEvent, 5000);
+DWORD WINAPI git_hub_thread_proc(void*) {
+    WaitForSingleObject(g_stop_event, 5000);
 
-    static const DWORD kBackoffMs[] = {60 * 1000, 5 * 60 * 1000, 15 * 60 * 1000, 30 * 60 * 1000};
-    size_t backoffIndex = 0;
+    static const DWORD backoff_ms[] = {60 * 1000, 5 * 60 * 1000, 15 * 60 * 1000, 30 * 60 * 1000};
+    size_t backoff_index = 0;
 
-    while (WaitForSingleObject(g_stopEvent, 0) == WAIT_TIMEOUT) {
-        if (!GetSettingsCopy().githubModule) {
-            WaitForSingleObject(g_stopEvent, 5000);
+    while (WaitForSingleObject(g_stop_event, 0) == WAIT_TIMEOUT) {
+        if (!get_settings_copy().github_module) {
+            WaitForSingleObject(g_stop_event, 5000);
             continue;
         }
 
         bool committed = false;
-        const std::wstring user = GetStringSettingCopy(L"Modules.GitHubUser");
+        const std::wstring user = get_string_setting_copy(L"Modules.GitHubUser");
         if (!user.empty()) {
-            const std::wstring path = L"/users/" + PercentEncodeUtf8(user) + L"/contributions";
-            const std::vector<GitHubDay> days = ParseGitHubCalendar(HttpGet(L"github.com", path.c_str(), true));
+            const std::wstring path = L"/users/" + percent_encode_utf8(user) + L"/contributions";
+            const std::vector<GitHubDay> days = parse_git_hub_calendar(http_get(L"github.com", path.c_str(), true));
             if (!days.empty()) {
-                CommitGitHubSnapshot(user, days);
+                commit_git_hub_snapshot(user, days);
                 committed = true;
                 host::log(L"GitHub: %zu days for %s", days.size(), user.c_str());
             } else {
@@ -145,14 +145,14 @@ DWORD WINAPI GitHubThreadProc(void*) {
             }
         }
 
-        DWORD waitMs = 30 * 60 * 1000;
+        DWORD wait_ms = 30 * 60 * 1000;
         if (committed) {
-            backoffIndex = 0;
+            backoff_index = 0;
         } else {
-            waitMs = kBackoffMs[backoffIndex];
-            if (backoffIndex + 1 < ARRAYSIZE(kBackoffMs)) ++backoffIndex;
+            wait_ms = backoff_ms[backoff_index];
+            if (backoff_index + 1 < ARRAYSIZE(backoff_ms)) ++backoff_index;
         }
-        WaitForSingleObject(g_stopEvent, waitMs);
+        WaitForSingleObject(g_stop_event, wait_ms);
     }
     return 0;
 }

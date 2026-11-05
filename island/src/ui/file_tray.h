@@ -5,14 +5,14 @@
 #include "core/tabs.h"
 namespace island
 {
-namespace FileTrayStore
+namespace file_tray_store
 {
 
 
-inline std::mutex g_ioMutex;  // serialises the load/save file access
-bool ResolvePaths(std::wstring* dir, std::wstring* file);
-std::string Escape(const std::wstring& value);
-std::wstring Unescape(const std::string& value);
+inline std::mutex g_io_mutex;  // serialises the load/save file access
+bool resolve_paths(std::wstring* dir, std::wstring* file);
+std::string escape(const std::wstring& value);
+std::wstring unescape(const std::string& value);
 
 }
 }
@@ -20,14 +20,14 @@ std::wstring Unescape(const std::string& value);
 namespace island
 {
 
-void SaveFileTray();
-void LoadFileTray();
-bool TrayModuleEnabled();
-void AddPathsToFileTray(const std::vector<std::wstring>& paths);
-bool ExtractDropPaths(IDataObject* data, std::vector<std::wstring>* out);
-void CopyTextToClipboard(HWND hwnd, const std::wstring& text);
-void PasteIntoFileTray(HWND hwnd);
-DWORD PickTrayDropEffect(DWORD allowed);
+void save_file_tray();
+void load_file_tray();
+bool tray_module_enabled();
+void add_paths_to_file_tray(const std::vector<std::wstring>& paths);
+bool extract_drop_paths(IDataObject* data, std::vector<std::wstring>* out);
+void copy_text_to_clipboard(HWND hwnd, const std::wstring& text);
+void paste_into_file_tray(HWND hwnd);
+DWORD pick_tray_drop_effect(DWORD allowed);
 
 // Receives drags while they are still hovering, which is what lets the island
 // expand onto the File Tray *before* the drop.
@@ -52,63 +52,63 @@ class TrayDropTarget final : public IDropTarget {
 
     STDMETHODIMP DragEnter(IDataObject* data, DWORD, POINTL, DWORD* effect) override {
         accept_ = false;
-        if (!g_trayInternalDrag.load() && TrayModuleEnabled() && data) {
+        if (!g_tray_internal_drag.load() && tray_module_enabled() && data) {
             FORMATETC fmt = {CF_HDROP, nullptr, DVASPECT_CONTENT, -1, TYMED_HGLOBAL};
             accept_ = (data->QueryGetData(&fmt) == S_OK);
         }
 
         if (accept_) {
-            tab_ = FileTrayTabIndex(GetSettingsCopy());
+            tab_ = file_tray_tab_index(get_settings_copy());
             if (tab_ >= 0) {
-                g_idleTab = tab_;
+                g_idle_tab = tab_;
             }
-            g_trayDragOver = true;
-            g_clickExpanded = true;
-            g_layoutDirty = true;
-            TriggerNudge();
+            g_tray_drag_over = true;
+            g_click_expanded = true;
+            g_layout_dirty = true;
+            trigger_nudge();
         }
         if (effect) {
-            *effect = accept_ ? PickTrayDropEffect(*effect) : DROPEFFECT_NONE;
+            *effect = accept_ ? pick_tray_drop_effect(*effect) : DROPEFFECT_NONE;
         }
         return S_OK;
     }
 
     STDMETHODIMP DragOver(DWORD, POINTL, DWORD* effect) override {
         if (accept_ && tab_ >= 0) {
-            g_idleTab = tab_;  // stay on the tray while the island expands
+            g_idle_tab = tab_;  // stay on the tray while the island expands
         }
         if (effect) {
-            *effect = accept_ ? PickTrayDropEffect(*effect) : DROPEFFECT_NONE;
+            *effect = accept_ ? pick_tray_drop_effect(*effect) : DROPEFFECT_NONE;
         }
         return S_OK;
     }
 
     STDMETHODIMP DragLeave() override {
         accept_ = false;
-        g_trayDragOver = false;
-        g_layoutDirty = true;
+        g_tray_drag_over = false;
+        g_layout_dirty = true;
         return S_OK;
     }
 
     STDMETHODIMP Drop(IDataObject* data, DWORD, POINTL, DWORD* effect) override {
         std::vector<std::wstring> paths;
-        const bool ok = accept_ && ExtractDropPaths(data, &paths);
+        const bool ok = accept_ && extract_drop_paths(data, &paths);
         accept_ = false;
 
         if (ok) {
-            AddPathsToFileTray(paths);
-            const int tab = FileTrayTabIndex(GetSettingsCopy());
+            add_paths_to_file_tray(paths);
+            const int tab = file_tray_tab_index(get_settings_copy());
             if (tab >= 0) {
-                g_idleTab = tab;
+                g_idle_tab = tab;
             }
-            g_clickExpanded = true;
-            g_layoutDirty = true;
-            TriggerNudge();
-            if (effect) *effect = PickTrayDropEffect(*effect);
+            g_click_expanded = true;
+            g_layout_dirty = true;
+            trigger_nudge();
+            if (effect) *effect = pick_tray_drop_effect(*effect);
         } else if (effect) {
             *effect = DROPEFFECT_NONE;
         }
-        g_trayDragOver = false;
+        g_tray_drag_over = false;
         return S_OK;
     }
 
@@ -117,6 +117,6 @@ class TrayDropTarget final : public IDropTarget {
     bool accept_ = false;
     int tab_ = -1;
 };
-void StartFileTrayDrag(const std::wstring& path);
+void start_file_tray_drag(const std::wstring& path);
 
 }

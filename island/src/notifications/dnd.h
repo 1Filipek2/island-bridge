@@ -4,7 +4,7 @@
 namespace island
 {
 
-void SubscribeDndNotification();
-void UnsubscribeDndNotification();
+void subscribe_dnd_notification();
+void unsubscribe_dnd_notification();
 
 }

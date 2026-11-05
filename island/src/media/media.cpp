@@ -22,13 +22,13 @@ namespace
 // while Spotify worked. Prefer the current session when it is actually playing,
 // otherwise the first session that is, and only then fall back to the current
 // one so paused/idle state still shows.
-winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession SelectActiveMediaSession(
+winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession select_active_media_session(
     winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager const& manager,
-    const std::wstring& preferredAumid) {
+    const std::wstring& preferred_aumid) {
     using PlaybackStatus =
         winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionPlaybackStatus;
 
-    auto sessionIsPlaying = [](auto const& candidate) -> bool {
+    auto session_is_playing = [](auto const& candidate) -> bool {
         if (!candidate) {
             return false;
         }
@@ -46,10 +46,10 @@ winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession Select
     }
 
     // The user picked a source (dock / menu): follow it, playing or not.
-    if (!preferredAumid.empty()) {
+    if (!preferred_aumid.empty()) {
         try {
             for (auto const& candidate : manager.GetSessions()) {
-                if (preferredAumid == candidate.SourceAppUserModelId().c_str()) {
+                if (preferred_aumid == candidate.SourceAppUserModelId().c_str()) {
                     return candidate;
                 }
             }
@@ -57,13 +57,13 @@ winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession Select
         }
     }
 
-    if (sessionIsPlaying(current)) {
+    if (session_is_playing(current)) {
         return current;
     }
 
     try {
         for (auto const& candidate : manager.GetSessions()) {
-            if (sessionIsPlaying(candidate)) {
+            if (session_is_playing(candidate)) {
                 return candidate;
             }
         }
@@ -74,11 +74,11 @@ winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession Select
 }
 
 // Exe name for path-style AUMIDs (classic desktop apps), friendly name otherwise.
-std::wstring MediaSourceDisplayName(const std::wstring& aumid) {
-    std::wstring name = FriendlyMediaSourceName(aumid);
+std::wstring media_source_display_name(const std::wstring& aumid) {
+    std::wstring name = friendly_media_source_name(aumid);
     if (name.find(L'\\') != std::wstring::npos || name.find(L'/') != std::wstring::npos ||
         name.find(L':') != std::wstring::npos) {
-        name = StripExtension(BaseNameFromPath(aumid));
+        name = strip_extension(base_name_from_path(aumid));
         if (!name.empty()) {
             name[0] = static_cast<wchar_t>(towupper(name[0]));
         }
@@ -88,18 +88,18 @@ std::wstring MediaSourceDisplayName(const std::wstring& aumid) {
 
 struct MediaSourceTracker {
     // Auto mode / dock pick bookkeeping (see ChooseMediaSourceAumid).
-    std::unordered_map<std::wstring, bool> wasPlaying;      // playing state at the previous poll
-    std::unordered_map<std::wstring, uint64_t> startedSeq;  // when each source last STARTED playing (higher = newer)
-    uint64_t seqCounter = 0;
-    std::wstring dockOverride;                              // temporary dock pick; empty = none
-    uint64_t dockOverrideBaseSeq = 0;                       // any start newer than this ends the dock pick
-    unsigned dockOverrideRevSeen = 0;
+    std::unordered_map<std::wstring, bool> was_playing;      // playing state at the previous poll
+    std::unordered_map<std::wstring, uint64_t> started_seq;  // when each source last STARTED playing (higher = newer)
+    uint64_t seq_counter = 0;
+    std::wstring dock_override;                              // temporary dock pick; empty = none
+    uint64_t dock_override_base_seq = 0;                       // any start newer than this ends the dock pick
+    unsigned dock_override_rev_seen = 0;
     std::vector<std::wstring> order;                     // first seen = first in the dock
     std::unordered_map<std::wstring, PixelsRef> icons;
-    std::unordered_map<std::wstring, int> iconRetry;     // polls before searching for an icon again
+    std::unordered_map<std::wstring, int> icon_retry;     // polls before searching for an icon again
 };
 
-bool CollectMediaSources(
+bool collect_media_sources(
     winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager const& manager,
     MediaSourceTracker& tracker, std::vector<MediaSourceInfo>* out) {
     using PlaybackStatus =
@@ -130,31 +130,31 @@ bool CollectMediaSources(
     // Remember when each source last STARTED playing (not playing -> playing).
     // Auto mode follows the newest start.
     {
-        std::wstring currentAumid;
+        std::wstring current_aumid;
         try {
             auto current = manager.GetCurrentSession();
             if (current) {
-                currentAumid = current.SourceAppUserModelId().c_str();
+                current_aumid = current.SourceAppUserModelId().c_str();
             }
         } catch (...) {
         }
 
         // A source that disappeared forgets its history, so reopening it counts as a fresh start.
-        for (auto it = tracker.wasPlaying.begin(); it != tracker.wasPlaying.end();) {
+        for (auto it = tracker.was_playing.begin(); it != tracker.was_playing.end();) {
             const std::wstring& id = it->first;
-            const bool stillLive = std::any_of(live.begin(), live.end(),
+            const bool still_live = std::any_of(live.begin(), live.end(),
                                                [&](const auto& e) { return e.first == id; });
-            if (stillLive) {
+            if (still_live) {
                 ++it;
             } else {
-                tracker.startedSeq.erase(id);
-                it = tracker.wasPlaying.erase(it);
+                tracker.started_seq.erase(id);
+                it = tracker.was_playing.erase(it);
             }
         }
 
         std::vector<std::wstring> started;
         for (const auto& e : live) {
-            bool& was = tracker.wasPlaying[e.first];
+            bool& was = tracker.was_playing[e.first];
             if (e.second && !was) {
                 started.push_back(e.first);
             }
@@ -163,10 +163,10 @@ bool CollectMediaSources(
         // Several sources starting inside one poll: the one Windows calls "current" counts as newest.
         std::stable_sort(started.begin(), started.end(),
                          [&](const std::wstring& a, const std::wstring& b) {
-                             return a != currentAumid && b == currentAumid;
+                             return a != current_aumid && b == current_aumid;
                          });
         for (const std::wstring& id : started) {
-            tracker.startedSeq[id] = ++tracker.seqCounter;
+            tracker.started_seq[id] = ++tracker.seq_counter;
         }
     }
 
@@ -185,7 +185,7 @@ bool CollectMediaSources(
     }
     for (auto it = tracker.icons.begin(); it != tracker.icons.end();) {
         if (std::find(tracker.order.begin(), tracker.order.end(), it->first) == tracker.order.end()) {
-            tracker.iconRetry.erase(it->first);
+            tracker.icon_retry.erase(it->first);
             it = tracker.icons.erase(it);
         } else {
             ++it;
@@ -196,17 +196,17 @@ bool CollectMediaSources(
     for (const std::wstring& id : tracker.order) {
         MediaSourceInfo info;
         info.aumid = id;
-        info.name = MediaSourceDisplayName(id);
-        info.badge = MediaSourceBadge(info.name);
+        info.name = media_source_display_name(id);
+        info.badge = media_source_badge(info.name);
         for (const auto& e : live) {
             if (e.first == id) info.playing = e.second;
         }
 
         PixelsRef& icon = tracker.icons[id];
         if (!icon) {  // window enumeration is not free, so retry rarely
-            int& wait = tracker.iconRetry[id];
+            int& wait = tracker.icon_retry[id];
             if (wait <= 0) {
-                icon = FindMediaSourceIcon(id);
+                icon = find_media_source_icon(id);
                 wait = 8;
             } else {
                 --wait;
@@ -224,60 +224,60 @@ bool CollectMediaSources(
 //   2. Locked app (right-click menu): wins over Auto.
 //   3. Auto: the playing app that started most recently. If it closes, the next most
 //      recent playing app. With nothing playing: the app that played last.
-std::wstring ChooseMediaSourceAumid(MediaSourceTracker& tracker, const std::wstring& lockedAumid) {
+std::wstring choose_media_source_aumid(MediaSourceTracker& tracker, const std::wstring& locked_aumid) {
     auto exists = [&](const std::wstring& id) {
         return std::find(tracker.order.begin(), tracker.order.end(), id) != tracker.order.end();
     };
-    auto seqOf = [&](const std::wstring& id) -> uint64_t {
-        auto it = tracker.startedSeq.find(id);
-        return it == tracker.startedSeq.end() ? 0 : it->second;
+    auto seq_of = [&](const std::wstring& id) -> uint64_t {
+        auto it = tracker.started_seq.find(id);
+        return it == tracker.started_seq.end() ? 0 : it->second;
     };
 
     // Pick up a new dock request (or an Auto reset from the menu).
-    const unsigned rev = g_dockOverrideRev.load();
-    if (rev != tracker.dockOverrideRevSeen) {
-        tracker.dockOverrideRevSeen = rev;
+    const unsigned rev = g_dock_override_rev.load();
+    if (rev != tracker.dock_override_rev_seen) {
+        tracker.dock_override_rev_seen = rev;
         {
-            std::lock_guard lock(g_mediaSourceMutex);
-            tracker.dockOverride = g_dockOverrideAumid;
+            std::lock_guard lock(g_media_source_mutex);
+            tracker.dock_override = g_dock_override_aumid;
         }
-        tracker.dockOverrideBaseSeq = tracker.seqCounter;
+        tracker.dock_override_base_seq = tracker.seq_counter;
     }
 
-    if (!tracker.dockOverride.empty()) {
-        bool somethingNewStarted = false;
+    if (!tracker.dock_override.empty()) {
+        bool something_new_started = false;
         for (const std::wstring& id : tracker.order) {
-            if (seqOf(id) > tracker.dockOverrideBaseSeq) {
-                somethingNewStarted = true;
+            if (seq_of(id) > tracker.dock_override_base_seq) {
+                something_new_started = true;
                 break;
             }
         }
-        if (!exists(tracker.dockOverride) || somethingNewStarted) {
-            tracker.dockOverride.clear();  // back to the lock / Auto
+        if (!exists(tracker.dock_override) || something_new_started) {
+            tracker.dock_override.clear();  // back to the lock / Auto
         } else {
-            return tracker.dockOverride;
+            return tracker.dock_override;
         }
     }
 
-    if (!lockedAumid.empty() && exists(lockedAumid)) {
-        return lockedAumid;
+    if (!locked_aumid.empty() && exists(locked_aumid)) {
+        return locked_aumid;
     }
 
     // Auto. Playing sources beat paused ones; within each group the newest start wins.
     std::wstring best;
-    bool bestPlaying = false;
-    uint64_t bestSeq = 0;
+    bool best_playing = false;
+    uint64_t best_seq = 0;
     for (const std::wstring& id : tracker.order) {
-        const auto pit = tracker.wasPlaying.find(id);
-        const bool playing = pit != tracker.wasPlaying.end() && pit->second;
-        const uint64_t seq = seqOf(id);
-        if (best.empty() || (playing && !bestPlaying) || (playing == bestPlaying && seq > bestSeq)) {
+        const auto pit = tracker.was_playing.find(id);
+        const bool playing = pit != tracker.was_playing.end() && pit->second;
+        const uint64_t seq = seq_of(id);
+        if (best.empty() || (playing && !best_playing) || (playing == best_playing && seq > best_seq)) {
             best = id;
-            bestPlaying = playing;
-            bestSeq = seq;
+            best_playing = playing;
+            best_seq = seq;
         }
     }
-    if (!bestPlaying && bestSeq == 0) {
+    if (!best_playing && best_seq == 0) {
         return std::wstring();  // nothing has ever played: let Windows decide
     }
     return best;
@@ -287,22 +287,22 @@ std::wstring ChooseMediaSourceAumid(MediaSourceTracker& tracker, const std::wstr
 
 
 
-DWORD WINAPI MediaThreadProc(void*) {
+DWORD WINAPI media_thread_proc(void*) {
     winrt::init_apartment(winrt::apartment_type::multi_threaded);
 
     using Manager = winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager;
     using PlaybackStatus = winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionPlaybackStatus;
 
     Manager manager{nullptr};
-    bool loggedUnavailable = false;
-    int64_t pendingSeekBaseline = -1;  // guards against bogus "went backwards" readings
-    MediaSourceTracker sourceTracker;
-    ULONGLONG pendingSeekBaselineTickCount = 0;
+    bool logged_unavailable = false;
+    int64_t pending_seek_baseline = -1;  // guards against bogus "went backwards" readings
+    MediaSourceTracker source_tracker;
+    ULONGLONG pending_seek_baseline_tick_count = 0;
 
-    while (WaitForSingleObject(g_stopEvent, 0) == WAIT_TIMEOUT) {
+    while (WaitForSingleObject(g_stop_event, 0) == WAIT_TIMEOUT) {
         MediaSnapshot next;
-        std::vector<MediaSourceInfo> newSources;
-        bool gotSources = false;
+        std::vector<MediaSourceInfo> new_sources;
+        bool got_sources = false;
 
         try {
             if (!manager) {
@@ -310,11 +310,11 @@ DWORD WINAPI MediaThreadProc(void*) {
             }
 
             if (manager) {
-                gotSources = CollectMediaSources(manager, sourceTracker, &newSources);
-                const std::wstring chosenAumid = gotSources
-                    ? ChooseMediaSourceAumid(sourceTracker, GetPreferredMediaSource())
-                    : GetPreferredMediaSource();
-                auto session = SelectActiveMediaSession(manager, chosenAumid);
+                got_sources = collect_media_sources(manager, source_tracker, &new_sources);
+                const std::wstring chosen_aumid = got_sources
+                    ? choose_media_source_aumid(source_tracker, get_preferred_media_source())
+                    : get_preferred_media_source();
+                auto session = select_active_media_session(manager, chosen_aumid);
                 if (session) {
                     auto properties = session.TryGetMediaPropertiesAsync().get();
                     auto playback = session.GetPlaybackInfo();
@@ -324,79 +324,79 @@ DWORD WINAPI MediaThreadProc(void*) {
                     next.playing = playback.PlaybackStatus() == PlaybackStatus::Playing;
                     next.title = properties.Title().c_str();
                     next.artist = properties.Artist().c_str();
-                    next.albumTitle = properties.AlbumTitle().c_str();
+                    next.album_title = properties.AlbumTitle().c_str();
 
                     if (timeline) {
-                        const int64_t rawPos = timeline.Position().count();
-                        int64_t np = rawPos;
+                        const int64_t raw_pos = timeline.Position().count();
+                        int64_t np = raw_pos;
                         int64_t ne = timeline.EndTime().count();
-                        bool npP = (playback.PlaybackStatus() == PlaybackStatus::Playing);
-                        if (npP) {
+                        bool np_p = (playback.PlaybackStatus() == PlaybackStatus::Playing);
+                        if (np_p) {
                             // Position() is the position at LastUpdatedTime, not "now".
                             try {
-                                const auto lastUpdated = timeline.LastUpdatedTime();
-                                const int64_t ageTicks = (winrt::clock::now() - lastUpdated).count();
-                                if (ageTicks > 0 && ageTicks < 10 * 10000000LL) {
-                                    np = rawPos + ageTicks;
+                                const auto last_updated = timeline.LastUpdatedTime();
+                                const int64_t age_ticks = (winrt::clock::now() - last_updated).count();
+                                if (age_ticks > 0 && age_ticks < 10 * 10000000LL) {
+                                    np = raw_pos + age_ticks;
                                 }
                             } catch (...) {
                             }
                         }
 
-                        std::lock_guard lock(g_stateMutex);
+                        std::lock_guard lock(g_state_mutex);
                         // Some sources (notably the Spotify desktop app) refresh LastUpdatedTime
                         // without moving Position(), which makes the estimate jump backwards.
                         // Hold off until a second poll confirms it is a real seek.
-                        constexpr int64_t kJitterToleranceTicks = 15000000LL;   // 1.5s
-                        constexpr int64_t kConfirmToleranceTicks = 5000000LL;   // 0.5s
-                        const bool sameTrackPlaying =
-                            npP && g_state.media.playing && ne == g_state.media.endTicks;
+                        constexpr int64_t jitter_tolerance_ticks = 15000000LL;   // 1.5s
+                        constexpr int64_t confirm_tolerance_ticks = 5000000LL;   // 0.5s
+                        const bool same_track_playing =
+                            np_p && g_state.media.playing && ne == g_state.media.end_ticks;
 
-                        if (sameTrackPlaying) {
-                            const int64_t predictedNow = g_state.media.positionTicks +
-                                (static_cast<int64_t>(GetTickCount64()) - g_state.media.lastUpdatedTicks) * 10000;
+                        if (same_track_playing) {
+                            const int64_t predicted_now = g_state.media.position_ticks +
+                                (static_cast<int64_t>(GetTickCount64()) - g_state.media.last_updated_ticks) * 10000;
 
-                            if (np < predictedNow - kJitterToleranceTicks) {
-                                const ULONGLONG nowTicks64 = GetTickCount64();
+                            if (np < predicted_now - jitter_tolerance_ticks) {
+                                const ULONGLONG now_ticks64 = GetTickCount64();
                                 bool confirmed = false;
-                                if (pendingSeekBaseline >= 0) {
-                                    const int64_t expectedIfRealSeek = pendingSeekBaseline +
-                                        (static_cast<int64_t>(nowTicks64) -
-                                         static_cast<int64_t>(pendingSeekBaselineTickCount)) * 10000;
-                                    const int64_t diff = np - expectedIfRealSeek;
-                                    if ((diff < 0 ? -diff : diff) < kConfirmToleranceTicks) {
+                                if (pending_seek_baseline >= 0) {
+                                    const int64_t expected_if_real_seek = pending_seek_baseline +
+                                        (static_cast<int64_t>(now_ticks64) -
+                                         static_cast<int64_t>(pending_seek_baseline_tick_count)) * 10000;
+                                    const int64_t diff = np - expected_if_real_seek;
+                                    if ((diff < 0 ? -diff : diff) < confirm_tolerance_ticks) {
                                         confirmed = true;
                                     }
                                 }
 
                                 if (confirmed) {
-                                    pendingSeekBaseline = -1;
+                                    pending_seek_baseline = -1;
                                 } else {
-                                    pendingSeekBaseline = np;
-                                    pendingSeekBaselineTickCount = nowTicks64;
-                                    np = predictedNow;
+                                    pending_seek_baseline = np;
+                                    pending_seek_baseline_tick_count = now_ticks64;
+                                    np = predicted_now;
                                 }
                             } else {
-                                pendingSeekBaseline = -1;
+                                pending_seek_baseline = -1;
                             }
                         } else {
-                            pendingSeekBaseline = -1;
+                            pending_seek_baseline = -1;
                         }
-                        if (np != g_state.media.positionTicks ||
-                            ne != g_state.media.endTicks ||
-                            npP != g_state.media.playing) {
-                            next.positionTicks = np;
-                            next.endTicks = ne;
-                            next.lastUpdatedTicks = GetTickCount64();
+                        if (np != g_state.media.position_ticks ||
+                            ne != g_state.media.end_ticks ||
+                            np_p != g_state.media.playing) {
+                            next.position_ticks = np;
+                            next.end_ticks = ne;
+                            next.last_updated_ticks = GetTickCount64();
                         } else {
-                            next.positionTicks = g_state.media.positionTicks;
-                            next.endTicks = g_state.media.endTicks;
-                            next.lastUpdatedTicks = g_state.media.lastUpdatedTicks;
+                            next.position_ticks = g_state.media.position_ticks;
+                            next.end_ticks = g_state.media.end_ticks;
+                            next.last_updated_ticks = g_state.media.last_updated_ticks;
                         }
                     }
 
-                    next.sourceAppUserModelId = session.SourceAppUserModelId().c_str();
-                    next.sourceName = MediaSourceDisplayName(next.sourceAppUserModelId);
+                    next.source_app_user_model_id = session.SourceAppUserModelId().c_str();
+                    next.source_name = media_source_display_name(next.source_app_user_model_id);
 
                     // Fallback for VLC, which often exposes a session with no
                     // Title metadata at all.
@@ -407,7 +407,7 @@ DWORD WINAPI MediaThreadProc(void*) {
                     // marker anywhere would happily pick up a browser tab named
                     // "How to use VLC media player - YouTube". The owning
                     // process is checked too, so only a real VLC window counts.
-                    if (next.title.empty() && next.sourceName == L"VLC") {
+                    if (next.title.empty() && next.source_name == L"VLC") {
                         const std::wstring marker = L"VLC media player";
                         HWND hwnd = nullptr;
                         while ((hwnd = FindWindowExW(nullptr, hwnd, nullptr, nullptr)) != nullptr) {
@@ -415,12 +415,12 @@ DWORD WINAPI MediaThreadProc(void*) {
                                 continue;
                             }
 
-                            wchar_t windowTitle[512];
-                            if (GetWindowTextW(hwnd, windowTitle, ARRAYSIZE(windowTitle)) <= 0) {
+                            wchar_t window_title[512];
+                            if (GetWindowTextW(hwnd, window_title, ARRAYSIZE(window_title)) <= 0) {
                                 continue;
                             }
 
-                            std::wstring caption(windowTitle);
+                            std::wstring caption(window_title);
                             while (!caption.empty() && caption.back() == L' ') {
                                 caption.pop_back();
                             }
@@ -431,8 +431,8 @@ DWORD WINAPI MediaThreadProc(void*) {
                             }
 
                             std::wstring image;
-                            if (!ProcessImageNameForWindow(hwnd, &image) ||
-                                ToLowerCopy(BaseNameFromPath(image)).find(L"vlc") == std::wstring::npos) {
+                            if (!process_image_name_for_window(hwnd, &image) ||
+                                to_lower_copy(base_name_from_path(image)).find(L"vlc") == std::wstring::npos) {
                                 continue;
                             }
 
@@ -450,53 +450,53 @@ DWORD WINAPI MediaThreadProc(void*) {
                         }
                     }
 
-                    std::wstring prevSourceAppUserModelId;
-                    bool hasPrevIcon = false;
-                    PixelsRef prevIcon;
-                    uint64_t prevIconGeneration = 0;
-                    std::wstring prevBadge;
+                    std::wstring prev_source_app_user_model_id;
+                    bool has_prev_icon = false;
+                    PixelsRef prev_icon;
+                    uint64_t prev_icon_generation = 0;
+                    std::wstring prev_badge;
 
-                    std::wstring prevTitle;
-                    std::wstring prevArtist;
-                    PixelsRef prevArt;
-                    uint64_t prevArtGeneration = 0;
-                    double prevArtChangedAt = 0.0;
-                    double prevTitleChangedAt = 0.0;
+                    std::wstring prev_title;
+                    std::wstring prev_artist;
+                    PixelsRef prev_art;
+                    uint64_t prev_art_generation = 0;
+                    double prev_art_changed_at = 0.0;
+                    double prev_title_changed_at = 0.0;
 
-                    bool prevPlaying = false;
+                    bool prev_playing = false;
                     {
-                        std::lock_guard lock(g_stateMutex);
-                        prevSourceAppUserModelId = g_state.media.sourceAppUserModelId;
-                        hasPrevIcon = static_cast<bool>(g_state.media.sourceIcon);
-                        prevIcon = g_state.media.sourceIcon;
-                        prevIconGeneration = g_state.media.sourceIconGeneration;
-                        prevBadge = g_state.media.sourceBadge;
+                        std::lock_guard lock(g_state_mutex);
+                        prev_source_app_user_model_id = g_state.media.source_app_user_model_id;
+                        has_prev_icon = static_cast<bool>(g_state.media.source_icon);
+                        prev_icon = g_state.media.source_icon;
+                        prev_icon_generation = g_state.media.source_icon_generation;
+                        prev_badge = g_state.media.source_badge;
 
-                        prevTitle = g_state.media.title;
-                        prevArtist = g_state.media.artist;
-                        prevArt = g_state.media.art;
-                        prevArtGeneration = g_state.media.artGeneration;
-                        prevArtChangedAt = g_state.media.artChangedAt;
-                        prevTitleChangedAt = g_state.media.titleChangedAt;
-                        prevPlaying = g_state.media.playing;
+                        prev_title = g_state.media.title;
+                        prev_artist = g_state.media.artist;
+                        prev_art = g_state.media.art;
+                        prev_art_generation = g_state.media.art_generation;
+                        prev_art_changed_at = g_state.media.art_changed_at;
+                        prev_title_changed_at = g_state.media.title_changed_at;
+                        prev_playing = g_state.media.playing;
                     }
 
-                    if (next.sourceAppUserModelId == prevSourceAppUserModelId) {
-                        next.sourceBadge = prevBadge;
-                        next.sourceIcon = prevIcon;
-                        next.sourceIconGeneration = prevIconGeneration;
+                    if (next.source_app_user_model_id == prev_source_app_user_model_id) {
+                        next.source_badge = prev_badge;
+                        next.source_icon = prev_icon;
+                        next.source_icon_generation = prev_icon_generation;
 
-                        if (!hasPrevIcon) {
-                            next.sourceIcon = FindMediaSourceIcon(next.sourceAppUserModelId);
-                            next.sourceIconGeneration = next.sourceIcon->generation;
+                        if (!has_prev_icon) {
+                            next.source_icon = find_media_source_icon(next.source_app_user_model_id);
+                            next.source_icon_generation = next.source_icon->generation;
                         }
                     } else {
-                        next.sourceBadge = MediaSourceBadge(next.sourceName);
-                        if (IsBrowserMediaSource(next.sourceAppUserModelId)) {
-                            next.sourceBadge = FindBrowserMediaSiteBadge(next.sourceAppUserModelId);
+                        next.source_badge = media_source_badge(next.source_name);
+                        if (is_browser_media_source(next.source_app_user_model_id)) {
+                            next.source_badge = find_browser_media_site_badge(next.source_app_user_model_id);
                         }
-                        next.sourceIcon = FindMediaSourceIcon(next.sourceAppUserModelId);
-                        next.sourceIconGeneration = next.sourceIcon->generation;
+                        next.source_icon = find_media_source_icon(next.source_app_user_model_id);
+                        next.source_icon_generation = next.source_icon->generation;
                     }
 
                     // Track when title/artist last changed. Browsers often update
@@ -504,25 +504,25 @@ DWORD WINAPI MediaThreadProc(void*) {
                     // so we keep retrying the art fetch for a short "settle window"
                     // after any track change instead of locking onto the first
                     // (possibly stale/empty) result forever.
-                    const bool sourceChanged = (next.sourceAppUserModelId != prevSourceAppUserModelId);
-                    const bool metadataChanged = (sourceChanged || next.title != prevTitle || next.artist != prevArtist || (!prevPlaying && next.playing));
-                    next.titleChangedAt = (metadataChanged && !next.title.empty() && next.playing) ? NowSeconds() : prevTitleChangedAt;
-                    constexpr double kArtSettleSeconds = 3.0;
-                    const bool artSettled = !metadataChanged &&
-                        (NowSeconds() - prevTitleChangedAt) > kArtSettleSeconds;
+                    const bool source_changed = (next.source_app_user_model_id != prev_source_app_user_model_id);
+                    const bool metadata_changed = (source_changed || next.title != prev_title || next.artist != prev_artist || (!prev_playing && next.playing));
+                    next.title_changed_at = (metadata_changed && !next.title.empty() && next.playing) ? now_seconds() : prev_title_changed_at;
+                    constexpr double art_settle_seconds = 3.0;
+                    const bool art_settled = !metadata_changed &&
+                        (now_seconds() - prev_title_changed_at) > art_settle_seconds;
 
-                    if (artSettled && prevArt) {
-                        next.art = prevArt;
-                        next.artGeneration = prevArtGeneration;
-                        next.artChangedAt = prevArtChangedAt;
+                    if (art_settled && prev_art) {
+                        next.art = prev_art;
+                        next.art_generation = prev_art_generation;
+                        next.art_changed_at = prev_art_changed_at;
                     } else if (auto thumbnail = properties.Thumbnail()) {
-                        std::vector<uint8_t> bytes = ReadWinRtStreamBytes(thumbnail);
+                        std::vector<uint8_t> bytes = read_win_rt_stream_bytes(thumbnail);
                         if (!bytes.empty()) {
                             BitmapPixels decoded;
-                            if (DecodeImageBytesToPixels(bytes, &decoded)) {
+                            if (decode_image_bytes_to_pixels(bytes, &decoded)) {
                                 next.art = PixelsRef(std::move(decoded));
-                                next.artGeneration = next.art->generation;
-                                next.artChangedAt = NowSeconds();
+                                next.art_generation = next.art->generation;
+                                next.art_changed_at = now_seconds();
                             }
                         }
                     }
@@ -532,71 +532,71 @@ DWORD WINAPI MediaThreadProc(void*) {
                     // hasn't actually changed — keep the old art until a fresh
                     // fetch succeeds. But never do this across an actual track
                     // change, or we're back to showing the wrong song's art.
-                    if (!next.art && prevArt && !metadataChanged) {
-                        next.art = prevArt;
-                        next.artGeneration = prevArtGeneration;
-                        next.artChangedAt = prevArtChangedAt;
+                    if (!next.art && prev_art && !metadata_changed) {
+                        next.art = prev_art;
+                        next.art_generation = prev_art_generation;
+                        next.art_changed_at = prev_art_changed_at;
                     }
                 }
             }
         } catch (...) {
-            if (!loggedUnavailable) {
+            if (!logged_unavailable) {
                 host::log(L"WinRT media session unavailable; media module will fall back to idle.");
-                loggedUnavailable = true;
+                logged_unavailable = true;
             }
         }
 
-        bool trackJustChanged = false;
+        bool track_just_changed = false;
         {
-            std::lock_guard lock(g_stateMutex);
+            std::lock_guard lock(g_state_mutex);
 
             // A switch the user asked for is not a "new track": it must not auto-expand
             // the island or open the 5s recentTrackChange window.
-            const bool userSourceSwitch =
-                !g_state.media.sourceAppUserModelId.empty() &&
-                next.sourceAppUserModelId != g_state.media.sourceAppUserModelId &&
-                NowSeconds() - g_userSourceSwitchAt.load() < 4.0;
-            if (userSourceSwitch) {
-                next.titleChangedAt = g_state.media.titleChangedAt;
+            const bool user_source_switch =
+                !g_state.media.source_app_user_model_id.empty() &&
+                next.source_app_user_model_id != g_state.media.source_app_user_model_id &&
+                now_seconds() - g_user_source_switch_at.load() < 4.0;
+            if (user_source_switch) {
+                next.title_changed_at = g_state.media.title_changed_at;
             }
 
-            const bool isDifferentTrack = !userSourceSwitch && (!next.title.empty() && next.playing) &&
+            const bool is_different_track = !user_source_switch && (!next.title.empty() && next.playing) &&
                 (next.title != g_state.media.title || next.artist != g_state.media.artist || (!g_state.media.playing && next.playing));
 
-            if (isDifferentTrack) {
-                next.titleChangedAt = NowSeconds();
-                trackJustChanged = true;
-                g_idleTab = 0;
+            if (is_different_track) {
+                next.title_changed_at = now_seconds();
+                track_just_changed = true;
+                g_idle_tab = 0;
             }
 
             if (g_state.media.art &&
                 next.title == g_state.media.title && next.artist == g_state.media.artist &&
-                next.positionTicks >= g_state.media.positionTicks) {
+                next.position_ticks >= g_state.media.position_ticks) {
                 next.art = g_state.media.art;
-                next.artGeneration = g_state.media.artGeneration;
-                next.artChangedAt = g_state.media.artChangedAt;
+                next.art_generation = g_state.media.art_generation;
+                next.art_changed_at = g_state.media.art_changed_at;
             }
-            if (!next.sourceIcon &&
-                next.sourceAppUserModelId == g_state.media.sourceAppUserModelId) {
-                next.sourceIcon = g_state.media.sourceIcon;
-                next.sourceIconGeneration = g_state.media.sourceIconGeneration;
+            if (!next.source_icon &&
+                next.source_app_user_model_id == g_state.media.source_app_user_model_id) {
+                next.source_icon = g_state.media.source_icon;
+                next.source_icon_generation = g_state.media.source_icon_generation;
             }
 
             g_state.media = std::move(next);
-            if (gotSources) {
-                g_state.mediaSources = std::move(newSources);
+            if (got_sources) {
+                g_state.media_sources = std::move(new_sources);
             }
         }
 
-        if (trackJustChanged) {
-            g_layoutDirty = true;
-            if (g_settings.mediaAutoExpand) {
-                TriggerNudge();
+        if (track_just_changed) {
+            g_layout_dirty = true;
+            if (g_settings.media_auto_expand) {
+                trigger_nudge();
             }
         }
 
-        HANDLE mediaWaits[2] = {g_stopEvent, g_mediaRefreshEvent};
-        WaitForMultipleObjects(g_mediaRefreshEvent ? 2 : 1, mediaWaits, FALSE, 1500);
+        HANDLE media_waits[2] = {g_stop_event, g_media_refresh_event};
+        WaitForMultipleObjects(g_media_refresh_event ? 2 : 1, media_waits, FALSE, 1500);
     }
 
     winrt::uninit_apartment();

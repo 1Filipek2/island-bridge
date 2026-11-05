@@ -4,6 +4,6 @@
 namespace island
 {
 
-DWORD WINAPI AudioThreadProc(void*);
+DWORD WINAPI audio_thread_proc(void*);
 
 }

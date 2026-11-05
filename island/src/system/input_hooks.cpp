@@ -9,7 +9,7 @@ namespace island
 namespace
 {
 
-HHOOK g_keyboardHook = nullptr;
+HHOOK g_keyboard_hook = nullptr;
 
 // Deliberately does nothing but forward the event.
 //
@@ -23,29 +23,29 @@ HHOOK g_keyboardHook = nullptr;
 //
 // The WM_APP_CAPSLOCK handler writes exactly the same fields on the window
 // thread, after checking the setting. Nothing is lost by only posting.
-LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
-    if (nCode == HC_ACTION) {
-        if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP) {
-            auto* kbd = reinterpret_cast<KBDLLHOOKSTRUCT*>(lParam);
+LRESULT CALLBACK low_level_keyboard_proc(int n_code, WPARAM w_param, LPARAM l_param) {
+    if (n_code == HC_ACTION) {
+        if (w_param == WM_KEYUP || w_param == WM_SYSKEYUP) {
+            auto* kbd = reinterpret_cast<KBDLLHOOKSTRUCT*>(l_param);
             if (kbd->vkCode == VK_CAPITAL || kbd->vkCode == VK_NUMLOCK) {
-                const bool capsOn = (GetKeyState(VK_CAPITAL) & 0x0001) != 0;
-                const bool numOn = (GetKeyState(VK_NUMLOCK) & 0x0001) != 0;
+                const bool caps_on = (GetKeyState(VK_CAPITAL) & 0x0001) != 0;
+                const bool num_on = (GetKeyState(VK_NUMLOCK) & 0x0001) != 0;
                 if (HWND hwnd = g_hwnd) {
-                    const LPARAM state = (capsOn ? 1 : 0) | (numOn ? 2 : 0);
-                    PostMessageW(hwnd, WM_APP_CAPSLOCK, kbd->vkCode, state);
+                    const LPARAM state = (caps_on ? 1 : 0) | (num_on ? 2 : 0);
+                    PostMessageW(hwnd, wm_app_capslock, kbd->vkCode, state);
                 }
             }
         }
     }
-    return CallNextHookEx(g_keyboardHook, nCode, wParam, lParam);
+    return CallNextHookEx(g_keyboard_hook, n_code, w_param, l_param);
 }
 
 // A system-wide WH_KEYBOARD_LL puts this process on the path of every keystroke
 // on the desktop, so it is only installed while it has something to report. The
 // hook exists solely to notice Caps Lock and Num Lock for the indicator pill;
 // with that module off it was still running for nothing.
-static bool CapsLockHookWanted() {
-    return g_settings.capsLock;
+static bool caps_lock_hook_wanted() {
+    return g_settings.caps_lock;
 }
 
 }
@@ -53,27 +53,27 @@ static bool CapsLockHookWanted() {
 
 
 // Wakes the keyboard thread so it re-evaluates whether the hook is needed.
-void NotifyKeyboardThreadSettingChanged() {
-    if (g_keyboardThreadId != 0) {
-        PostThreadMessageW(g_keyboardThreadId, WM_NULL, 0, 0);
+void notify_keyboard_thread_setting_changed() {
+    if (g_keyboard_thread_id != 0) {
+        PostThreadMessageW(g_keyboard_thread_id, WM_NULL, 0, 0);
     }
 }
 
-DWORD WINAPI KeyboardThreadProc(void*) {
+DWORD WINAPI keyboard_thread_proc(void*) {
     // Bounded by the stop event rather than an open-ended Sleep loop, so an early
     // unload cannot leave this spinning while waiting for a window that is never
     // going to appear.
-    while (!g_hwnd && WaitForSingleObject(g_stopEvent, 10) == WAIT_TIMEOUT) {
+    while (!g_hwnd && WaitForSingleObject(g_stop_event, 10) == WAIT_TIMEOUT) {
     }
 
     bool quit = false;
-    while (!quit && WaitForSingleObject(g_stopEvent, 0) == WAIT_TIMEOUT) {
-        const bool wanted = CapsLockHookWanted();
-        if (wanted && !g_keyboardHook) {
-            g_keyboardHook = SetWindowsHookExW(WH_KEYBOARD_LL, LowLevelKeyboardProc, nullptr, 0);
-        } else if (!wanted && g_keyboardHook) {
-            UnhookWindowsHookEx(g_keyboardHook);
-            g_keyboardHook = nullptr;
+    while (!quit && WaitForSingleObject(g_stop_event, 0) == WAIT_TIMEOUT) {
+        const bool wanted = caps_lock_hook_wanted();
+        if (wanted && !g_keyboard_hook) {
+            g_keyboard_hook = SetWindowsHookExW(WH_KEYBOARD_LL, low_level_keyboard_proc, nullptr, 0);
+        } else if (!wanted && g_keyboard_hook) {
+            UnhookWindowsHookEx(g_keyboard_hook);
+            g_keyboard_hook = nullptr;
         }
 
         // A low-level hook is delivered through the installing thread's message
@@ -95,12 +95,12 @@ DWORD WINAPI KeyboardThreadProc(void*) {
         // LoadSettings posts a WM_NULL when the module is toggled so the hook is
         // reconciled at once; the timeout is only a backstop. A timed wait, not a
         // spin, so an idle keyboard thread costs nothing.
-        MsgWaitForMultipleObjects(1, &g_stopEvent, FALSE, 1000, QS_ALLINPUT);
+        MsgWaitForMultipleObjects(1, &g_stop_event, FALSE, 1000, QS_ALLINPUT);
     }
 
-    if (g_keyboardHook) {
-        UnhookWindowsHookEx(g_keyboardHook);
-        g_keyboardHook = nullptr;
+    if (g_keyboard_hook) {
+        UnhookWindowsHookEx(g_keyboard_hook);
+        g_keyboard_hook = nullptr;
     }
     return 0;
 }
@@ -113,27 +113,27 @@ namespace
 // --- Low-level mouse hook: wakes the parked render thread when the cursor
 // approaches where the (currently OS-hidden) island sits, so hover-to-unhide
 // keeps working without polling GetCursorPos every frame.
-HHOOK g_mouseHook = nullptr;
-std::atomic<int64_t> g_lastMouseWakeCheckMs = 0;
+HHOOK g_mouse_hook = nullptr;
+std::atomic<int64_t> g_last_mouse_wake_check_ms = 0;
 
-LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
-    if (nCode == HC_ACTION && wParam == WM_MOUSEMOVE &&
-        g_settings.unhideOnHover &&
-        g_autoHiddenParked.load(std::memory_order_relaxed)) {
-        const int64_t nowMs = static_cast<int64_t>(GetTickCount64());
-        const int64_t last = g_lastMouseWakeCheckMs.load(std::memory_order_relaxed);
-        if (nowMs - last >= 60) {  // ~16Hz check rate for responsive unhide
-            g_lastMouseWakeCheckMs.store(nowMs, std::memory_order_relaxed);
-            auto* info = reinterpret_cast<MSLLHOOKSTRUCT*>(lParam);
+LRESULT CALLBACK low_level_mouse_proc(int n_code, WPARAM w_param, LPARAM l_param) {
+    if (n_code == HC_ACTION && w_param == WM_MOUSEMOVE &&
+        g_settings.unhide_on_hover &&
+        g_auto_hidden_parked.load(std::memory_order_relaxed)) {
+        const int64_t now_ms = static_cast<int64_t>(GetTickCount64());
+        const int64_t last = g_last_mouse_wake_check_ms.load(std::memory_order_relaxed);
+        if (now_ms - last >= 60) {  // ~16Hz check rate for responsive unhide
+            g_last_mouse_wake_check_ms.store(now_ms, std::memory_order_relaxed);
+            auto* info = reinterpret_cast<MSLLHOOKSTRUCT*>(l_param);
             HWND hwnd = g_hwnd;
-            RECT dockRect = GetIslandDockRect();
-            if (hwnd && PtInRect(&dockRect, info->pt)) {
-                g_autoHiddenParked = false;
-                PostMessageW(hwnd, WM_APP_MOUSE_WAKE, 0, 0);
+            RECT dock_rect = get_island_dock_rect();
+            if (hwnd && PtInRect(&dock_rect, info->pt)) {
+                g_auto_hidden_parked = false;
+                PostMessageW(hwnd, wm_app_mouse_wake, 0, 0);
             }
         }
     }
-    return CallNextHookEx(g_mouseHook, nCode, wParam, lParam);
+    return CallNextHookEx(g_mouse_hook, n_code, w_param, l_param);
 }
 
 // A system-wide WH_MOUSE_LL routes every mouse event on the desktop through this
@@ -144,27 +144,27 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
 // AutoHideFullscreen both default to true, so every user on defaults still got
 // the hook from startup -- the exact case the gate was added to avoid. Tying it
 // to the parked state means it exists only while the island is actually hidden.
-static bool MouseWakeHookWanted() {
-    return g_settings.unhideOnHover &&
-           g_autoHiddenParked.load(std::memory_order_relaxed);
+static bool mouse_wake_hook_wanted() {
+    return g_settings.unhide_on_hover &&
+           g_auto_hidden_parked.load(std::memory_order_relaxed);
 }
 
 }
 
 
 
-DWORD WINAPI MouseThreadProc(void*) {
-    while (!g_hwnd && WaitForSingleObject(g_stopEvent, 10) == WAIT_TIMEOUT) {
+DWORD WINAPI mouse_thread_proc(void*) {
+    while (!g_hwnd && WaitForSingleObject(g_stop_event, 10) == WAIT_TIMEOUT) {
     }
 
     bool quit = false;
-    while (!quit && WaitForSingleObject(g_stopEvent, 0) == WAIT_TIMEOUT) {
-        const bool wanted = MouseWakeHookWanted();
-        if (wanted && !g_mouseHook) {
-            g_mouseHook = SetWindowsHookExW(WH_MOUSE_LL, LowLevelMouseProc, nullptr, 0);
-        } else if (!wanted && g_mouseHook) {
-            UnhookWindowsHookEx(g_mouseHook);
-            g_mouseHook = nullptr;
+    while (!quit && WaitForSingleObject(g_stop_event, 0) == WAIT_TIMEOUT) {
+        const bool wanted = mouse_wake_hook_wanted();
+        if (wanted && !g_mouse_hook) {
+            g_mouse_hook = SetWindowsHookExW(WH_MOUSE_LL, low_level_mouse_proc, nullptr, 0);
+        } else if (!wanted && g_mouse_hook) {
+            UnhookWindowsHookEx(g_mouse_hook);
+            g_mouse_hook = nullptr;
         }
 
         // A low-level hook is delivered through the installing thread's message
@@ -187,12 +187,12 @@ DWORD WINAPI MouseThreadProc(void*) {
         // is reconciled immediately rather than up to a tick later; the timeout
         // is only a backstop in case a transition is ever missed. This is a timed
         // wait, not a spin, so an idle mouse thread costs nothing.
-        MsgWaitForMultipleObjects(1, &g_stopEvent, FALSE, 1000, QS_ALLINPUT);
+        MsgWaitForMultipleObjects(1, &g_stop_event, FALSE, 1000, QS_ALLINPUT);
     }
 
-    if (g_mouseHook) {
-        UnhookWindowsHookEx(g_mouseHook);
-        g_mouseHook = nullptr;
+    if (g_mouse_hook) {
+        UnhookWindowsHookEx(g_mouse_hook);
+        g_mouse_hook = nullptr;
     }
     return 0;
 }

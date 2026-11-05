@@ -7,47 +7,47 @@
 namespace island
 {
 
-void UpdateBatterySnapshot() {
+void update_battery_snapshot() {
     SYSTEM_POWER_STATUS status = {};
     if (!GetSystemPowerStatus(&status)) {
         return;
     }
 
-    bool newCharging = (status.ACLineStatus == 1);
-    int newPercent = status.BatteryLifePercent == 255 ? 100 : status.BatteryLifePercent;
+    bool new_charging = (status.ACLineStatus == 1);
+    int new_percent = status.BatteryLifePercent == 255 ? 100 : status.BatteryLifePercent;
 
-    bool triggerAlert = false;
+    bool trigger_alert = false;
 
     {
-        std::lock_guard lock(g_stateMutex);
-        static bool s_batteryInit = false;
-        if (!s_batteryInit) {
-            g_state.battery.charging = newCharging;
-            g_state.battery.percent = newPercent;
-            s_batteryInit = true;
+        std::lock_guard lock(g_state_mutex);
+        static bool s_battery_init = false;
+        if (!s_battery_init) {
+            g_state.battery.charging = new_charging;
+            g_state.battery.percent = new_percent;
+            s_battery_init = true;
         }
 
-        if (g_state.battery.charging != newCharging) {
-            triggerAlert = true;
+        if (g_state.battery.charging != new_charging) {
+            trigger_alert = true;
         }
 
-        if (!newCharging && newPercent < g_state.battery.percent && (newPercent == 20 || newPercent == 10)) {
-            triggerAlert = true;
+        if (!new_charging && new_percent < g_state.battery.percent && (new_percent == 20 || new_percent == 10)) {
+            trigger_alert = true;
         }
 
-        g_state.battery.charging = newCharging;
-        g_state.battery.percent = newPercent;
-        g_state.battery.secondsRemaining = status.BatteryLifeTime;
-        g_state.battery.low = (!newCharging && newPercent <= 20);
+        g_state.battery.charging = new_charging;
+        g_state.battery.percent = new_percent;
+        g_state.battery.seconds_remaining = status.BatteryLifeTime;
+        g_state.battery.low = (!new_charging && new_percent <= 20);
 
-        if (triggerAlert) {
+        if (trigger_alert) {
             g_state.battery.active = true;
-            g_state.battery.expiresAt = NowSeconds() + 4.0;
+            g_state.battery.expires_at = now_seconds() + 4.0;
         }
     }
 
-    if (triggerAlert) {
-        TriggerNudge();
+    if (trigger_alert) {
+        trigger_nudge();
     }
 }
 
@@ -56,84 +56,84 @@ namespace
 {
 
 
-ULONGLONG FileTimeToUInt64(FILETIME ft) {
+ULONGLONG file_time_to_u_int64(FILETIME ft) {
     ULARGE_INTEGER value = {};
     value.LowPart = ft.dwLowDateTime;
     value.HighPart = ft.dwHighDateTime;
     return value.QuadPart;
 }
 
-static PDH_HQUERY g_gpuQuery = NULL;
-static PDH_HCOUNTER g_gpuCounter = NULL;
+static PDH_HQUERY g_gpu_query = NULL;
+static PDH_HCOUNTER g_gpu_counter = NULL;
 
-static void InitGpuQuery() {
-    if (g_gpuQuery == NULL) {
-        if (PdhOpenQueryW(NULL, 0, &g_gpuQuery) == ERROR_SUCCESS) {
-            PdhAddEnglishCounterW(g_gpuQuery, L"\\GPU Engine(*)\\Utilization Percentage", 0, &g_gpuCounter);
-            PdhCollectQueryData(g_gpuQuery);
+static void init_gpu_query() {
+    if (g_gpu_query == NULL) {
+        if (PdhOpenQueryW(NULL, 0, &g_gpu_query) == ERROR_SUCCESS) {
+            PdhAddEnglishCounterW(g_gpu_query, L"\\GPU Engine(*)\\Utilization Percentage", 0, &g_gpu_counter);
+            PdhCollectQueryData(g_gpu_query);
         }
     }
 }
 
-static int GetGpuUsage() {
-    InitGpuQuery();
-    if (!g_gpuQuery || !g_gpuCounter) return 0;
+static int get_gpu_usage() {
+    init_gpu_query();
+    if (!g_gpu_query || !g_gpu_counter) return 0;
 
-    PdhCollectQueryData(g_gpuQuery);
+    PdhCollectQueryData(g_gpu_query);
 
-    DWORD bufferSize = 0;
-    DWORD itemCount = 0;
-    PdhGetFormattedCounterArrayW(g_gpuCounter, PDH_FMT_DOUBLE, &bufferSize, &itemCount, NULL);
+    DWORD buffer_size = 0;
+    DWORD item_count = 0;
+    PdhGetFormattedCounterArrayW(g_gpu_counter, PDH_FMT_DOUBLE, &buffer_size, &item_count, NULL);
 
-    if (bufferSize > 0) {
-        std::vector<BYTE> buffer(bufferSize);
+    if (buffer_size > 0) {
+        std::vector<BYTE> buffer(buffer_size);
         PDH_FMT_COUNTERVALUE_ITEM_W* items = reinterpret_cast<PDH_FMT_COUNTERVALUE_ITEM_W*>(buffer.data());
 
-        if (PdhGetFormattedCounterArrayW(g_gpuCounter, PDH_FMT_DOUBLE, &bufferSize, &itemCount, items) == ERROR_SUCCESS) {
+        if (PdhGetFormattedCounterArrayW(g_gpu_counter, PDH_FMT_DOUBLE, &buffer_size, &item_count, items) == ERROR_SUCCESS) {
             double total = 0;
-            for (DWORD i = 0; i < itemCount; i++) {
+            for (DWORD i = 0; i < item_count; i++) {
                 if (items[i].szName && wcsstr(items[i].szName, L"engtype_3D")) {
                     total += items[i].FmtValue.doubleValue;
                 }
             }
-            return ClampInt(static_cast<int>(total), 0, 100);
+            return clamp_int(static_cast<int>(total), 0, 100);
         }
     }
     return 0;
 }
 
-static PDH_HQUERY g_netQuery = NULL;
-static PDH_HCOUNTER g_netUpCounter = NULL;
-static PDH_HCOUNTER g_netDownCounter = NULL;
+static PDH_HQUERY g_net_query = NULL;
+static PDH_HCOUNTER g_net_up_counter = NULL;
+static PDH_HCOUNTER g_net_down_counter = NULL;
 
-static void InitNetQuery() {
-    if (g_netQuery == NULL) {
-        if (PdhOpenQueryW(NULL, 0, &g_netQuery) == ERROR_SUCCESS) {
-            PdhAddEnglishCounterW(g_netQuery, L"\\Network Interface(*)\\Bytes Sent/sec", 0, &g_netUpCounter);
-            PdhAddEnglishCounterW(g_netQuery, L"\\Network Interface(*)\\Bytes Received/sec", 0, &g_netDownCounter);
-            PdhCollectQueryData(g_netQuery);
+static void init_net_query() {
+    if (g_net_query == NULL) {
+        if (PdhOpenQueryW(NULL, 0, &g_net_query) == ERROR_SUCCESS) {
+            PdhAddEnglishCounterW(g_net_query, L"\\Network Interface(*)\\Bytes Sent/sec", 0, &g_net_up_counter);
+            PdhAddEnglishCounterW(g_net_query, L"\\Network Interface(*)\\Bytes Received/sec", 0, &g_net_down_counter);
+            PdhCollectQueryData(g_net_query);
         }
     }
 }
 
-static void GetNetworkUsage(float& outUpMbps, float& outDownMbps) {
-    outUpMbps = 0.0f;
-    outDownMbps = 0.0f;
-    InitNetQuery();
-    if (!g_netQuery || !g_netUpCounter || !g_netDownCounter) return;
+static void get_network_usage(float& out_up_mbps, float& out_down_mbps) {
+    out_up_mbps = 0.0f;
+    out_down_mbps = 0.0f;
+    init_net_query();
+    if (!g_net_query || !g_net_up_counter || !g_net_down_counter) return;
 
-    PdhCollectQueryData(g_netQuery);
+    PdhCollectQueryData(g_net_query);
 
-    auto getSum = [](PDH_HCOUNTER counter) -> double {
-        DWORD bufferSize = 0;
-        DWORD itemCount = 0;
-        PdhGetFormattedCounterArrayW(counter, PDH_FMT_DOUBLE, &bufferSize, &itemCount, NULL);
-        if (bufferSize > 0) {
-            std::vector<BYTE> buffer(bufferSize);
+    auto get_sum = [](PDH_HCOUNTER counter) -> double {
+        DWORD buffer_size = 0;
+        DWORD item_count = 0;
+        PdhGetFormattedCounterArrayW(counter, PDH_FMT_DOUBLE, &buffer_size, &item_count, NULL);
+        if (buffer_size > 0) {
+            std::vector<BYTE> buffer(buffer_size);
             PDH_FMT_COUNTERVALUE_ITEM_W* items = reinterpret_cast<PDH_FMT_COUNTERVALUE_ITEM_W*>(buffer.data());
-            if (PdhGetFormattedCounterArrayW(counter, PDH_FMT_DOUBLE, &bufferSize, &itemCount, items) == ERROR_SUCCESS) {
+            if (PdhGetFormattedCounterArrayW(counter, PDH_FMT_DOUBLE, &buffer_size, &item_count, items) == ERROR_SUCCESS) {
                 double total = 0;
-                for (DWORD i = 0; i < itemCount; i++) {
+                for (DWORD i = 0; i < item_count; i++) {
                     if (items[i].szName) {
                         if (wcsstr(items[i].szName, L"Loopback") == nullptr) {
                             total += items[i].FmtValue.doubleValue;
@@ -147,44 +147,44 @@ static void GetNetworkUsage(float& outUpMbps, float& outDownMbps) {
     };
 
     // Bytes to Mbps
-    outUpMbps = static_cast<float>(getSum(g_netUpCounter) * 8.0 / 1000000.0);
-    outDownMbps = static_cast<float>(getSum(g_netDownCounter) * 8.0 / 1000000.0);
+    out_up_mbps = static_cast<float>(get_sum(g_net_up_counter) * 8.0 / 1000000.0);
+    out_down_mbps = static_cast<float>(get_sum(g_net_down_counter) * 8.0 / 1000000.0);
 }
 
 // ---- Endpoint volume notifications ----
 // Event-driven rather than polled: a 1s poll turned a held volume key into
 // one visible step per second.
-void ApplyVolumeReading(float level, bool muted, bool canSurface) {
-    const int percent = ClampInt(static_cast<int>(level * 100.0f + 0.5f), 0, 100);
+void apply_volume_reading(float level, bool muted, bool can_surface) {
+    const int percent = clamp_int(static_cast<int>(level * 100.0f + 0.5f), 0, 100);
 
-    bool flyoutEnabled = false;
+    bool flyout_enabled = false;
     {
-        std::lock_guard settingsLock(g_settingsMutex);
-        flyoutEnabled = g_settings.volume;
+        std::lock_guard settings_lock(g_settings_mutex);
+        flyout_enabled = g_settings.volume;
     }
 
     bool surfaced = false;
     {
-        std::lock_guard lock(g_stateMutex);
-        const bool changed = percent != g_state.system.volumePercent ||
-                             muted != g_state.system.volumeMuted;
-        g_state.system.volumePercent = percent;
-        g_state.system.volumeMuted = muted;
+        std::lock_guard lock(g_state_mutex);
+        const bool changed = percent != g_state.system.volume_percent ||
+                             muted != g_state.system.volume_muted;
+        g_state.system.volume_percent = percent;
+        g_state.system.volume_muted = muted;
         g_state.muted = muted;
 
-        if (canSurface && changed && flyoutEnabled) {
+        if (can_surface && changed && flyout_enabled) {
             surfaced = !g_state.volume.active;
             g_state.volume.active = true;
             g_state.volume.percent = percent;
             g_state.volume.muted = muted;
-            g_state.volume.deviceName = L"System audio";
-            g_state.volume.expiresAt = NowSeconds() + 1.8;
+            g_state.volume.device_name = L"System audio";
+            g_state.volume.expires_at = now_seconds() + 1.8;
         }
     }
 
     // Only the first step nudges; nudging on every step made the pill bounce.
     if (surfaced) {
-        TriggerNudge();
+        trigger_nudge();
     }
 }
 
@@ -219,7 +219,7 @@ public:
 
     HRESULT STDMETHODCALLTYPE OnNotify(PAUDIO_VOLUME_NOTIFICATION_DATA data) override {
         if (data) {
-            ApplyVolumeReading(data->fMasterVolume, data->bMuted != FALSE, true);
+            apply_volume_reading(data->fMasterVolume, data->bMuted != FALSE, true);
         }
         return S_OK;
     }
@@ -228,7 +228,7 @@ public:
     // render thread rebinds; the posted message wakes it even while parked.
     HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(EDataFlow flow, ERole role, LPCWSTR) override {
         if (flow == eRender && role == eConsole) {
-            g_volumeEndpointStale = true;
+            g_volume_endpoint_stale = true;
             if (HWND hwnd = g_hwnd) {
                 PostMessageW(hwnd, WM_NULL, 0, 0);
             }
@@ -245,50 +245,50 @@ private:
 };
 
 // Owned by the render thread.
-ComPtr<IMMDeviceEnumerator> g_volumeEnumerator;
-VolumeNotifyClient* g_volumeNotifyClient = nullptr;
+ComPtr<IMMDeviceEnumerator> g_volume_enumerator;
+VolumeNotifyClient* g_volume_notify_client = nullptr;
 
 // Event-driven: runs only when BindVolumeEndpoint() rebinds (startup, default output
 // changed, Bluetooth connect/disconnect). Never from a timer or a draw path.
 // "BTH*" enumerator names (BTHENUM, BTHHFENUM, BTHLEENUM) mean a Bluetooth endpoint.
-void UpdateDefaultOutputBluetoothFlag(IMMDevice* device) {
+void update_default_output_bluetooth_flag(IMMDevice* device) {
     // PKEY_Device_EnumeratorName {A45C254E-DF1C-4EFD-8020-67D146A850E0}, 24
-    static const PROPERTYKEY kPkeyEnumeratorName = {
+    static const PROPERTYKEY pkey_enumerator_name = {
         {0xA45C254E, 0xDF1C, 0x4EFD, {0x80, 0x20, 0x67, 0xD1, 0x46, 0xA8, 0x50, 0xE0}}, 24};
 
-    bool isBluetooth = false;
-    bool readFailed = false;
+    bool is_bluetooth = false;
+    bool read_failed = false;
     if (device) {
-        readFailed = true;
+        read_failed = true;
         ComPtr<IPropertyStore> store;
         if (SUCCEEDED(device->OpenPropertyStore(STGM_READ, &store)) && store) {
             PROPVARIANT value;
             PropVariantInit(&value);
-            if (SUCCEEDED(store->GetValue(kPkeyEnumeratorName, &value))) {
-                readFailed = false;
-                isBluetooth = value.vt == VT_LPWSTR && value.pwszVal &&
+            if (SUCCEEDED(store->GetValue(pkey_enumerator_name, &value))) {
+                read_failed = false;
+                is_bluetooth = value.vt == VT_LPWSTR && value.pwszVal &&
                               _wcsnicmp(value.pwszVal, L"BTH", 3) == 0;
             }
             PropVariantClear(&value);
         }
     }
 
-    if (readFailed) {
-        static bool s_loggedReadFailure = false;
-        if (!s_loggedReadFailure) {
-            s_loggedReadFailure = true;
+    if (read_failed) {
+        static bool s_logged_read_failure = false;
+        if (!s_logged_read_failure) {
+            s_logged_read_failure = true;
             host::log(L"Lyrics sync: could not read the output's enumerator name; treating it as non-Bluetooth.");
         }
     }
 
     static bool s_logged = false;
-    const bool changed = g_defaultOutputIsBluetooth.exchange(isBluetooth, std::memory_order_relaxed) != isBluetooth;
+    const bool changed = g_default_output_is_bluetooth.exchange(is_bluetooth, std::memory_order_relaxed) != is_bluetooth;
     if (changed || !s_logged) {
         s_logged = true;
-        host::log(L"Lyrics sync: default audio output is %s.", isBluetooth ? L"Bluetooth" : L"not Bluetooth");
+        host::log(L"Lyrics sync: default audio output is %s.", is_bluetooth ? L"Bluetooth" : L"not Bluetooth");
     }
     if (changed) {
-        g_layoutDirty = true;
+        g_layout_dirty = true;
     }
 }
 
@@ -296,73 +296,73 @@ void UpdateDefaultOutputBluetoothFlag(IMMDevice* device) {
 
 
 
-void BindVolumeEndpoint() {
-    if (!g_volumeEndpointStale.exchange(false)) {
+void bind_volume_endpoint() {
+    if (!g_volume_endpoint_stale.exchange(false)) {
         return;
     }
 
-    if (!g_volumeNotifyClient) {
-        g_volumeNotifyClient = new VolumeNotifyClient();
+    if (!g_volume_notify_client) {
+        g_volume_notify_client = new VolumeNotifyClient();
     }
-    if (!g_volumeEnumerator) {
+    if (!g_volume_enumerator) {
         if (FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
-                                    IID_PPV_ARGS(&g_volumeEnumerator)))) {
-            g_volumeEnumerator.Reset();
+                                    IID_PPV_ARGS(&g_volume_enumerator)))) {
+            g_volume_enumerator.Reset();
             return;
         }
-        g_volumeEnumerator->RegisterEndpointNotificationCallback(g_volumeNotifyClient);
+        g_volume_enumerator->RegisterEndpointNotificationCallback(g_volume_notify_client);
     }
 
-    if (g_endpointVolume) {
-        g_endpointVolume->UnregisterControlChangeNotify(g_volumeNotifyClient);
-        g_endpointVolume.Reset();
+    if (g_endpoint_volume) {
+        g_endpoint_volume->UnregisterControlChangeNotify(g_volume_notify_client);
+        g_endpoint_volume.Reset();
     }
 
     ComPtr<IMMDevice> device;
-    HRESULT hr = g_volumeEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device);
-    UpdateDefaultOutputBluetoothFlag(SUCCEEDED(hr) ? device.Get() : nullptr);
+    HRESULT hr = g_volume_enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device);
+    update_default_output_bluetooth_flag(SUCCEEDED(hr) ? device.Get() : nullptr);
     if (SUCCEEDED(hr)) {
         hr = device->Activate(__uuidof(IAudioEndpointVolume), CLSCTX_ALL, nullptr,
-                              reinterpret_cast<void**>(g_endpointVolume.GetAddressOf()));
+                              reinterpret_cast<void**>(g_endpoint_volume.GetAddressOf()));
     }
     if (SUCCEEDED(hr)) {
-        hr = g_endpointVolume->RegisterControlChangeNotify(g_volumeNotifyClient);
+        hr = g_endpoint_volume->RegisterControlChangeNotify(g_volume_notify_client);
     }
 
     float level = 0.0f;
     BOOL muted = FALSE;
-    if (SUCCEEDED(hr) && SUCCEEDED(g_endpointVolume->GetMasterVolumeLevelScalar(&level)) &&
-        SUCCEEDED(g_endpointVolume->GetMute(&muted))) {
+    if (SUCCEEDED(hr) && SUCCEEDED(g_endpoint_volume->GetMasterVolumeLevelScalar(&level)) &&
+        SUCCEEDED(g_endpoint_volume->GetMute(&muted))) {
         // Baseline only: switching device must not pop the flyout.
-        ApplyVolumeReading(level, muted != FALSE, false);
-    } else if (g_endpointVolume) {
-        g_endpointVolume->UnregisterControlChangeNotify(g_volumeNotifyClient);
-        g_endpointVolume.Reset();
+        apply_volume_reading(level, muted != FALSE, false);
+    } else if (g_endpoint_volume) {
+        g_endpoint_volume->UnregisterControlChangeNotify(g_volume_notify_client);
+        g_endpoint_volume.Reset();
     }
 }
 
-void UnbindVolumeEndpoint() {
-    if (g_volumeNotifyClient) {
-        if (g_endpointVolume) {
-            g_endpointVolume->UnregisterControlChangeNotify(g_volumeNotifyClient);
+void unbind_volume_endpoint() {
+    if (g_volume_notify_client) {
+        if (g_endpoint_volume) {
+            g_endpoint_volume->UnregisterControlChangeNotify(g_volume_notify_client);
         }
-        if (g_volumeEnumerator) {
-            g_volumeEnumerator->UnregisterEndpointNotificationCallback(g_volumeNotifyClient);
+        if (g_volume_enumerator) {
+            g_volume_enumerator->UnregisterEndpointNotificationCallback(g_volume_notify_client);
         }
     }
-    g_endpointVolume.Reset();
-    g_volumeEnumerator.Reset();
-    if (g_volumeNotifyClient) {
-        g_volumeNotifyClient->Release();
-        g_volumeNotifyClient = nullptr;
+    g_endpoint_volume.Reset();
+    g_volume_enumerator.Reset();
+    if (g_volume_notify_client) {
+        g_volume_notify_client->Release();
+        g_volume_notify_client = nullptr;
     }
-    g_volumeEndpointStale = true;
+    g_volume_endpoint_stale = true;
 }
 
-void UpdateSystemSnapshot(bool includeGpuStats, bool includeNetStats) {
+void update_system_snapshot(bool include_gpu_stats, bool include_net_stats) {
     SystemSnapshot next;
     {
-        std::lock_guard lock(g_stateMutex);
+        std::lock_guard lock(g_state_mutex);
         next = g_state.system;
         next.charging = g_state.system.charging;
     }
@@ -372,43 +372,43 @@ void UpdateSystemSnapshot(bool includeGpuStats, bool includeNetStats) {
     // using the GPU), so only sample them when something on screen is
     // actually displaying them. Otherwise just carry the last sampled
     // value forward (already done via `next = g_state.system` above).
-    if (includeGpuStats) {
-        next.gpuPercent = GetGpuUsage();
+    if (include_gpu_stats) {
+        next.gpu_percent = get_gpu_usage();
     }
-    if (includeNetStats) {
-        GetNetworkUsage(next.netUpMbps, next.netDownMbps);
+    if (include_net_stats) {
+        get_network_usage(next.net_up_mbps, next.net_down_mbps);
     }
 
     MEMORYSTATUSEX memory = {};
     memory.dwLength = sizeof(memory);
     if (GlobalMemoryStatusEx(&memory)) {
-        next.memoryPercent = static_cast<int>(memory.dwMemoryLoad);
-        next.memoryTotalGB = static_cast<float>(memory.ullTotalPhys) / (1024.0f * 1024.0f * 1024.0f);
-        next.memoryUsedGB = next.memoryTotalGB - static_cast<float>(memory.ullAvailPhys) / (1024.0f * 1024.0f * 1024.0f);
+        next.memory_percent = static_cast<int>(memory.dwMemoryLoad);
+        next.memory_total_gb = static_cast<float>(memory.ullTotalPhys) / (1024.0f * 1024.0f * 1024.0f);
+        next.memory_used_gb = next.memory_total_gb - static_cast<float>(memory.ullAvailPhys) / (1024.0f * 1024.0f * 1024.0f);
     }
 
-    ULARGE_INTEGER freeBytesAvailable = {};
-    ULARGE_INTEGER totalBytes = {};
-    ULARGE_INTEGER totalFreeBytes = {};
-    if (GetDiskFreeSpaceExW(L"C:\\", &freeBytesAvailable, &totalBytes, &totalFreeBytes) &&
-        totalBytes.QuadPart > 0) {
-        next.diskFreePercent = ClampInt(
-            static_cast<int>(totalFreeBytes.QuadPart * 100 / totalBytes.QuadPart), 0, 100);
+    ULARGE_INTEGER free_bytes_available = {};
+    ULARGE_INTEGER total_bytes = {};
+    ULARGE_INTEGER total_free_bytes = {};
+    if (GetDiskFreeSpaceExW(L"C:\\", &free_bytes_available, &total_bytes, &total_free_bytes) &&
+        total_bytes.QuadPart > 0) {
+        next.disk_free_percent = clamp_int(
+            static_cast<int>(total_free_bytes.QuadPart * 100 / total_bytes.QuadPart), 0, 100);
     }
 
     HWND foreground = GetForegroundWindow();
     if (foreground && foreground != g_hwnd) {
         wchar_t title[96] = {};
         GetWindowTextW(foreground, title, ARRAYSIZE(title));
-        if (!IsIgnorableForegroundWindow(foreground, title)) {
-            next.foregroundTitle = title;
-            if (next.foregroundTitle.size() > 42) {
-                next.foregroundTitle.resize(42);
-                next.foregroundTitle += L"...";
+        if (!is_ignorable_foreground_window(foreground, title)) {
+            next.foreground_title = title;
+            if (next.foreground_title.size() > 42) {
+                next.foreground_title.resize(42);
+                next.foreground_title += L"...";
             }
 
         } else {
-            next.foregroundTitle.clear();
+            next.foreground_title.clear();
         }
     }
 
@@ -416,30 +416,30 @@ void UpdateSystemSnapshot(bool includeGpuStats, bool includeNetStats) {
     FILETIME kernel = {};
     FILETIME user = {};
     if (GetSystemTimes(&idle, &kernel, &user)) {
-        const ULONGLONG idleNow = FileTimeToUInt64(idle);
-        const ULONGLONG kernelNow = FileTimeToUInt64(kernel);
-        const ULONGLONG userNow = FileTimeToUInt64(user);
-        const ULONGLONG idlePrev = FileTimeToUInt64(g_prevIdleTime);
-        const ULONGLONG kernelPrev = FileTimeToUInt64(g_prevKernelTime);
-        const ULONGLONG userPrev = FileTimeToUInt64(g_prevUserTime);
+        const ULONGLONG idle_now = file_time_to_u_int64(idle);
+        const ULONGLONG kernel_now = file_time_to_u_int64(kernel);
+        const ULONGLONG user_now = file_time_to_u_int64(user);
+        const ULONGLONG idle_prev = file_time_to_u_int64(g_prev_idle_time);
+        const ULONGLONG kernel_prev = file_time_to_u_int64(g_prev_kernel_time);
+        const ULONGLONG user_prev = file_time_to_u_int64(g_prev_user_time);
 
-        const ULONGLONG total = (kernelNow - kernelPrev) + (userNow - userPrev);
-        const ULONGLONG idleDelta = idleNow - idlePrev;
-        if (total > 0 && kernelPrev != 0) {
-            next.cpuPercent = ClampInt(static_cast<int>((total - idleDelta) * 100 / total), 0, 100);
+        const ULONGLONG total = (kernel_now - kernel_prev) + (user_now - user_prev);
+        const ULONGLONG idle_delta = idle_now - idle_prev;
+        if (total > 0 && kernel_prev != 0) {
+            next.cpu_percent = clamp_int(static_cast<int>((total - idle_delta) * 100 / total), 0, 100);
         }
 
-        g_prevIdleTime = idle;
-        g_prevKernelTime = kernel;
-        g_prevUserTime = user;
+        g_prev_idle_time = idle;
+        g_prev_kernel_time = kernel;
+        g_prev_user_time = user;
     }
 
-    std::lock_guard lock(g_stateMutex);
+    std::lock_guard lock(g_state_mutex);
     // Volume is owned by ApplyVolumeReading and may have moved since `next` was copied.
-    next.volumePercent = g_state.system.volumePercent;
-    next.volumeMuted = g_state.system.volumeMuted;
+    next.volume_percent = g_state.system.volume_percent;
+    next.volume_muted = g_state.system.volume_muted;
     g_state.system = next;
-    g_state.muted = next.volumeMuted;
+    g_state.muted = next.volume_muted;
 }
 
 
@@ -449,17 +449,17 @@ namespace
 
 // Built-in panel brightness (0-100), or -1 when there is no such panel (desktops)
 // or the query fails. Same IOCTL the Windows brightness slider uses, so no WMI.
-int ReadPanelBrightness(bool onAc) {
-    constexpr DWORD kIoctlQueryDisplayBrightness = 0x230498;  // CTL_CODE(FILE_DEVICE_VIDEO, 0x126, METHOD_BUFFERED, FILE_ANY_ACCESS)
+int read_panel_brightness(bool on_ac) {
+    constexpr DWORD ioctl_query_display_brightness = 0x230498;  // CTL_CODE(FILE_DEVICE_VIDEO, 0x126, METHOD_BUFFERED, FILE_ANY_ACCESS)
     struct DisplayBrightness {  // DISPLAY_BRIGHTNESS from ntddvdeo.h
         UCHAR policy;           // bit 0 = AC level valid, bit 1 = DC level valid
-        UCHAR acBrightness;
-        UCHAR dcBrightness;
+        UCHAR ac_brightness;
+        UCHAR dc_brightness;
     };
 
-    static double s_retryAt = 0.0;  // desktops have no LCD device, so do not retry every poll
-    const double now = NowSeconds();
-    if (now < s_retryAt) {
+    static double s_retry_at = 0.0;  // desktops have no LCD device, so do not retry every poll
+    const double now = now_seconds();
+    if (now < s_retry_at) {
         return -1;
     }
 
@@ -471,66 +471,66 @@ int ReadPanelBrightness(bool onAc) {
     }
     if (lcd == INVALID_HANDLE_VALUE) {
         host::log(L"Brightness: cannot open the LCD device (error %lu), retrying in 30s", GetLastError());
-        s_retryAt = now + 30.0;
+        s_retry_at = now + 30.0;
         return -1;
     }
 
     DisplayBrightness db = {};
     DWORD returned = 0;
-    const bool ok = DeviceIoControl(lcd, kIoctlQueryDisplayBrightness, nullptr, 0, &db, sizeof(db),
+    const bool ok = DeviceIoControl(lcd, ioctl_query_display_brightness, nullptr, 0, &db, sizeof(db),
                                     &returned, nullptr) && returned >= sizeof(db);
     const DWORD error = ok ? 0 : GetLastError();
     CloseHandle(lcd);
     if (!ok) {
         host::log(L"Brightness: query failed (error %lu, %lu bytes), retrying in 30s", error, returned);
-        s_retryAt = now + 30.0;
+        s_retry_at = now + 30.0;
         return -1;
     }
 
-    static bool s_loggedFirst = false;
-    if (!s_loggedFirst) {
-        s_loggedFirst = true;
-        host::log(L"Brightness: policy=%d ac=%d dc=%d", db.policy, db.acBrightness, db.dcBrightness);
+    static bool s_logged_first = false;
+    if (!s_logged_first) {
+        s_logged_first = true;
+        host::log(L"Brightness: policy=%d ac=%d dc=%d", db.policy, db.ac_brightness, db.dc_brightness);
     }
     // Pick the level for the current power source, falling back to the other one
     // when the driver only reports one of them.
-    const bool hasAc = (db.policy & 1) != 0;
-    const bool hasDc = (db.policy & 2) != 0;
-    int level = onAc ? db.acBrightness : db.dcBrightness;
-    if (onAc && !hasAc && hasDc) {
-        level = db.dcBrightness;
-    } else if (!onAc && !hasDc && hasAc) {
-        level = db.acBrightness;
+    const bool has_ac = (db.policy & 1) != 0;
+    const bool has_dc = (db.policy & 2) != 0;
+    int level = on_ac ? db.ac_brightness : db.dc_brightness;
+    if (on_ac && !has_ac && has_dc) {
+        level = db.dc_brightness;
+    } else if (!on_ac && !has_dc && has_ac) {
+        level = db.ac_brightness;
     }
-    return ClampInt(level, 0, 100);
+    return clamp_int(level, 0, 100);
 }
 
 }
 
 
 
-void UpdateBrightnessSnapshot() {
+void update_brightness_snapshot() {
     SYSTEM_POWER_STATUS power = {};
     GetSystemPowerStatus(&power);
-    const int level = ReadPanelBrightness(power.ACLineStatus != 0);
+    const int level = read_panel_brightness(power.ACLineStatus != 0);
     if (level < 0) {
         return;
     }
 
-    std::lock_guard lock(g_stateMutex);
+    std::lock_guard lock(g_state_mutex);
     // Plugging in or unplugging swaps between the AC and battery levels, which is
     // not the user moving the slider, so that sample only resets the baseline.
-    const bool changed = g_brightnessInitialized && level != g_lastBrightness &&
-                         power.ACLineStatus == g_brightnessPowerSource;
+    const bool changed = g_brightness_initialized && level != g_last_brightness &&
+                         power.ACLineStatus == g_brightness_power_source;
     if (changed && g_settings.brightness) {
         g_state.brightness.active = true;
         g_state.brightness.percent = level;
-        g_state.brightness.expiresAt = NowSeconds() + 1.8;
-        TriggerNudge();
+        g_state.brightness.expires_at = now_seconds() + 1.8;
+        trigger_nudge();
     }
-    g_lastBrightness = level;
-    g_brightnessPowerSource = power.ACLineStatus;
-    g_brightnessInitialized = true;
+    g_last_brightness = level;
+    g_brightness_power_source = power.ACLineStatus;
+    g_brightness_initialized = true;
 }
 
 

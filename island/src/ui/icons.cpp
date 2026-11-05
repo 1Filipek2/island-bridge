@@ -7,8 +7,8 @@ namespace
 {
 
 
-bool IconToPixels(HICON icon, UINT size, BitmapPixels* outPixels) {
-    if (!icon || !outPixels || !size) {
+bool icon_to_pixels(HICON icon, UINT size, BitmapPixels* out_pixels) {
+    if (!icon || !out_pixels || !size) {
         return false;
     }
 
@@ -51,14 +51,14 @@ bool IconToPixels(HICON icon, UINT size, BitmapPixels* outPixels) {
 
     // Older icons can have no alpha in the color bitmap. Treat black pixels as
     // transparent only when the icon did not write any alpha at all.
-    bool hasAlpha = false;
+    bool has_alpha = false;
     for (size_t i = 3; i < pixels.bgra.size(); i += 4) {
         if (pixels.bgra[i] != 0) {
-            hasAlpha = true;
+            has_alpha = true;
             break;
         }
     }
-    if (!hasAlpha) {
+    if (!has_alpha) {
         // No alpha channel: treat near-black as transparent, rest as opaque.
         for (size_t i = 0; i + 3 < pixels.bgra.size(); i += 4) {
             const bool black = pixels.bgra[i] < 4 && pixels.bgra[i + 1] < 4 && pixels.bgra[i + 2] < 4;
@@ -76,8 +76,8 @@ bool IconToPixels(HICON icon, UINT size, BitmapPixels* outPixels) {
         }
     }
 
-    pixels.generation = ++g_artGenerationCounter;
-    *outPixels = std::move(pixels);
+    pixels.generation = ++g_art_generation_counter;
+    *out_pixels = std::move(pixels);
 
     SelectObject(dc, old);
     DeleteObject(bitmap);
@@ -89,13 +89,13 @@ bool IconToPixels(HICON icon, UINT size, BitmapPixels* outPixels) {
 
 
 
-PixelsRef IconToPixelsRef(HICON icon, UINT size) {
+PixelsRef icon_to_pixels_ref(HICON icon, UINT size) {
     BitmapPixels px;
-    return IconToPixels(icon, size, &px) ? PixelsRef(std::move(px)) : PixelsRef();
+    return icon_to_pixels(icon, size, &px) ? PixelsRef(std::move(px)) : PixelsRef();
 }
 
-bool ProcessImageNameForPid(DWORD pid, std::wstring* imageName) {
-    if (!pid || !imageName) {
+bool process_image_name_for_pid(DWORD pid, std::wstring* image_name) {
+    if (!pid || !image_name) {
         return false;
     }
 
@@ -109,7 +109,7 @@ bool ProcessImageNameForPid(DWORD pid, std::wstring* imageName) {
     const bool ok = QueryFullProcessImageNameW(process, 0, path, &size) != FALSE;
     CloseHandle(process);
     if (ok) {
-        *imageName = path;
+        *image_name = path;
     }
     return ok;
 }
@@ -119,24 +119,24 @@ namespace
 {
 
 
-HICON CopyWindowIcon(HWND hwnd, WPARAM iconType) {
+HICON copy_window_icon(HWND hwnd, WPARAM icon_type) {
     DWORD_PTR result = 0;
-    SendMessageTimeoutW(hwnd, WM_GETICON, iconType, 0,
+    SendMessageTimeoutW(hwnd, WM_GETICON, icon_type, 0,
                         SMTO_ABORTIFHUNG | SMTO_BLOCK, 80, &result);
     return result ? CopyIcon(reinterpret_cast<HICON>(result)) : nullptr;
 }
 
-HICON getProcessIcon(DWORD pid) {
+HICON get_process_icon(DWORD pid) {
     std::wstring path;
-    if (ProcessImageNameForPid(pid, &path) && !path.empty()) {
-        HICON hIcon = nullptr;
-        UINT iconId = 0;
+    if (process_image_name_for_pid(pid, &path) && !path.empty()) {
+        HICON h_icon = nullptr;
+        UINT icon_id = 0;
         // Try to fetch a high-res 64x64 icon first to avoid pixelated icons
-        using PrivateExtractIconsW_t = UINT(WINAPI*)(LPCWSTR, int, int, int, HICON*, UINT*, UINT, UINT);
-        static auto pPrivateExtractIconsW = reinterpret_cast<PrivateExtractIconsW_t>(
+        using PrivateExtractIconsWT = UINT(WINAPI*)(LPCWSTR, int, int, int, HICON*, UINT*, UINT, UINT);
+        static auto p_private_extract_icons_w = reinterpret_cast<PrivateExtractIconsWT>(
             GetProcAddress(GetModuleHandleW(L"user32.dll"), "PrivateExtractIconsW"));
-        if (pPrivateExtractIconsW && pPrivateExtractIconsW(path.c_str(), 0, 64, 64, &hIcon, &iconId, 1, 0) == 1 && hIcon) {
-            return hIcon;
+        if (p_private_extract_icons_w && p_private_extract_icons_w(path.c_str(), 0, 64, 64, &h_icon, &icon_id, 1, 0) == 1 && h_icon) {
+            return h_icon;
         }
 
         SHFILEINFOW sfi = {};
@@ -146,10 +146,10 @@ HICON getProcessIcon(DWORD pid) {
         }
 
         HICON large = nullptr;
-        HICON smallIcon = nullptr;
-        if (ExtractIconExW(path.c_str(), 0, &large, &smallIcon, 1) > 0) {
-            if (smallIcon) {
-                DestroyIcon(smallIcon);
+        HICON small_icon = nullptr;
+        if (ExtractIconExW(path.c_str(), 0, &large, &small_icon, 1) > 0) {
+            if (small_icon) {
+                DestroyIcon(small_icon);
             }
             if (large) {
                 return large;
@@ -160,15 +160,15 @@ HICON getProcessIcon(DWORD pid) {
     return CopyIcon(LoadIconW(nullptr, IDI_APPLICATION));
 }
 
-HICON getWindowIcon(HWND hwnd) {
+HICON get_window_icon(HWND hwnd) {
     if (!hwnd) {
         return CopyIcon(LoadIconW(nullptr, IDI_APPLICATION));
     }
 
-    if (HICON icon = CopyWindowIcon(hwnd, ICON_BIG)) {
+    if (HICON icon = copy_window_icon(hwnd, ICON_BIG)) {
         return icon;
     }
-    if (HICON icon = CopyWindowIcon(hwnd, ICON_SMALL)) {
+    if (HICON icon = copy_window_icon(hwnd, ICON_SMALL)) {
         return icon;
     }
 
@@ -181,20 +181,20 @@ HICON getWindowIcon(HWND hwnd) {
 
     DWORD pid = 0;
     GetWindowThreadProcessId(hwnd, &pid);
-    return getProcessIcon(pid);
+    return get_process_icon(pid);
 }
 
 }
 
 
 
-std::wstring ToLowerCopy(std::wstring value) {
+std::wstring to_lower_copy(std::wstring value) {
     std::transform(value.begin(), value.end(), value.begin(),
                    [](wchar_t ch) { return static_cast<wchar_t>(towlower(ch)); });
     return value;
 }
 
-std::wstring BaseNameFromPath(std::wstring path) {
+std::wstring base_name_from_path(std::wstring path) {
     const size_t slash = path.find_last_of(L"\\/");
     if (slash != std::wstring::npos) {
         path.erase(0, slash + 1);
@@ -202,7 +202,7 @@ std::wstring BaseNameFromPath(std::wstring path) {
     return path;
 }
 
-std::wstring StripExtension(std::wstring value) {
+std::wstring strip_extension(std::wstring value) {
     const size_t dot = value.find_last_of(L'.');
     if (dot != std::wstring::npos) {
         value.resize(dot);
@@ -210,8 +210,8 @@ std::wstring StripExtension(std::wstring value) {
     return value;
 }
 
-bool ProcessImageNameForWindow(HWND hwnd, std::wstring* imageName) {
-    if (!imageName) {
+bool process_image_name_for_window(HWND hwnd, std::wstring* image_name) {
+    if (!image_name) {
         return false;
     }
 
@@ -221,11 +221,11 @@ bool ProcessImageNameForWindow(HWND hwnd, std::wstring* imageName) {
         return false;
     }
 
-    return ProcessImageNameForPid(pid, imageName);
+    return process_image_name_for_pid(pid, image_name);
 }
 
-std::wstring FriendlyMediaSourceName(std::wstring_view source) {
-    const std::wstring lower = ToLowerCopy(std::wstring(source));
+std::wstring friendly_media_source_name(std::wstring_view source) {
+    const std::wstring lower = to_lower_copy(std::wstring(source));
     if (lower.find(L"youtube") != std::wstring::npos) return L"YouTube";
     if (lower.find(L"spotify") != std::wstring::npos) return L"Spotify";
     if (lower.find(L"chrome") != std::wstring::npos) return L"Chrome";
@@ -247,17 +247,17 @@ std::wstring FriendlyMediaSourceName(std::wstring_view source) {
     return text.empty() ? L"Media" : text;
 }
 
-std::wstring MediaSourceBadge(std::wstring_view sourceName) {
-    const std::wstring lower = ToLowerCopy(std::wstring(sourceName));
+std::wstring media_source_badge(std::wstring_view source_name) {
+    const std::wstring lower = to_lower_copy(std::wstring(source_name));
     if (lower.find(L"youtube") != std::wstring::npos) return L"YT";
     if (lower.find(L"spotify") != std::wstring::npos) return L"SP";
     if (lower.find(L"chrome") != std::wstring::npos) return L"CH";
     if (lower.find(L"edge") != std::wstring::npos) return L"ED";
     if (lower.find(L"firefox") != std::wstring::npos) return L"FF";
     if (lower.find(L"vlc") != std::wstring::npos) return L"VLC";
-    if (sourceName.empty()) return L"\u25b6";
+    if (source_name.empty()) return L"\u25b6";
     std::wstring badge;
-    badge.push_back(static_cast<wchar_t>(towupper(sourceName[0])));
+    badge.push_back(static_cast<wchar_t>(towupper(source_name[0])));
     return badge;
 }
 
@@ -266,27 +266,27 @@ namespace
 {
 
 
-bool WindowLooksLikeMediaSource(HWND hwnd, const std::wstring& sourceLower) {
+bool window_looks_like_media_source(HWND hwnd, const std::wstring& source_lower) {
     if (!IsWindowVisible(hwnd) || hwnd == g_hwnd) {
         return false;
     }
 
     std::wstring image;
-    if (!ProcessImageNameForWindow(hwnd, &image)) {
+    if (!process_image_name_for_window(hwnd, &image)) {
         return false;
     }
 
-    const std::wstring base = ToLowerCopy(BaseNameFromPath(image));
+    const std::wstring base = to_lower_copy(base_name_from_path(image));
     if (base.empty()) {
         return false;
     }
 
-    const std::wstring stem = StripExtension(base);
-    return sourceLower.find(base) != std::wstring::npos ||
-           (stem.size() >= 4 && sourceLower.find(stem) != std::wstring::npos) ||
-           (base.find(L"chrome") != std::wstring::npos && sourceLower.find(L"chrome") != std::wstring::npos) ||
-           (base.find(L"msedge") != std::wstring::npos && sourceLower.find(L"edge") != std::wstring::npos) ||
-           (base.find(L"vlc") != std::wstring::npos && sourceLower.find(L"vlc") != std::wstring::npos);
+    const std::wstring stem = strip_extension(base);
+    return source_lower.find(base) != std::wstring::npos ||
+           (stem.size() >= 4 && source_lower.find(stem) != std::wstring::npos) ||
+           (base.find(L"chrome") != std::wstring::npos && source_lower.find(L"chrome") != std::wstring::npos) ||
+           (base.find(L"msedge") != std::wstring::npos && source_lower.find(L"edge") != std::wstring::npos) ||
+           (base.find(L"vlc") != std::wstring::npos && source_lower.find(L"vlc") != std::wstring::npos);
 }
 
 }
@@ -303,21 +303,21 @@ bool WindowLooksLikeMediaSource(HWND hwnd, const std::wstring& sourceLower) {
 // reference: the caller is the render loop, and walking a std::vector<std::wstring>
 // that LoadSettings() may be reassigning is a use-after-free, not just a stale
 // read. The haystack is built outside the lock because that part allocates.
-bool MediaExpandBlocked(const MediaSnapshot& media) {
+bool media_expand_blocked(const MediaSnapshot& media) {
     {
         // Fast path for the overwhelmingly common empty-blocklist case: one
         // uncontended lock, no allocation, no string work.
-        std::lock_guard lock(g_settingsMutex);
-        if (g_settings.mediaExpandBlocklist.empty()) {
+        std::lock_guard lock(g_settings_mutex);
+        if (g_settings.media_expand_blocklist.empty()) {
             return false;
         }
     }
 
-    const std::wstring haystack = ToLowerCopy(
-        media.sourceName + L"\n" + media.sourceAppUserModelId + L"\n" + media.title);
+    const std::wstring haystack = to_lower_copy(
+        media.source_name + L"\n" + media.source_app_user_model_id + L"\n" + media.title);
 
-    std::lock_guard lock(g_settingsMutex);
-    for (const std::wstring& needle : g_settings.mediaExpandBlocklist) {
+    std::lock_guard lock(g_settings_mutex);
+    for (const std::wstring& needle : g_settings.media_expand_blocklist) {
         if (!needle.empty() && haystack.find(needle) != std::wstring::npos) {
             return true;
         }
@@ -325,8 +325,8 @@ bool MediaExpandBlocked(const MediaSnapshot& media) {
     return false;
 }
 
-bool IsBrowserMediaSource(std::wstring_view source) {
-    const std::wstring lower = ToLowerCopy(std::wstring(source));
+bool is_browser_media_source(std::wstring_view source) {
+    const std::wstring lower = to_lower_copy(std::wstring(source));
     return lower.find(L"chrome") != std::wstring::npos ||
            lower.find(L"edge") != std::wstring::npos ||
            lower.find(L"msedge") != std::wstring::npos ||
@@ -339,8 +339,8 @@ namespace
 {
 
 
-std::wstring SiteBadgeFromTitle(std::wstring_view title) {
-    const std::wstring lower = ToLowerCopy(std::wstring(title));
+std::wstring site_badge_from_title(std::wstring_view title) {
+    const std::wstring lower = to_lower_copy(std::wstring(title));
     if (lower.find(L"youtube") != std::wstring::npos) return L"YT";
     if (lower.find(L"netflix") != std::wstring::npos) return L"NF";
     if (lower.find(L"prime video") != std::wstring::npos || lower.find(L"amazon") != std::wstring::npos) return L"PV";
@@ -353,47 +353,47 @@ std::wstring SiteBadgeFromTitle(std::wstring_view title) {
 
 struct IconCacheEntry {
     DWORD pid = 0;
-    std::wstring exePath;
+    std::wstring exe_path;
     PixelsRef pixels;
-    uint64_t lastUsed = 0;
+    uint64_t last_used = 0;
 };
 
-std::mutex g_iconCacheMutex;
-std::unordered_map<DWORD, IconCacheEntry> g_iconCacheByPid;
-uint64_t g_iconCacheClock = 0;
+std::mutex g_icon_cache_mutex;
+std::unordered_map<DWORD, IconCacheEntry> g_icon_cache_by_pid;
+uint64_t g_icon_cache_clock = 0;
 
-PixelsRef GetCachedProcessIconPixels(DWORD pid, UINT size) {
-    std::wstring exePath;
-    ProcessImageNameForPid(pid, &exePath);
+PixelsRef get_cached_process_icon_pixels(DWORD pid, UINT size) {
+    std::wstring exe_path;
+    process_image_name_for_pid(pid, &exe_path);
 
     {
-        std::lock_guard lock(g_iconCacheMutex);
-        auto it = g_iconCacheByPid.find(pid);
-        if (it != g_iconCacheByPid.end() && it->second.exePath == exePath &&
+        std::lock_guard lock(g_icon_cache_mutex);
+        auto it = g_icon_cache_by_pid.find(pid);
+        if (it != g_icon_cache_by_pid.end() && it->second.exe_path == exe_path &&
             it->second.pixels->width == size) {
-            it->second.lastUsed = ++g_iconCacheClock;
+            it->second.last_used = ++g_icon_cache_clock;
             return it->second.pixels;
         }
     }
 
     PixelsRef pixels;
-    HICON icon = getProcessIcon(pid);
+    HICON icon = get_process_icon(pid);
     if (icon) {
-        pixels = IconToPixelsRef(icon, size);
+        pixels = icon_to_pixels_ref(icon, size);
         DestroyIcon(icon);
     }
 
     if (pixels) {
-        std::lock_guard lock(g_iconCacheMutex);
-        g_iconCacheByPid[pid] = IconCacheEntry{pid, exePath, pixels, ++g_iconCacheClock};
-        if (g_iconCacheByPid.size() > 32) {
-            auto oldest = g_iconCacheByPid.begin();
-            for (auto it = g_iconCacheByPid.begin(); it != g_iconCacheByPid.end(); ++it) {
-                if (it->second.lastUsed < oldest->second.lastUsed) {
+        std::lock_guard lock(g_icon_cache_mutex);
+        g_icon_cache_by_pid[pid] = IconCacheEntry{pid, exe_path, pixels, ++g_icon_cache_clock};
+        if (g_icon_cache_by_pid.size() > 32) {
+            auto oldest = g_icon_cache_by_pid.begin();
+            for (auto it = g_icon_cache_by_pid.begin(); it != g_icon_cache_by_pid.end(); ++it) {
+                if (it->second.last_used < oldest->second.last_used) {
                     oldest = it;
                 }
             }
-            g_iconCacheByPid.erase(oldest);
+            g_icon_cache_by_pid.erase(oldest);
         }
     }
 
@@ -404,38 +404,38 @@ PixelsRef GetCachedProcessIconPixels(DWORD pid, UINT size) {
 
 
 
-PixelsRef GetWindowIconPixels(HWND hwnd, UINT size) {
+PixelsRef get_window_icon_pixels(HWND hwnd, UINT size) {
     DWORD pid = 0;
     GetWindowThreadProcessId(hwnd, &pid);
-    PixelsRef pixels = GetCachedProcessIconPixels(pid, size);
+    PixelsRef pixels = get_cached_process_icon_pixels(pid, size);
     if (pixels) {
         return pixels;
     }
 
-    HICON icon = getWindowIcon(hwnd);
+    HICON icon = get_window_icon(hwnd);
     if (icon) {
-        pixels = IconToPixelsRef(icon, size);
+        pixels = icon_to_pixels_ref(icon, size);
         DestroyIcon(icon);
     }
     return pixels;
 }
 
-bool IsIgnorableForegroundWindow(HWND hwnd, const std::wstring& title) {
-    wchar_t className[128] = {};
-    GetClassNameW(hwnd, className, ARRAYSIZE(className));
-    const std::wstring cls = ToLowerCopy(className);
-    const std::wstring lowerTitle = ToLowerCopy(title);
+bool is_ignorable_foreground_window(HWND hwnd, const std::wstring& title) {
+    wchar_t class_name[128] = {};
+    GetClassNameW(hwnd, class_name, ARRAYSIZE(class_name));
+    const std::wstring cls = to_lower_copy(class_name);
+    const std::wstring lower_title = to_lower_copy(title);
 
     std::wstring image;
-    ProcessImageNameForWindow(hwnd, &image);
-    const std::wstring base = ToLowerCopy(BaseNameFromPath(image));
+    process_image_name_for_window(hwnd, &image);
+    const std::wstring base = to_lower_copy(base_name_from_path(image));
 
     return title.empty() ||
            hwnd == g_hwnd ||
            cls == L"shell_traywnd" ||
            cls == L"workerw" ||
            cls == L"progman" ||
-           lowerTitle.find(L"windhawk") != std::wstring::npos ||
+           lower_title.find(L"windhawk") != std::wstring::npos ||
            base == L"explorer.exe" ||
            base == L"windhawk.exe";
 }
@@ -445,9 +445,9 @@ namespace
 {
 
 
-BOOL CALLBACK FindMediaSourceWindowProc(HWND hwnd, LPARAM lParam) {
-    auto* data = reinterpret_cast<std::pair<const std::wstring*, HWND*>*>(lParam);
-    if (WindowLooksLikeMediaSource(hwnd, *data->first)) {
+BOOL CALLBACK find_media_source_window_proc(HWND hwnd, LPARAM l_param) {
+    auto* data = reinterpret_cast<std::pair<const std::wstring*, HWND*>*>(l_param);
+    if (window_looks_like_media_source(hwnd, *data->first)) {
         *data->second = hwnd;
         return FALSE;
     }
@@ -458,32 +458,32 @@ BOOL CALLBACK FindMediaSourceWindowProc(HWND hwnd, LPARAM lParam) {
 
 
 
-std::wstring FindBrowserMediaSiteBadge(const std::wstring& sourceAppUserModelId) {
-    const std::wstring sourceLower = ToLowerCopy(sourceAppUserModelId);
+std::wstring find_browser_media_site_badge(const std::wstring& source_app_user_model_id) {
+    const std::wstring source_lower = to_lower_copy(source_app_user_model_id);
     HWND found = nullptr;
-    std::pair<const std::wstring*, HWND*> data{&sourceLower, &found};
-    EnumWindows(FindMediaSourceWindowProc, reinterpret_cast<LPARAM>(&data));
+    std::pair<const std::wstring*, HWND*> data{&source_lower, &found};
+    EnumWindows(find_media_source_window_proc, reinterpret_cast<LPARAM>(&data));
     if (found) {
         wchar_t title[192] = {};
         GetWindowTextW(found, title, ARRAYSIZE(title));
-        return SiteBadgeFromTitle(title);
+        return site_badge_from_title(title);
     }
     return L"WEB";
 }
 
-PixelsRef FindMediaSourceIcon(const std::wstring& sourceAppUserModelId) {
+PixelsRef find_media_source_icon(const std::wstring& source_app_user_model_id) {
     PixelsRef pixels;
-    if (IsBrowserMediaSource(sourceAppUserModelId)) {
+    if (is_browser_media_source(source_app_user_model_id)) {
         // Continue searching for the browser window anyway to retrieve
         // the browser's app icon or the PWA's app icon.
     }
 
-    const std::wstring sourceLower = ToLowerCopy(sourceAppUserModelId);
+    const std::wstring source_lower = to_lower_copy(source_app_user_model_id);
     HWND found = nullptr;
-    std::pair<const std::wstring*, HWND*> data{&sourceLower, &found};
-    EnumWindows(FindMediaSourceWindowProc, reinterpret_cast<LPARAM>(&data));
+    std::pair<const std::wstring*, HWND*> data{&source_lower, &found};
+    EnumWindows(find_media_source_window_proc, reinterpret_cast<LPARAM>(&data));
     if (found) {
-        pixels = GetWindowIconPixels(found, 32);
+        pixels = get_window_icon_pixels(found, 32);
     }
     return pixels;
 }
@@ -494,13 +494,13 @@ namespace
 
 
 struct FindAppIconData {
-    const std::wstring* targetName;
-    HWND bestHwnd = nullptr;
-    std::unordered_map<DWORD, std::wstring> pidToProcessName;
+    const std::wstring* target_name;
+    HWND best_hwnd = nullptr;
+    std::unordered_map<DWORD, std::wstring> pid_to_process_name;
 };
 
-BOOL CALLBACK FindAppIconWindowProc(HWND hwnd, LPARAM lParam) {
-    auto* d = reinterpret_cast<FindAppIconData*>(lParam);
+BOOL CALLBACK find_app_icon_window_proc(HWND hwnd, LPARAM l_param) {
+    auto* d = reinterpret_cast<FindAppIconData*>(l_param);
     if (!IsWindowVisible(hwnd)) {
         return TRUE;
     }
@@ -512,9 +512,9 @@ BOOL CALLBACK FindAppIconWindowProc(HWND hwnd, LPARAM lParam) {
     // 1. Fast path: Check window title first (lightweight check without opening process handles)
     wchar_t title[128] = {};
     GetWindowTextW(hwnd, title, ARRAYSIZE(title));
-    std::wstring titleLower = ToLowerCopy(title);
-    if (!titleLower.empty() && titleLower.find(*d->targetName) != std::wstring::npos) {
-        d->bestHwnd = hwnd;
+    std::wstring title_lower = to_lower_copy(title);
+    if (!title_lower.empty() && title_lower.find(*d->target_name) != std::wstring::npos) {
+        d->best_hwnd = hwnd;
         return FALSE; // Found via title, stop enumeration
     }
 
@@ -525,28 +525,28 @@ BOOL CALLBACK FindAppIconWindowProc(HWND hwnd, LPARAM lParam) {
         return TRUE;
     }
 
-    std::wstring baseNoExe;
-    auto it = d->pidToProcessName.find(pid);
-    if (it != d->pidToProcessName.end()) {
-        baseNoExe = it->second;
+    std::wstring base_no_exe;
+    auto it = d->pid_to_process_name.find(pid);
+    if (it != d->pid_to_process_name.end()) {
+        base_no_exe = it->second;
     } else {
         std::wstring image;
-        if (ProcessImageNameForPid(pid, &image)) {
-            std::wstring base = ToLowerCopy(BaseNameFromPath(image));
-            baseNoExe = base;
-            if (baseNoExe.size() > 4 && baseNoExe.substr(baseNoExe.size() - 4) == L".exe") {
-                baseNoExe = baseNoExe.substr(0, baseNoExe.size() - 4);
+        if (process_image_name_for_pid(pid, &image)) {
+            std::wstring base = to_lower_copy(base_name_from_path(image));
+            base_no_exe = base;
+            if (base_no_exe.size() > 4 && base_no_exe.substr(base_no_exe.size() - 4) == L".exe") {
+                base_no_exe = base_no_exe.substr(0, base_no_exe.size() - 4);
             }
-            d->pidToProcessName[pid] = baseNoExe;
+            d->pid_to_process_name[pid] = base_no_exe;
         } else {
-            d->pidToProcessName[pid] = L"";
+            d->pid_to_process_name[pid] = L"";
         }
     }
 
-    if (!baseNoExe.empty()) {
-        if (baseNoExe.find(*d->targetName) != std::wstring::npos ||
-            d->targetName->find(baseNoExe) != std::wstring::npos) {
-            d->bestHwnd = hwnd;
+    if (!base_no_exe.empty()) {
+        if (base_no_exe.find(*d->target_name) != std::wstring::npos ||
+            d->target_name->find(base_no_exe) != std::wstring::npos) {
+            d->best_hwnd = hwnd;
             return FALSE; // Found via process name, stop enumeration
         }
     }
@@ -576,25 +576,25 @@ wchar_t notification_initial(const std::wstring& app)
     return 0;
 }
 
-PixelsRef FindAppIconByName(const std::wstring& appName, UINT size) {
+PixelsRef find_app_icon_by_name(const std::wstring& app_name, UINT size) {
     PixelsRef pixels;
-    if (appName.empty()) {
+    if (app_name.empty()) {
         return pixels;
     }
 
-    const std::wstring appNameLower = ToLowerCopy(appName);
+    const std::wstring app_name_lower = to_lower_copy(app_name);
     FindAppIconData data;
-    data.targetName = &appNameLower;
+    data.target_name = &app_name_lower;
 
-    EnumWindows(FindAppIconWindowProc, reinterpret_cast<LPARAM>(&data));
+    EnumWindows(find_app_icon_window_proc, reinterpret_cast<LPARAM>(&data));
 
-    if (data.bestHwnd) {
-        pixels = GetWindowIconPixels(data.bestHwnd, size);
+    if (data.best_hwnd) {
+        pixels = get_window_icon_pixels(data.best_hwnd, size);
     }
     return pixels;
 }
 
-std::vector<uint8_t> ReadWinRtStreamBytes(
+std::vector<uint8_t> read_win_rt_stream_bytes(
     const winrt::Windows::Storage::Streams::IRandomAccessStreamReference& reference) {
     std::vector<uint8_t> bytes;
     if (!reference) {

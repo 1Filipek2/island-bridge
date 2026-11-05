@@ -6,23 +6,23 @@
 namespace island
 {
 
-PixelsRef IconToPixelsRef(HICON icon, UINT size);
-bool ProcessImageNameForPid(DWORD pid, std::wstring* imageName);
-std::wstring ToLowerCopy(std::wstring value);
-std::wstring BaseNameFromPath(std::wstring path);
-std::wstring StripExtension(std::wstring value);
-bool ProcessImageNameForWindow(HWND hwnd, std::wstring* imageName);
-std::wstring FriendlyMediaSourceName(std::wstring_view source);
-std::wstring MediaSourceBadge(std::wstring_view sourceName);
-bool MediaExpandBlocked(const MediaSnapshot& media);
-bool IsBrowserMediaSource(std::wstring_view source);
-PixelsRef GetWindowIconPixels(HWND hwnd, UINT size);
-bool IsIgnorableForegroundWindow(HWND hwnd, const std::wstring& title);
-std::wstring FindBrowserMediaSiteBadge(const std::wstring& sourceAppUserModelId);
-PixelsRef FindMediaSourceIcon(const std::wstring& sourceAppUserModelId);
+PixelsRef icon_to_pixels_ref(HICON icon, UINT size);
+bool process_image_name_for_pid(DWORD pid, std::wstring* image_name);
+std::wstring to_lower_copy(std::wstring value);
+std::wstring base_name_from_path(std::wstring path);
+std::wstring strip_extension(std::wstring value);
+bool process_image_name_for_window(HWND hwnd, std::wstring* image_name);
+std::wstring friendly_media_source_name(std::wstring_view source);
+std::wstring media_source_badge(std::wstring_view source_name);
+bool media_expand_blocked(const MediaSnapshot& media);
+bool is_browser_media_source(std::wstring_view source);
+PixelsRef get_window_icon_pixels(HWND hwnd, UINT size);
+bool is_ignorable_foreground_window(HWND hwnd, const std::wstring& title);
+std::wstring find_browser_media_site_badge(const std::wstring& source_app_user_model_id);
+PixelsRef find_media_source_icon(const std::wstring& source_app_user_model_id);
 wchar_t notification_initial(const std::wstring& app);
-PixelsRef FindAppIconByName(const std::wstring& appName, UINT size);
-std::vector<uint8_t> ReadWinRtStreamBytes(
+PixelsRef find_app_icon_by_name(const std::wstring& app_name, UINT size);
+std::vector<uint8_t> read_win_rt_stream_bytes(
     const winrt::Windows::Storage::Streams::IRandomAccessStreamReference& reference);
 
 }

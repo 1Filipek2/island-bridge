@@ -5,7 +5,7 @@
 namespace island
 {
 
-std::vector<IslandKind> ChooseActivities(const SharedState& state, const Settings& settings, double now);
-DWORD WINAPI RenderThreadProc(void*);
+std::vector<IslandKind> choose_activities(const SharedState& state, const Settings& settings, double now);
+DWORD WINAPI render_thread_proc(void*);
 
 }

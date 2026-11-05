@@ -6,36 +6,36 @@
 
 namespace island
 {
-namespace FileTrayStore
+namespace file_tray_store
 {
 namespace
 {
 
 
-inline std::wstring GetCurrentUserSid() {
-    HANDLE hToken = nullptr;
-    if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken)) {
+inline std::wstring get_current_user_sid() {
+    HANDLE h_token = nullptr;
+    if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &h_token)) {
         DWORD len = 0;
-        GetTokenInformation(hToken, TokenUser, nullptr, 0, &len);
+        GetTokenInformation(h_token, TokenUser, nullptr, 0, &len);
         if (len > 0) {
             std::vector<BYTE> buffer(len);
-            if (GetTokenInformation(hToken, TokenUser, buffer.data(), len, &len)) {
-                auto* tokenUser = reinterpret_cast<TOKEN_USER*>(buffer.data());
-                LPWSTR sidString = nullptr;
-                if (ConvertSidToStringSidW(tokenUser->User.Sid, &sidString)) {
-                    std::wstring result = sidString;
-                    LocalFree(sidString);
-                    CloseHandle(hToken);
+            if (GetTokenInformation(h_token, TokenUser, buffer.data(), len, &len)) {
+                auto* token_user = reinterpret_cast<TOKEN_USER*>(buffer.data());
+                LPWSTR sid_string = nullptr;
+                if (ConvertSidToStringSidW(token_user->User.Sid, &sid_string)) {
+                    std::wstring result = sid_string;
+                    LocalFree(sid_string);
+                    CloseHandle(h_token);
                     return result;
                 }
             }
         }
-        CloseHandle(hToken);
+        CloseHandle(h_token);
     }
-    wchar_t userBuf[256] = {};
-    DWORD un = ARRAYSIZE(userBuf);
-    if (GetUserNameW(userBuf, &un) && un > 0) {
-        return userBuf;
+    wchar_t user_buf[256] = {};
+    DWORD un = ARRAYSIZE(user_buf);
+    if (GetUserNameW(user_buf, &un) && un > 0) {
+        return user_buf;
     }
     return L"default";
 }
@@ -43,24 +43,24 @@ inline std::wstring GetCurrentUserSid() {
 }
 }
 
-namespace FileTrayStore
+namespace file_tray_store
 {
 
 
-bool ResolvePaths(std::wstring* dir, std::wstring* file) {
-    wchar_t storagePath[MAX_PATH] = {};
-    if (!host::storage_path(storagePath, ARRAYSIZE(storagePath))) {
+bool resolve_paths(std::wstring* dir, std::wstring* file) {
+    wchar_t storage_path[MAX_PATH] = {};
+    if (!host::storage_path(storage_path, ARRAYSIZE(storage_path))) {
         return false;
     }
-    const std::wstring userKey = GetCurrentUserSid();
-    *dir = std::wstring(storagePath) + L"\\filetray\\" + userKey;
+    const std::wstring user_key = get_current_user_sid();
+    *dir = std::wstring(storage_path) + L"\\filetray\\" + user_key;
     *file = *dir + L"\\items.dat";
     return true;
 }
 
-std::string Escape(const std::wstring& value) {
+std::string escape(const std::wstring& value) {
     std::string out;
-    for (const char c : LyricsCache::WideToUtf8(value)) {
+    for (const char c : lyrics_cache::wide_to_utf8(value)) {
         switch (c) {
             case '\\': out += "\\\\"; break;
             case '\n': out += "\\n"; break;
@@ -72,7 +72,7 @@ std::string Escape(const std::wstring& value) {
     return out;
 }
 
-std::wstring Unescape(const std::string& value) {
+std::wstring unescape(const std::string& value) {
     std::string out;
     out.reserve(value.size());
     for (size_t i = 0; i < value.size(); ++i) {
@@ -88,7 +88,7 @@ std::wstring Unescape(const std::string& value) {
             out.push_back(value[i]);
         }
     }
-    return LyricsCache::Utf8ToWide(out);
+    return lyrics_cache::utf8_to_wide(out);
 }
 
 }
@@ -98,30 +98,30 @@ std::wstring Unescape(const std::string& value) {
 // Writes the current tray to disk. Safe to call from any thread, and never call
 // it while holding g_stateMutex. With persistence off, or an empty tray, the
 // saved file is removed instead.
-void SaveFileTray() {
+void save_file_tray() {
     bool persist = true;
     {
-        std::lock_guard lock(g_settingsMutex);
-        persist = g_settings.fileTrayPersist;
+        std::lock_guard lock(g_settings_mutex);
+        persist = g_settings.file_tray_persist;
     }
 
     struct Row {
-        bool isText;
+        bool is_text;
         std::wstring name;
         std::wstring value;
     };
     std::vector<Row> rows;
     {
-        std::lock_guard lock(g_stateMutex);
-        rows.reserve(g_state.fileTrayItems.size());
-        for (const FileTrayItem& item : g_state.fileTrayItems) {
-            rows.push_back(Row{item.isText, item.name, item.isText ? item.text : item.path});
+        std::lock_guard lock(g_state_mutex);
+        rows.reserve(g_state.file_tray_items.size());
+        for (const FileTrayItem& item : g_state.file_tray_items) {
+            rows.push_back(Row{item.is_text, item.name, item.is_text ? item.text : item.path});
         }
     }
 
-    std::lock_guard io(FileTrayStore::g_ioMutex);
+    std::lock_guard io(file_tray_store::g_io_mutex);
     std::wstring dir, file;
-    if (!FileTrayStore::ResolvePaths(&dir, &file)) {
+    if (!file_tray_store::resolve_paths(&dir, &file)) {
         return;
     }
 
@@ -134,15 +134,15 @@ void SaveFileTray() {
 
     std::string data = "DIWFT 1\n";
     for (const Row& row : rows) {
-        if (row.isText) {
-            data += "T\t" + FileTrayStore::Escape(row.name) + "\t" +
-                    FileTrayStore::Escape(row.value) + "\n";
+        if (row.is_text) {
+            data += "T\t" + file_tray_store::escape(row.name) + "\t" +
+                    file_tray_store::escape(row.value) + "\n";
         } else {
-            data += "F\t" + FileTrayStore::Escape(row.value) + "\n";
+            data += "F\t" + file_tray_store::escape(row.value) + "\n";
         }
     }
 
-    if (!LyricsCache::WriteFileAtomic(file, data)) {
+    if (!lyrics_cache::write_file_atomic(file, data)) {
         host::log(L"File Tray: could not save %s (error %lu).", file.c_str(), GetLastError());
     }
 }
@@ -151,18 +151,18 @@ void SaveFileTray() {
 // COM for the shell icons). Files that have since moved or been deleted are kept,
 // since you asked for items to stay until you remove them; they just show a
 // generic icon.
-void LoadFileTray() {
+void load_file_tray() {
     bool persist = true;
-    int maxItems = 10;
+    int max_items = 10;
     {
-        std::lock_guard lock(g_settingsMutex);
-        persist = g_settings.fileTrayPersist;
-        maxItems = std::max(1, g_settings.fileTrayMaxItems);
+        std::lock_guard lock(g_settings_mutex);
+        persist = g_settings.file_tray_persist;
+        max_items = std::max(1, g_settings.file_tray_max_items);
     }
 
-    std::lock_guard io(FileTrayStore::g_ioMutex);
+    std::lock_guard io(file_tray_store::g_io_mutex);
     std::wstring dir, file;
-    if (!FileTrayStore::ResolvePaths(&dir, &file)) {
+    if (!file_tray_store::resolve_paths(&dir, &file)) {
         return;
     }
     if (!persist) {
@@ -177,26 +177,26 @@ void LoadFileTray() {
         return;
     }
 
-    constexpr LONGLONG kMaxBytes = 16ll * 1024 * 1024;
+    constexpr LONGLONG max_bytes = 16ll * 1024 * 1024;
     std::string data;
     LARGE_INTEGER size = {};
-    bool readOk = GetFileSizeEx(h, &size) && size.QuadPart > 0 && size.QuadPart <= kMaxBytes;
-    if (readOk) {
+    bool read_ok = GetFileSizeEx(h, &size) && size.QuadPart > 0 && size.QuadPart <= max_bytes;
+    if (read_ok) {
         data.resize(static_cast<size_t>(size.QuadPart));
         DWORD got = 0;
-        readOk = ReadFile(h, data.data(), static_cast<DWORD>(size.QuadPart), &got, nullptr) &&
+        read_ok = ReadFile(h, data.data(), static_cast<DWORD>(size.QuadPart), &got, nullptr) &&
                  got == static_cast<DWORD>(size.QuadPart);
     }
     CloseHandle(h);
 
-    static const char kHeader[] = "DIWFT 1\n";
-    if (!readOk || data.compare(0, sizeof(kHeader) - 1, kHeader) != 0) {
+    static const char k_header[] = "DIWFT 1\n";
+    if (!read_ok || data.compare(0, sizeof(k_header) - 1, k_header) != 0) {
         host::log(L"File Tray: saved list is unreadable; starting empty.");
         return;
     }
 
     std::vector<FileTrayItem> loaded;
-    size_t pos = sizeof(kHeader) - 1;
+    size_t pos = sizeof(k_header) - 1;
     while (pos < data.size()) {
         size_t end = data.find('\n', pos);
         if (end == std::string::npos) end = data.size();
@@ -212,23 +212,23 @@ void LoadFileTray() {
             const std::string rest = line.substr(2);
             const size_t tab = rest.find('\t');
             if (tab == std::string::npos) continue;
-            item.isText = true;
-            item.name = FileTrayStore::Unescape(rest.substr(0, tab));
-            item.text = FileTrayStore::Unescape(rest.substr(tab + 1));
+            item.is_text = true;
+            item.name = file_tray_store::unescape(rest.substr(0, tab));
+            item.text = file_tray_store::unescape(rest.substr(tab + 1));
             if (item.text.empty()) continue;
             if (item.name.empty()) item.name = L"Text";
         } else if (line[0] == 'F') {
-            item.path = FileTrayStore::Unescape(line.substr(2));
+            item.path = file_tray_store::unescape(line.substr(2));
             if (item.path.empty()) continue;
-            item.name = BaseNameFromPath(item.path);
+            item.name = base_name_from_path(item.path);
             if (item.name.empty()) item.name = item.path;
 
             WIN32_FILE_ATTRIBUTE_DATA attr = {};
             const bool exists =
                 GetFileAttributesExW(item.path.c_str(), GetFileExInfoStandard, &attr) != 0;
             if (exists) {
-                item.isDirectory = (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-                item.sizeBytes =
+                item.is_directory = (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+                item.size_bytes =
                     (static_cast<uint64_t>(attr.nFileSizeHigh) << 32) | attr.nFileSizeLow;
             }
 
@@ -240,7 +240,7 @@ void LoadFileTray() {
             if (SHGetFileInfoW(item.path.c_str(), exists ? 0 : FILE_ATTRIBUTE_NORMAL, &info,
                                sizeof(info), flags) &&
                 info.hIcon) {
-                item.icon = IconToPixelsRef(info.hIcon, 32);
+                item.icon = icon_to_pixels_ref(info.hIcon, 32);
                 DestroyIcon(info.hIcon);
             }
         } else {
@@ -253,20 +253,20 @@ void LoadFileTray() {
         return;
     }
 
-    std::lock_guard lock(g_stateMutex);
-    auto& items = g_state.fileTrayItems;
+    std::lock_guard lock(g_state_mutex);
+    auto& items = g_state.file_tray_items;
     // Saved items are older than anything dropped since startup, so they go in front.
     items.insert(items.begin(), std::make_move_iterator(loaded.begin()),
                  std::make_move_iterator(loaded.end()));
-    while (items.size() > static_cast<size_t>(maxItems)) {
+    while (items.size() > static_cast<size_t>(max_items)) {
         items.erase(items.begin());
     }
     host::log(L"File Tray: restored %zu item(s).", items.size());
 }
 
-bool TrayModuleEnabled() {
-    std::lock_guard lock(g_settingsMutex);
-    return g_settings.fileTrayModule;
+bool tray_module_enabled() {
+    std::lock_guard lock(g_settings_mutex);
+    return g_settings.file_tray_module;
 }
 
 
@@ -274,11 +274,11 @@ namespace
 {
 
 
-void AddPathsToFileTrayCore(const std::vector<std::wstring>& paths) {
-    int maxItems = 10;
+void add_paths_to_file_tray_core(const std::vector<std::wstring>& paths) {
+    int max_items = 10;
     {
-        std::lock_guard lock(g_settingsMutex);
-        maxItems = std::max(1, g_settings.fileTrayMaxItems);
+        std::lock_guard lock(g_settings_mutex);
+        max_items = std::max(1, g_settings.file_tray_max_items);
     }
 
     std::vector<FileTrayItem> added;
@@ -286,20 +286,20 @@ void AddPathsToFileTrayCore(const std::vector<std::wstring>& paths) {
     for (const std::wstring& path : paths) {
         FileTrayItem item;
         item.path = path;
-        item.name = BaseNameFromPath(path);
+        item.name = base_name_from_path(path);
         if (item.name.empty()) {
             item.name = path;
         }
 
         WIN32_FILE_ATTRIBUTE_DATA attr = {};
         if (GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &attr)) {
-            item.isDirectory = (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-            item.sizeBytes = (static_cast<uint64_t>(attr.nFileSizeHigh) << 32) | attr.nFileSizeLow;
+            item.is_directory = (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+            item.size_bytes = (static_cast<uint64_t>(attr.nFileSizeHigh) << 32) | attr.nFileSizeLow;
         }
 
         SHFILEINFOW info = {};
         if (SHGetFileInfoW(path.c_str(), 0, &info, sizeof(info), SHGFI_ICON | SHGFI_LARGEICON) && info.hIcon) {
-            item.icon = IconToPixelsRef(info.hIcon, 32);
+            item.icon = icon_to_pixels_ref(info.hIcon, 32);
             DestroyIcon(info.hIcon);
         }
         added.push_back(std::move(item));
@@ -309,20 +309,20 @@ void AddPathsToFileTrayCore(const std::vector<std::wstring>& paths) {
         return;
     }
 
-    std::lock_guard lock(g_stateMutex);
+    std::lock_guard lock(g_state_mutex);
     for (auto& item : added) {
         // Re-dropping a file promotes the existing entry instead of duplicating it.
-        auto existing = std::find_if(g_state.fileTrayItems.begin(), g_state.fileTrayItems.end(),
+        auto existing = std::find_if(g_state.file_tray_items.begin(), g_state.file_tray_items.end(),
                                      [&](const FileTrayItem& other) {
                                          return _wcsicmp(other.path.c_str(), item.path.c_str()) == 0;
                                      });
-        if (existing != g_state.fileTrayItems.end()) {
-            g_state.fileTrayItems.erase(existing);
+        if (existing != g_state.file_tray_items.end()) {
+            g_state.file_tray_items.erase(existing);
         }
-        g_state.fileTrayItems.push_back(std::move(item));
+        g_state.file_tray_items.push_back(std::move(item));
     }
-    while (g_state.fileTrayItems.size() > static_cast<size_t>(maxItems)) {
-        g_state.fileTrayItems.erase(g_state.fileTrayItems.begin());
+    while (g_state.file_tray_items.size() > static_cast<size_t>(max_items)) {
+        g_state.file_tray_items.erase(g_state.file_tray_items.begin());
     }
 }
 
@@ -332,9 +332,9 @@ void AddPathsToFileTrayCore(const std::vector<std::wstring>& paths) {
 
 // Adds files and persists the result. Callers use this; the Core version above
 // only changes the in-memory list.
-void AddPathsToFileTray(const std::vector<std::wstring>& paths) {
-    AddPathsToFileTrayCore(paths);
-    SaveFileTray();
+void add_paths_to_file_tray(const std::vector<std::wstring>& paths) {
+    add_paths_to_file_tray_core(paths);
+    save_file_tray();
 }
 
 
@@ -342,24 +342,24 @@ namespace
 {
 
 
-void RemoveFileTrayItemByPath(const std::wstring& path) {
+void remove_file_tray_item_by_path(const std::wstring& path) {
     {
-        std::lock_guard lock(g_stateMutex);
-        auto& items = g_state.fileTrayItems;
+        std::lock_guard lock(g_state_mutex);
+        auto& items = g_state.file_tray_items;
         items.erase(std::remove_if(items.begin(), items.end(),
                                    [&](const FileTrayItem& item) {
                                        return _wcsicmp(item.path.c_str(), path.c_str()) == 0;
                                    }),
                     items.end());
     }
-    SaveFileTray();
+    save_file_tray();
 }
 
 }
 
 
 
-bool ExtractDropPaths(IDataObject* data, std::vector<std::wstring>* out) {
+bool extract_drop_paths(IDataObject* data, std::vector<std::wstring>* out) {
     if (!data || !out) {
         return false;
     }
@@ -390,35 +390,35 @@ namespace
 {
 
 
-void AddTextToFileTray(const std::wstring& rawText) {
-    std::wstring text = rawText;
+void add_text_to_file_tray(const std::wstring& raw_text) {
+    std::wstring text = raw_text;
     while (!text.empty() && iswspace(text.back())) {
         text.pop_back();
     }
     if (text.empty()) {
         return;
     }
-    constexpr size_t kMaxChars = 100000;
-    if (text.size() > kMaxChars) {
-        text.resize(kMaxChars);
+    constexpr size_t k_max_chars = 100000;
+    if (text.size() > k_max_chars) {
+        text.resize(k_max_chars);
     }
 
     // One-line preview for the row: whitespace collapsed, capped.
-    constexpr size_t kPreviewChars = 60;
+    constexpr size_t preview_chars = 60;
     std::wstring preview;
-    bool lastSpace = true;
+    bool last_space = true;
     bool truncated = false;
     for (wchar_t ch : text) {
         if (ch == L'\r' || ch == L'\n' || ch == L'\t') {
             ch = L' ';
         }
         if (ch == L' ') {
-            if (lastSpace) continue;
-            lastSpace = true;
+            if (last_space) continue;
+            last_space = true;
         } else {
-            lastSpace = false;
+            last_space = false;
         }
-        if (preview.size() >= kPreviewChars) {
+        if (preview.size() >= preview_chars) {
             truncated = true;
             break;
         }
@@ -431,27 +431,27 @@ void AddTextToFileTray(const std::wstring& rawText) {
         preview += L"...";
     }
 
-    int maxItems = 10;
+    int max_items = 10;
     {
-        std::lock_guard lock(g_settingsMutex);
-        maxItems = std::max(1, g_settings.fileTrayMaxItems);
+        std::lock_guard lock(g_settings_mutex);
+        max_items = std::max(1, g_settings.file_tray_max_items);
     }
 
     FileTrayItem item;
-    item.isText = true;
+    item.is_text = true;
     item.text = std::move(text);
     item.name = preview.empty() ? std::wstring(L"Text") : preview;
 
-    std::lock_guard lock(g_stateMutex);
-    auto& items = g_state.fileTrayItems;
+    std::lock_guard lock(g_state_mutex);
+    auto& items = g_state.file_tray_items;
     // Pasting the same snippet again promotes it instead of duplicating it.
     items.erase(std::remove_if(items.begin(), items.end(),
                                [&](const FileTrayItem& other) {
-                                   return other.isText && other.text == item.text;
+                                   return other.is_text && other.text == item.text;
                                }),
                 items.end());
     items.push_back(std::move(item));
-    while (items.size() > static_cast<size_t>(maxItems)) {
+    while (items.size() > static_cast<size_t>(max_items)) {
         items.erase(items.begin());
     }
 }
@@ -460,7 +460,7 @@ void AddTextToFileTray(const std::wstring& rawText) {
 
 
 
-void CopyTextToClipboard(HWND hwnd, const std::wstring& text) {
+void copy_text_to_clipboard(HWND hwnd, const std::wstring& text) {
     if (text.empty() || !OpenClipboard(hwnd)) {
         return;
     }
@@ -484,7 +484,7 @@ void CopyTextToClipboard(HWND hwnd, const std::wstring& text) {
 
 // Pastes whatever is on the clipboard into the tray: copied files first
 // (as references), otherwise copied text.
-void PasteIntoFileTray(HWND hwnd) {
+void paste_into_file_tray(HWND hwnd) {
     std::vector<std::wstring> paths;
     if (OpenClipboard(hwnd)) {
         HANDLE data = GetClipboardData(CF_HDROP);
@@ -505,22 +505,22 @@ void PasteIntoFileTray(HWND hwnd) {
     }
 
     if (!paths.empty()) {
-        AddPathsToFileTray(paths);
+        add_paths_to_file_tray(paths);
     } else {
-        AddTextToFileTray(ReadClipboardText(hwnd));
-        SaveFileTray();
+        add_text_to_file_tray(read_clipboard_text(hwnd));
+        save_file_tray();
     }
 
-    const int tab = FileTrayTabIndex(GetSettingsCopy());
+    const int tab = file_tray_tab_index(get_settings_copy());
     if (tab >= 0) {
-        g_idleTab = tab;
+        g_idle_tab = tab;
     }
-    g_clickExpanded = true;
-    g_layoutDirty = true;
-    TriggerNudge();
+    g_click_expanded = true;
+    g_layout_dirty = true;
+    trigger_nudge();
 }
 
-DWORD PickTrayDropEffect(DWORD allowed) {
+DWORD pick_tray_drop_effect(DWORD allowed) {
     // The tray only references files, so never ask the source to move them.
     if (allowed & DROPEFFECT_COPY) return DROPEFFECT_COPY;
     if (allowed & DROPEFFECT_LINK) return DROPEFFECT_LINK;
@@ -550,9 +550,9 @@ class TrayDropSource final : public IDropSource {
         if (r == 0) delete this;
         return static_cast<ULONG>(r);
     }
-    STDMETHODIMP QueryContinueDrag(BOOL escPressed, DWORD keyState) override {
-        if (escPressed) return DRAGDROP_S_CANCEL;
-        if (!(keyState & MK_LBUTTON)) return DRAGDROP_S_DROP;
+    STDMETHODIMP QueryContinueDrag(BOOL esc_pressed, DWORD key_state) override {
+        if (esc_pressed) return DRAGDROP_S_CANCEL;
+        if (!(key_state & MK_LBUTTON)) return DRAGDROP_S_DROP;
         return S_OK;
     }
     STDMETHODIMP GiveFeedback(DWORD) override { return DRAGDROP_S_USEDEFAULTCURSORS; }
@@ -563,7 +563,7 @@ class TrayDropSource final : public IDropSource {
 
 // Builds the same data object Explorer would hand out for this file, so any
 // app, folder or the desktop accepts it as a normal file drag.
-bool CreateFileDataObject(const std::wstring& path, IDataObject** out) {
+bool create_file_data_object(const std::wstring& path, IDataObject** out) {
     *out = nullptr;
     PIDLIST_ABSOLUTE pidl = nullptr;
     if (FAILED(SHParseDisplayName(path.c_str(), nullptr, &pidl, 0, nullptr)) || !pidl) {
@@ -586,39 +586,39 @@ bool CreateFileDataObject(const std::wstring& path, IDataObject** out) {
 
 
 // Blocks (modal OLE loop) until the drag finishes.
-void StartFileTrayDrag(const std::wstring& path) {
-    ComPtr<IDataObject> dataObject;
-    if (!CreateFileDataObject(path, dataObject.GetAddressOf())) {
+void start_file_tray_drag(const std::wstring& path) {
+    ComPtr<IDataObject> data_object;
+    if (!create_file_data_object(path, data_object.GetAddressOf())) {
         return;
     }
 
     ComPtr<IDropSource> source;
     source.Attach(new TrayDropSource());
 
-    constexpr DWORD kOkEffects = DROPEFFECT_COPY | DROPEFFECT_LINK;
+    constexpr DWORD ok_effects = DROPEFFECT_COPY | DROPEFFECT_LINK;
     DWORD effect = DROPEFFECT_NONE;
 
     // SHDoDragDrop adds the normal Explorer drag image (thumbnail + name).
     // Resolved dynamically; plain DoDragDrop is the fallback.
-    using SHDoDragDrop_t = HRESULT(WINAPI*)(HWND, IDataObject*, IDropSource*, DWORD, DWORD*);
-    static const auto pSHDoDragDrop = reinterpret_cast<SHDoDragDrop_t>(
+    using ShDoDragDropT = HRESULT(WINAPI*)(HWND, IDataObject*, IDropSource*, DWORD, DWORD*);
+    static const auto p_sh_do_drag_drop = reinterpret_cast<ShDoDragDropT>(
         GetProcAddress(GetModuleHandleW(L"shell32.dll"), "SHDoDragDrop"));
 
-    g_trayInternalDrag = true;
-    if (pSHDoDragDrop) {
-        pSHDoDragDrop(nullptr, dataObject.Get(), source.Get(), kOkEffects, &effect);
+    g_tray_internal_drag = true;
+    if (p_sh_do_drag_drop) {
+        p_sh_do_drag_drop(nullptr, data_object.Get(), source.Get(), ok_effects, &effect);
     } else {
-        DoDragDrop(dataObject.Get(), source.Get(), kOkEffects, &effect);
+        DoDragDrop(data_object.Get(), source.Get(), ok_effects, &effect);
     }
-    g_trayInternalDrag = false;
+    g_tray_internal_drag = false;
 
-    g_hoveredFileTrayRow = -1;
-    g_hoveredFileTrayAction = -1;
-    g_layoutDirty = true;
+    g_hovered_file_tray_row = -1;
+    g_hovered_file_tray_action = -1;
+    g_layout_dirty = true;
 
     // File was moved away by the target: its tray entry is now stale.
     if (effect != DROPEFFECT_NONE && GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES) {
-        RemoveFileTrayItemByPath(path);
+        remove_file_tray_item_by_path(path);
     }
 }
 

@@ -15,7 +15,7 @@ namespace island
 {
 
 
-std::wstring LookupTypedQuery(const LookupUiState& ui) {
+std::wstring lookup_typed_query(const LookupUiState& ui) {
     const size_t a = ui.text.find_first_not_of(L" \t");
     if (a == std::wstring::npos) {
         return std::wstring();
@@ -24,21 +24,21 @@ std::wstring LookupTypedQuery(const LookupUiState& ui) {
     return ui.text.substr(a, b - a + 1);
 }
 
-std::vector<LookupRow> BuildLookupRows(const std::vector<LookupRecent>& recents,
+std::vector<LookupRow> build_lookup_rows(const std::vector<LookupRecent>& recents,
                                        const LookupUiState& ui) {
     std::vector<LookupRow> rows;
-    const size_t cap = static_cast<size_t>(LookupLayout::kMaxRows);
-    const std::wstring typed = LookupTypedQuery(ui);
+    const size_t cap = static_cast<size_t>(lookup_layout::max_rows);
+    const std::wstring typed = lookup_typed_query(ui);
 
     if (typed.empty()) {
-        const std::wstring clipKey = ToLowerCopy(ui.clipboardQuery);
-        if (!ui.clipboardQuery.empty()) {
-            rows.push_back({LookupRowKind::Clipboard, ui.clipboardQuery, ui.clipboardQuery,
-                            Loc(L"Clipboard")});
+        const std::wstring clip_key = to_lower_copy(ui.clipboard_query);
+        if (!ui.clipboard_query.empty()) {
+            rows.push_back({LookupRowKind::Clipboard, ui.clipboard_query, ui.clipboard_query,
+                            loc(L"Clipboard")});
         }
         for (const LookupRecent& r : recents) {
             if (rows.size() >= cap) break;
-            if (!clipKey.empty() && ToLowerCopy(r.query) == clipKey) continue;
+            if (!clip_key.empty() && to_lower_copy(r.query) == clip_key) continue;
             rows.push_back({LookupRowKind::Recent, r.query,
                             r.title.empty() ? r.query : r.title, r.detail});
         }
@@ -46,13 +46,13 @@ std::vector<LookupRow> BuildLookupRows(const std::vector<LookupRecent>& recents,
     }
 
     rows.push_back({LookupRowKind::Typed, typed, typed, std::wstring()});
-    const std::wstring needle = ToLowerCopy(typed);
+    const std::wstring needle = to_lower_copy(typed);
     for (const LookupRecent& r : recents) {
         if (rows.size() >= cap) break;
-        const std::wstring q = ToLowerCopy(r.query);
+        const std::wstring q = to_lower_copy(r.query);
         if (q == needle) continue;  // the Typed row already covers it
         if (q.find(needle) == std::wstring::npos &&
-            ToLowerCopy(r.title).find(needle) == std::wstring::npos) {
+            to_lower_copy(r.title).find(needle) == std::wstring::npos) {
             continue;
         }
         rows.push_back({LookupRowKind::Recent, r.query,
@@ -66,28 +66,28 @@ namespace
 {
 
 
-inline bool LookupFieldHitTest(const MediaContentPoint& pt) {
-    return pt.valid && pt.x >= LookupLayout::kPadX && pt.x <= pt.width - LookupLayout::kPadX &&
-           pt.y >= LookupLayout::kFieldTop &&
-           pt.y <= LookupLayout::kFieldTop + LookupLayout::kFieldH;
+inline bool lookup_field_hit_test(const MediaContentPoint& pt) {
+    return pt.valid && pt.x >= lookup_layout::k_pad_x && pt.x <= pt.width - lookup_layout::k_pad_x &&
+           pt.y >= lookup_layout::field_top &&
+           pt.y <= lookup_layout::field_top + lookup_layout::field_h;
 }
 
-inline bool LookupClearHitTest(const MediaContentPoint& pt) {
-    return pt.valid && pt.x >= pt.width - LookupLayout::kPadX - 64.0f &&
-           pt.x <= pt.width - LookupLayout::kPadX &&
-           pt.y >= LookupLayout::kBelowField - 3.0f &&
-           pt.y <= LookupLayout::kBelowField + LookupLayout::kSectionH + 3.0f;
+inline bool lookup_clear_hit_test(const MediaContentPoint& pt) {
+    return pt.valid && pt.x >= pt.width - lookup_layout::k_pad_x - 64.0f &&
+           pt.x <= pt.width - lookup_layout::k_pad_x &&
+           pt.y >= lookup_layout::below_field - 3.0f &&
+           pt.y <= lookup_layout::below_field + lookup_layout::section_h + 3.0f;
 }
 
-int LookupRowAtContentPoint(const MediaContentPoint& pt, int rowCount, bool header) {
-    if (!pt.valid || rowCount <= 0) return -1;
-    if (pt.x < LookupLayout::kPadX || pt.x > pt.width - LookupLayout::kPadX) return -1;
-    const float y = pt.y - LookupLayout::RowsTop(header);
+int lookup_row_at_content_point(const MediaContentPoint& pt, int row_count, bool header) {
+    if (!pt.valid || row_count <= 0) return -1;
+    if (pt.x < lookup_layout::k_pad_x || pt.x > pt.width - lookup_layout::k_pad_x) return -1;
+    const float y = pt.y - lookup_layout::rows_top(header);
     if (y < 0.0f) return -1;
-    const float stride = LookupLayout::kRowH + LookupLayout::kRowGap;
+    const float stride = lookup_layout::k_row_h + lookup_layout::k_row_gap;
     const int index = static_cast<int>(y / stride);
-    if (index >= rowCount) return -1;
-    if (y - static_cast<float>(index) * stride > LookupLayout::kRowH) return -1;
+    if (index >= row_count) return -1;
+    if (y - static_cast<float>(index) * stride > lookup_layout::k_row_h) return -1;
     return index;
 }
 
@@ -112,30 +112,30 @@ int LookupRowAtContentPoint(const MediaContentPoint& pt, int rowCount, bool head
 // and add one line to LookupText().
 
 // Wikimedia asks API clients to send a descriptive User-Agent with contact info.
-constexpr wchar_t kLookupUserAgent[] =
+constexpr wchar_t lookup_user_agent[] =
     L"DynamicIslandForWindows/" ISLAND_VERSION L" (https://github.com/devcode90/Dynamic-Island-for-Windows) QuickLookup";
 
 // Bumped for every new request AND when the card is dismissed. A worker only
 // publishes if its id is still current, so a slow reply can never resurrect a card
 // the user already closed. Only changed or compared while holding g_stateMutex.
-std::atomic<uint64_t> g_lookupRequestSeq{0};
-bool g_lookupHotkeyRegistered = false;
+std::atomic<uint64_t> g_lookup_request_seq{0};
+bool g_lookup_hotkey_registered = false;
 
 }
 
-namespace QuickLookup
+namespace quick_lookup
 {
 namespace
 {
 
-constexpr double kResultSeconds = kPanelIdleSeconds;
-constexpr double kMessageSeconds = kPanelIdleSeconds;
-constexpr size_t kRecentCapacity = 12;
-constexpr double kLoadingTimeoutSeconds = 30.0;  // upper bound for "Looking up..."
-constexpr size_t kMaxBodyChars = 360;            // pre-cap on a definition
-constexpr size_t kMaxExtractSentences = 3;
-constexpr size_t kMaxExtractChars = 320;
-constexpr size_t kCacheCapacity = 40;
+constexpr double result_seconds = panel_idle_seconds;
+constexpr double message_seconds = panel_idle_seconds;
+constexpr size_t recent_capacity = 12;
+constexpr double loading_timeout_seconds = 30.0;  // upper bound for "Looking up..."
+constexpr size_t k_max_body_chars = 360;            // pre-cap on a definition
+constexpr size_t max_extract_sentences = 3;
+constexpr size_t max_extract_chars = 320;
+constexpr size_t cache_capacity = 40;
 
 struct Result {
     std::wstring title;
@@ -152,27 +152,27 @@ enum class Outcome { Found, NotFound, Failed };
 }
 }
 
-namespace QuickLookup
+namespace quick_lookup
 {
 
 
 // ---- text helpers -------------------------------------------------------------
 // Collapses runs of whitespace (including newlines and NBSP) into single spaces.
 // Stops once the result is longer than maxChars, so a huge clipboard stays cheap.
-std::wstring CollapseWhitespace(const std::wstring& in, size_t maxChars) {
+std::wstring collapse_whitespace(const std::wstring& in, size_t max_chars) {
     std::wstring out;
-    bool pendingSpace = false;
+    bool pending_space = false;
     for (wchar_t ch : in) {
         if (iswspace(ch) || ch == 0x00A0 || ch == L'\0') {
-            pendingSpace = !out.empty();
+            pending_space = !out.empty();
             continue;
         }
-        if (pendingSpace) {
+        if (pending_space) {
             out.push_back(L' ');
-            pendingSpace = false;
+            pending_space = false;
         }
         out.push_back(ch);
-        if (out.size() > maxChars) {
+        if (out.size() > max_chars) {
             break;
         }
     }
@@ -181,35 +181,35 @@ std::wstring CollapseWhitespace(const std::wstring& in, size_t maxChars) {
 
 }
 
-namespace QuickLookup
+namespace quick_lookup
 {
 namespace
 {
 
 
-bool IsEdgePunct(wchar_t c) {
+bool is_edge_punct(wchar_t c) {
     return c != 0 && wcschr(L".,;:!?\"'()[]{}<>\u201c\u201d\u2018\u2019\u00ab\u00bb", c) != nullptr;
 }
 
 }
 }
 
-namespace QuickLookup
+namespace quick_lookup
 {
 
 
 // Clipboard text -> lookup query. Too-long text is returned still too long (one
 // char over the limit) so the caller can reject it instead of silently truncating.
-std::wstring NormalizeQuery(const std::wstring& raw) {
-    std::wstring text = CollapseWhitespace(raw, kMaxQueryChars);
-    if (text.size() > kMaxQueryChars) {
+std::wstring normalize_query(const std::wstring& raw) {
+    std::wstring text = collapse_whitespace(raw, max_query_chars);
+    if (text.size() > max_query_chars) {
         return text;
     }
     // "hello," / (hello) / “hello” -> hello
-    while (!text.empty() && (IsEdgePunct(text.front()) || text.front() == L' ')) {
+    while (!text.empty() && (is_edge_punct(text.front()) || text.front() == L' ')) {
         text.erase(text.begin());
     }
-    while (!text.empty() && (IsEdgePunct(text.back()) || text.back() == L' ')) {
+    while (!text.empty() && (is_edge_punct(text.back()) || text.back() == L' ')) {
         text.pop_back();
     }
     return text;
@@ -217,20 +217,20 @@ std::wstring NormalizeQuery(const std::wstring& raw) {
 
 }
 
-namespace QuickLookup
+namespace quick_lookup
 {
 namespace
 {
 
 
 // Cuts to maxChars on a word boundary and appends an ellipsis.
-std::wstring ClipToChars(std::wstring text, size_t maxChars) {
-    if (text.size() <= maxChars) {
+std::wstring clip_to_chars(std::wstring text, size_t max_chars) {
+    if (text.size() <= max_chars) {
         return text;
     }
-    text.resize(maxChars);
+    text.resize(max_chars);
     const size_t space = text.find_last_of(L' ');
-    if (space != std::wstring::npos && space > maxChars / 2) {
+    if (space != std::wstring::npos && space > max_chars / 2) {
         text.resize(space);
     }
     while (!text.empty() && (iswspace(text.back()) || text.back() == L',' ||
@@ -244,35 +244,35 @@ std::wstring ClipToChars(std::wstring text, size_t maxChars) {
     return text;
 }
 
-std::wstring TitleCase(std::wstring text) {
-    bool wordStart = true;
+std::wstring title_case(std::wstring text) {
+    bool word_start = true;
     for (wchar_t& c : text) {
         if (c == L' ') {
-            wordStart = true;
+            word_start = true;
         } else {
-            if (wordStart) {
+            if (word_start) {
                 c = static_cast<wchar_t>(towupper(c));
             }
-            wordStart = false;
+            word_start = false;
         }
     }
     return text;
 }
 
-bool IsSentenceCloser(wchar_t c) {
+bool is_sentence_closer(wchar_t c) {
     return c == L'"' || c == L'\'' || c == L')' || c == L'\u201d' || c == L'\u2019';
 }
 
 // A '.', '!' or '?' ends a sentence only when whitespace and then a capital, digit
 // or opening quote follow, and (for '.') the word before it isn't an initial or a
 // common abbreviation. Good enough for encyclopedia text, not a full tokenizer.
-bool IsSentenceEnd(const std::wstring& t, size_t i) {
+bool is_sentence_end(const std::wstring& t, size_t i) {
     const wchar_t c = t[i];
     if (c != L'.' && c != L'!' && c != L'?') {
         return false;
     }
     size_t j = i + 1;
-    while (j < t.size() && IsSentenceCloser(t[j])) {
+    while (j < t.size() && is_sentence_closer(t[j])) {
         ++j;
     }
     if (j >= t.size()) {
@@ -298,14 +298,14 @@ bool IsSentenceEnd(const std::wstring& t, size_t i) {
     while (s > 0 && iswalpha(t[s - 1])) {
         --s;
     }
-    const std::wstring word = ToLowerCopy(t.substr(s, i - s));
+    const std::wstring word = to_lower_copy(t.substr(s, i - s));
     if (word.size() == 1) {
         return false;  // initials: "J. R. R. Tolkien"
     }
-    static const wchar_t* const kAbbrev[] = {
+    static const wchar_t* const k_abbrev[] = {
         L"mr", L"mrs", L"ms", L"dr", L"prof", L"st", L"jr", L"sr", L"vs", L"inc", L"ltd",
         L"co", L"no", L"ca", L"approx", L"mt", L"gen", L"col", L"lt", L"sgt", L"rev", L"fig", L"vol"};
-    for (const wchar_t* abbrev : kAbbrev) {
+    for (const wchar_t* abbrev : k_abbrev) {
         if (word == abbrev) {
             return false;
         }
@@ -315,54 +315,54 @@ bool IsSentenceEnd(const std::wstring& t, size_t i) {
 
 // First `maxSentences` sentences, but stops early rather than exceed maxChars
 // (the first sentence is always kept, clipped if it alone is too long).
-std::wstring FirstSentences(const std::wstring& text, size_t maxSentences, size_t maxChars) {
+std::wstring first_sentences(const std::wstring& text, size_t max_sentences, size_t max_chars) {
     size_t sentences = 0;
-    size_t acceptedEnd = 0;
-    for (size_t i = 0; i < text.size() && sentences < maxSentences; ++i) {
-        if (!IsSentenceEnd(text, i)) {
+    size_t accepted_end = 0;
+    for (size_t i = 0; i < text.size() && sentences < max_sentences; ++i) {
+        if (!is_sentence_end(text, i)) {
             continue;
         }
         size_t end = i + 1;
-        while (end < text.size() && IsSentenceCloser(text[end])) {
+        while (end < text.size() && is_sentence_closer(text[end])) {
             ++end;
         }
-        if (sentences > 0 && end > maxChars) {
+        if (sentences > 0 && end > max_chars) {
             break;
         }
-        acceptedEnd = end;
+        accepted_end = end;
         ++sentences;
         i = end - 1;
     }
-    if (acceptedEnd == 0) {
-        acceptedEnd = text.size();  // no sentence boundary found: use it all, clipped
+    if (accepted_end == 0) {
+        accepted_end = text.size();  // no sentence boundary found: use it all, clipped
     }
-    std::wstring out = text.substr(0, acceptedEnd);
+    std::wstring out = text.substr(0, accepted_end);
     while (!out.empty() && iswspace(out.back())) {
         out.pop_back();
     }
-    return ClipToChars(out, maxChars);
+    return clip_to_chars(out, max_chars);
 }
 
 // ---- JSON helper (same string-find style as the lyrics code) --------------------
 // Returns the balanced {...} object that starts at `open`, string- and escape-aware.
-std::string BalancedObjectAt(const std::string& json, size_t open) {
+std::string balanced_object_at(const std::string& json, size_t open) {
     int depth = 0;
-    bool inString = false;
+    bool in_string = false;
     bool escaped = false;
     for (size_t i = open; i < json.size(); ++i) {
         const char c = json[i];
-        if (inString) {
+        if (in_string) {
             if (escaped) {
                 escaped = false;
             } else if (c == '\\') {
                 escaped = true;
             } else if (c == '"') {
-                inString = false;
+                in_string = false;
             }
             continue;
         }
         if (c == '"') {
-            inString = true;
+            in_string = true;
         } else if (c == '{') {
             ++depth;
         } else if (c == '}') {
@@ -381,16 +381,16 @@ struct CacheEntry {
     Result result;
 };
 
-std::mutex g_cacheMutex;
+std::mutex g_cache_mutex;
 
-std::vector<CacheEntry>& Cache() {
+std::vector<CacheEntry>& lookup_cache() {
     static std::vector<CacheEntry> cache;
     return cache;
 }
 
-bool CacheLookup(const std::wstring& key, bool* found, Result* out) {
-    std::lock_guard lock(g_cacheMutex);
-    auto& cache = Cache();
+bool cache_lookup(const std::wstring& key, bool* found, Result* out) {
+    std::lock_guard lock(g_cache_mutex);
+    auto& cache = lookup_cache();
     for (size_t i = cache.size(); i-- > 0;) {
         if (cache[i].key == key) {
             *found = cache[i].found;
@@ -403,9 +403,9 @@ bool CacheLookup(const std::wstring& key, bool* found, Result* out) {
     return false;
 }
 
-void CacheStore(const std::wstring& key, bool found, const Result& result) {
-    std::lock_guard lock(g_cacheMutex);
-    auto& cache = Cache();
+void cache_store(const std::wstring& key, bool found, const Result& result) {
+    std::lock_guard lock(g_cache_mutex);
+    auto& cache = lookup_cache();
     cache.erase(std::remove_if(cache.begin(), cache.end(),
                                [&](const CacheEntry& e) { return e.key == key; }),
                 cache.end());
@@ -414,7 +414,7 @@ void CacheStore(const std::wstring& key, bool found, const Result& result) {
     entry.found = found;
     entry.result = result;
     cache.push_back(std::move(entry));
-    while (cache.size() > kCacheCapacity) {
+    while (cache.size() > cache_capacity) {
         cache.erase(cache.begin());
     }
 }
@@ -423,77 +423,77 @@ void CacheStore(const std::wstring& key, bool found, const Result& result) {
 // https://api.dictionaryapi.dev/api/v2/entries/en/<word>
 // Shape: [{"word":..,"phonetic":..,"phonetics":[{"text":..}],
 //          "meanings":[{"partOfSpeech":..,"definitions":[{"definition":..,"example":..}]}]}]
-Outcome LookupDictionary(const std::wstring& word, Result* out) {
+Outcome lookup_dictionary(const std::wstring& word, Result* out) {
     const std::wstring path =
-        L"/api/v2/entries/en/" + AsciiToWide(UrlEncodeComponent(ToLowerCopy(word)));
-    const HttpResult res = HttpGetEx(L"api.dictionaryapi.dev", path.c_str(), true, kLookupUserAgent);
-    if (!res.IsDefinitive()) {
+        L"/api/v2/entries/en/" + ascii_to_wide(url_encode_component(to_lower_copy(word)));
+    const HttpResult res = http_get_ex(L"api.dictionaryapi.dev", path.c_str(), true, lookup_user_agent);
+    if (!res.is_definitive()) {
         return Outcome::Failed;
     }
     if (res.status != 200) {
         return Outcome::NotFound;
     }
 
-    const std::vector<std::string> entries = SplitJsonObjectArray(res.body);
+    const std::vector<std::string> entries = split_json_object_array(res.body);
     if (entries.empty()) {
         return Outcome::NotFound;
     }
     const std::string& entry = entries.front();
 
-    std::string wordRaw, phoneticRaw;
-    ExtractJsonStringField(entry, "word", &wordRaw);
-    if (!ExtractJsonStringField(entry, "phonetic", &phoneticRaw) || phoneticRaw.empty()) {
-        phoneticRaw.clear();
-        ExtractJsonStringField(entry, "text", &phoneticRaw);  // first phonetics[].text
+    std::string word_raw, phonetic_raw;
+    extract_json_string_field(entry, "word", &word_raw);
+    if (!extract_json_string_field(entry, "phonetic", &phonetic_raw) || phonetic_raw.empty()) {
+        phonetic_raw.clear();
+        extract_json_string_field(entry, "text", &phonetic_raw);  // first phonetics[].text
     }
 
     // First meaning's part of speech, then the first definition object after it.
-    const size_t meaningsPos = entry.find("\"meanings\":[");
-    if (meaningsPos == std::string::npos) {
+    const size_t meanings_pos = entry.find("\"meanings\":[");
+    if (meanings_pos == std::string::npos) {
         return Outcome::NotFound;
     }
-    std::string posRaw;
-    const size_t posKey = entry.find("\"partOfSpeech\":\"", meaningsPos);
-    if (posKey != std::string::npos) {
-        ExtractJsonStringField(entry.substr(posKey), "partOfSpeech", &posRaw);
+    std::string pos_raw;
+    const size_t pos_key = entry.find("\"partOfSpeech\":\"", meanings_pos);
+    if (pos_key != std::string::npos) {
+        extract_json_string_field(entry.substr(pos_key), "partOfSpeech", &pos_raw);
     }
-    const size_t defKey =
-        entry.find("\"definition\":\"", posKey != std::string::npos ? posKey : meaningsPos);
-    if (defKey == std::string::npos) {
+    const size_t def_key =
+        entry.find("\"definition\":\"", pos_key != std::string::npos ? pos_key : meanings_pos);
+    if (def_key == std::string::npos) {
         return Outcome::NotFound;
     }
 
     // Bound the search to this one definition object so a later definition's
     // "example" is never attributed to the first one.
-    const size_t defOpen = entry.rfind('{', defKey);
-    const std::string defObject = defOpen != std::string::npos ? BalancedObjectAt(entry, defOpen)
-                                                               : entry.substr(defKey);
-    std::string defRaw, exampleRaw;
-    ExtractJsonStringField(defObject, "definition", &defRaw);
-    ExtractJsonStringField(defObject, "example", &exampleRaw);
+    const size_t def_open = entry.rfind('{', def_key);
+    const std::string def_object = def_open != std::string::npos ? balanced_object_at(entry, def_open)
+                                                               : entry.substr(def_key);
+    std::string def_raw, example_raw;
+    extract_json_string_field(def_object, "definition", &def_raw);
+    extract_json_string_field(def_object, "example", &example_raw);
 
-    const std::wstring definition = CollapseWhitespace(JsonStringUnescape(defRaw));
+    const std::wstring definition = collapse_whitespace(json_string_unescape(def_raw));
     if (definition.empty()) {
         return Outcome::NotFound;
     }
 
     Result r;
-    r.title = CollapseWhitespace(JsonStringUnescape(wordRaw));
+    r.title = collapse_whitespace(json_string_unescape(word_raw));
     if (r.title.empty()) {
         r.title = word;
     }
-    r.subtitle = CollapseWhitespace(JsonStringUnescape(phoneticRaw));
-    const std::wstring pos = CollapseWhitespace(JsonStringUnescape(posRaw));
+    r.subtitle = collapse_whitespace(json_string_unescape(phonetic_raw));
+    const std::wstring pos = collapse_whitespace(json_string_unescape(pos_raw));
     if (!pos.empty()) {
         if (!r.subtitle.empty()) {
             r.subtitle += L"  \u00b7  ";
         }
         r.subtitle += pos;
     }
-    r.body = ClipToChars(definition, kMaxBodyChars);
-    const std::wstring example = CollapseWhitespace(JsonStringUnescape(exampleRaw));
+    r.body = clip_to_chars(definition, k_max_body_chars);
+    const std::wstring example = collapse_whitespace(json_string_unescape(example_raw));
     if (!example.empty()) {
-        r.example = L"\u201c" + ClipToChars(example, 200) + L"\u201d";
+        r.example = L"\u201c" + clip_to_chars(example, 200) + L"\u201d";
     }
     r.source = L"Dictionary";
     *out = std::move(r);
@@ -504,8 +504,8 @@ Outcome LookupDictionary(const std::wstring& word, Result* out) {
 // https://en.wikipedia.org/api/rest_v1/page/summary/<title>
 // Titles are case-sensitive after the first letter, so a miss is retried once in
 // Title Case ("machine learning" -> "Machine Learning").
-Outcome LookupWikipedia(const std::wstring& query, Result* out) {
-    const std::wstring candidates[2] = {query, TitleCase(query)};
+Outcome lookup_wikipedia(const std::wstring& query, Result* out) {
+    const std::wstring candidates[2] = {query, title_case(query)};
     Outcome outcome = Outcome::NotFound;
 
     for (int i = 0; i < 2; ++i) {
@@ -515,35 +515,35 @@ Outcome LookupWikipedia(const std::wstring& query, Result* out) {
         std::wstring title = candidates[i];
         std::replace(title.begin(), title.end(), L' ', L'_');
         const std::wstring path =
-            L"/api/rest_v1/page/summary/" + AsciiToWide(UrlEncodeComponent(title));
+            L"/api/rest_v1/page/summary/" + ascii_to_wide(url_encode_component(title));
 
-        const HttpResult res = HttpGetEx(L"en.wikipedia.org", path.c_str(), true, kLookupUserAgent);
-        if (!res.IsDefinitive()) {
+        const HttpResult res = http_get_ex(L"en.wikipedia.org", path.c_str(), true, lookup_user_agent);
+        if (!res.is_definitive()) {
             return Outcome::Failed;
         }
         if (res.status != 200) {
             continue;  // 404: try the next spelling
         }
 
-        std::string extractRaw, titleRaw, descRaw;
-        if (!ExtractJsonStringField(res.body, "extract", &extractRaw) || extractRaw.empty()) {
+        std::string extract_raw, title_raw, desc_raw;
+        if (!extract_json_string_field(res.body, "extract", &extract_raw) || extract_raw.empty()) {
             continue;
         }
-        ExtractJsonStringField(res.body, "title", &titleRaw);
-        ExtractJsonStringField(res.body, "description", &descRaw);
+        extract_json_string_field(res.body, "title", &title_raw);
+        extract_json_string_field(res.body, "description", &desc_raw);
 
-        const std::wstring extract = CollapseWhitespace(JsonStringUnescape(extractRaw));
+        const std::wstring extract = collapse_whitespace(json_string_unescape(extract_raw));
         if (extract.empty()) {
             continue;
         }
 
         Result r;
-        r.title = CollapseWhitespace(JsonStringUnescape(titleRaw));
+        r.title = collapse_whitespace(json_string_unescape(title_raw));
         if (r.title.empty()) {
             r.title = query;
         }
-        r.subtitle = CollapseWhitespace(JsonStringUnescape(descRaw));
-        r.body = FirstSentences(extract, kMaxExtractSentences, kMaxExtractChars);
+        r.subtitle = collapse_whitespace(json_string_unescape(desc_raw));
+        r.body = first_sentences(extract, max_extract_sentences, max_extract_chars);
         r.source = L"Wikipedia";
         *out = std::move(r);
         return Outcome::Found;
@@ -559,31 +559,31 @@ Outcome LookupWikipedia(const std::wstring& query, Result* out) {
 // Definitions come back as HTML, so tags are stripped and entities decoded.
 
 // Removes <tags>, decodes common HTML entities, collapses whitespace.
-std::wstring StripHtml(const std::wstring& in) {
-    std::wstring noTags;
-    noTags.reserve(in.size());
-    bool inTag = false;
+std::wstring strip_html(const std::wstring& in) {
+    std::wstring no_tags;
+    no_tags.reserve(in.size());
+    bool in_tag = false;
     for (wchar_t c : in) {
         if (c == L'<') {
-            inTag = true;
+            in_tag = true;
             continue;
         }
-        if (c == L'>' && inTag) {
-            inTag = false;
+        if (c == L'>' && in_tag) {
+            in_tag = false;
             continue;
         }
-        if (!inTag) {
-            noTags.push_back(c);
+        if (!in_tag) {
+            no_tags.push_back(c);
         }
     }
 
     std::wstring decoded;
-    decoded.reserve(noTags.size());
-    for (size_t i = 0; i < noTags.size(); ++i) {
-        if (noTags[i] == L'&') {
-            const size_t semi = noTags.find(L';', i);
+    decoded.reserve(no_tags.size());
+    for (size_t i = 0; i < no_tags.size(); ++i) {
+        if (no_tags[i] == L'&') {
+            const size_t semi = no_tags.find(L';', i);
             if (semi != std::wstring::npos && semi - i <= 9) {
-                const std::wstring ent = noTags.substr(i + 1, semi - i - 1);
+                const std::wstring ent = no_tags.substr(i + 1, semi - i - 1);
                 wchar_t rep = 0;
                 if (ent == L"amp") rep = L'&';
                 else if (ent == L"lt") rep = L'<';
@@ -607,19 +607,19 @@ std::wstring StripHtml(const std::wstring& in) {
                 }
             }
         }
-        decoded.push_back(noTags[i]);
+        decoded.push_back(no_tags[i]);
     }
-    return CollapseWhitespace(decoded);
+    return collapse_whitespace(decoded);
 }
 
 // Reads the "en" section of a Wiktionary definition response.
-bool ParseWiktionaryEnglish(const std::string& body, const std::wstring& title, Result* out) {
-    const size_t enKey = body.find("\"en\":[");
-    if (enKey == std::string::npos) {
+bool parse_wiktionary_english(const std::string& body, const std::wstring& title, Result* out) {
+    const size_t en_key = body.find("\"en\":[");
+    if (en_key == std::string::npos) {
         return false;  // the word exists, but only in other languages
     }
 
-    auto skipSeparators = [](const std::string& s, size_t p) {
+    auto skip_separators = [](const std::string& s, size_t p) {
         while (p < s.size() && (s[p] == ' ' || s[p] == ',' || s[p] == '\n' ||
                                 s[p] == '\r' || s[p] == '\t')) {
             ++p;
@@ -627,55 +627,55 @@ bool ParseWiktionaryEnglish(const std::string& body, const std::wstring& title, 
         return p;
     };
 
-    std::vector<std::wstring> partsOfSpeech;
+    std::vector<std::wstring> parts_of_speech;
     std::vector<std::wstring> definitions;
     std::wstring example;
 
-    size_t p = enKey + 6;  // just past  "en":[
+    size_t p = en_key + 6;  // just past  "en":[
     while (p < body.size()) {
-        p = skipSeparators(body, p);
+        p = skip_separators(body, p);
         if (p >= body.size() || body[p] != '{') {
             break;
         }
-        const std::string block = BalancedObjectAt(body, p);
+        const std::string block = balanced_object_at(body, p);
         if (block.empty()) {
             break;
         }
         p += block.size();
 
-        std::string posRaw;
-        ExtractJsonStringField(block, "partOfSpeech", &posRaw);
-        const std::wstring pos = ToLowerCopy(CollapseWhitespace(JsonStringUnescape(posRaw)));
-        if (!pos.empty() && partsOfSpeech.size() < 3 &&
-            std::find(partsOfSpeech.begin(), partsOfSpeech.end(), pos) == partsOfSpeech.end()) {
-            partsOfSpeech.push_back(pos);
+        std::string pos_raw;
+        extract_json_string_field(block, "partOfSpeech", &pos_raw);
+        const std::wstring pos = to_lower_copy(collapse_whitespace(json_string_unescape(pos_raw)));
+        if (!pos.empty() && parts_of_speech.size() < 3 &&
+            std::find(parts_of_speech.begin(), parts_of_speech.end(), pos) == parts_of_speech.end()) {
+            parts_of_speech.push_back(pos);
         }
 
         // Definitions are taken from the first part of speech only.
         if (!definitions.empty()) {
             continue;
         }
-        const size_t defsKey = block.find("\"definitions\":[");
-        if (defsKey == std::string::npos) {
+        const size_t defs_key = block.find("\"definitions\":[");
+        if (defs_key == std::string::npos) {
             continue;
         }
-        size_t q = defsKey + 15;  // just past  "definitions":[
+        size_t q = defs_key + 15;  // just past  "definitions":[
         while (q < block.size() && definitions.size() < 3) {
-            q = skipSeparators(block, q);
+            q = skip_separators(block, q);
             if (q >= block.size() || block[q] != '{') {
                 break;
             }
-            const std::string defObj = BalancedObjectAt(block, q);
-            if (defObj.empty()) {
+            const std::string def_obj = balanced_object_at(block, q);
+            if (def_obj.empty()) {
                 break;
             }
-            q += defObj.size();
+            q += def_obj.size();
 
-            std::string defRaw;
-            if (!ExtractJsonStringField(defObj, "definition", &defRaw)) {
+            std::string def_raw;
+            if (!extract_json_string_field(def_obj, "definition", &def_raw)) {
                 continue;
             }
-            const std::wstring text = StripHtml(JsonStringUnescape(defRaw));
+            const std::wstring text = strip_html(json_string_unescape(def_raw));
             if (text.empty()) {
                 continue;
             }
@@ -683,9 +683,9 @@ bool ParseWiktionaryEnglish(const std::string& body, const std::wstring& title, 
 
             // Only the first definition's example is shown.
             if (definitions.size() == 1) {
-                std::string exRaw;
-                if (ExtractJsonStringField(defObj, "example", &exRaw)) {
-                    example = StripHtml(JsonStringUnescape(exRaw));
+                std::string ex_raw;
+                if (extract_json_string_field(def_obj, "example", &ex_raw)) {
+                    example = strip_html(json_string_unescape(ex_raw));
                 }
             }
         }
@@ -697,27 +697,27 @@ bool ParseWiktionaryEnglish(const std::string& body, const std::wstring& title, 
 
     Result r;
     r.title = title;
-    for (size_t i = 0; i < partsOfSpeech.size(); ++i) {
+    for (size_t i = 0; i < parts_of_speech.size(); ++i) {
         if (i > 0) {
             r.subtitle += L"  \u00b7  ";
         }
-        r.subtitle += partsOfSpeech[i];
+        r.subtitle += parts_of_speech[i];
     }
 
-    std::wstring bodyText;
+    std::wstring body_text;
     for (size_t i = 0; i < definitions.size(); ++i) {
         if (i > 0) {
-            bodyText += L"\n";
+            body_text += L"\n";
         }
         if (definitions.size() > 1) {
-            bodyText += std::to_wstring(i + 1) + L". ";
+            body_text += std::to_wstring(i + 1) + L". ";
         }
-        bodyText += ClipToChars(definitions[i], 170);
+        body_text += clip_to_chars(definitions[i], 170);
     }
-    r.body = ClipToChars(bodyText, kMaxBodyChars);
+    r.body = clip_to_chars(body_text, k_max_body_chars);
 
     if (!example.empty()) {
-        r.example = L"\u201c" + ClipToChars(example, 200) + L"\u201d";
+        r.example = L"\u201c" + clip_to_chars(example, 200) + L"\u201d";
     }
     r.source = L"Wiktionary";
     *out = std::move(r);
@@ -725,8 +725,8 @@ bool ParseWiktionaryEnglish(const std::string& body, const std::wstring& title, 
 }
 
 // Titles are case-sensitive, so lowercase is tried first, then the text as typed.
-Outcome LookupWiktionary(const std::wstring& word, Result* out) {
-    const std::wstring lower = ToLowerCopy(word);
+Outcome lookup_wiktionary(const std::wstring& word, Result* out) {
+    const std::wstring lower = to_lower_copy(word);
     const std::wstring candidates[2] = {lower, word};
 
     for (int i = 0; i < 2; ++i) {
@@ -734,15 +734,15 @@ Outcome LookupWiktionary(const std::wstring& word, Result* out) {
             break;
         }
         const std::wstring path = L"/api/rest_v1/page/definition/" +
-                                  AsciiToWide(UrlEncodeComponent(candidates[i]));
-        const HttpResult res = HttpGetEx(L"en.wiktionary.org", path.c_str(), true, kLookupUserAgent);
-        if (!res.IsDefinitive()) {
+                                  ascii_to_wide(url_encode_component(candidates[i]));
+        const HttpResult res = http_get_ex(L"en.wiktionary.org", path.c_str(), true, lookup_user_agent);
+        if (!res.is_definitive()) {
             return Outcome::Failed;  // timeout / 429 / 5xx: never cached as "not found"
         }
         if (res.status != 200) {
             continue;  // 404: try the next spelling
         }
-        if (ParseWiktionaryEnglish(res.body, candidates[i], out)) {
+        if (parse_wiktionary_english(res.body, candidates[i], out)) {
             return Outcome::Found;
         }
     }
@@ -753,31 +753,31 @@ Outcome LookupWiktionary(const std::wstring& word, Result* out) {
 // Single words:  Wiktionary -> dictionaryapi.dev (backup) -> Wikipedia
 // Phrases:       Wikipedia  -> Wiktionary (idioms like "kick the bucket")
 // To add a source: write LookupXxx() above and add one attempt() line below.
-Outcome LookupText(const std::wstring& query, Result* out) {
-    const bool singleWord = query.find(L' ') == std::wstring::npos;
+Outcome lookup_text(const std::wstring& query, Result* out) {
+    const bool single_word = query.find(L' ') == std::wstring::npos;
 
-    bool anyFailed = false;
+    bool any_failed = false;
     auto attempt = [&](Outcome outcome) -> bool {
         if (outcome == Outcome::Found) return true;
-        if (outcome == Outcome::Failed) anyFailed = true;
+        if (outcome == Outcome::Failed) any_failed = true;
         return false;
     };
 
-    if (singleWord) {
-        if (attempt(LookupWiktionary(query, out))) return Outcome::Found;
-        if (attempt(LookupDictionary(query, out))) return Outcome::Found;
-        if (attempt(LookupWikipedia(query, out))) return Outcome::Found;
+    if (single_word) {
+        if (attempt(lookup_wiktionary(query, out))) return Outcome::Found;
+        if (attempt(lookup_dictionary(query, out))) return Outcome::Found;
+        if (attempt(lookup_wikipedia(query, out))) return Outcome::Found;
     } else {
-        if (attempt(LookupWikipedia(query, out))) return Outcome::Found;
-        if (attempt(LookupWiktionary(query, out))) return Outcome::Found;
+        if (attempt(lookup_wikipedia(query, out))) return Outcome::Found;
+        if (attempt(lookup_wiktionary(query, out))) return Outcome::Found;
     }
 
     // "Nothing there" is only cacheable if every source gave a definite answer.
-    return anyFailed ? Outcome::Failed : Outcome::NotFound;
+    return any_failed ? Outcome::Failed : Outcome::NotFound;
 }
 
 // ---- publishing ---------------------------------------------------------------------
-void FillSnapshot(LookupSnapshot& lk, const std::wstring& query, bool found, const Result* r,
+void fill_snapshot(LookupSnapshot& lk, const std::wstring& query, bool found, const Result* r,
                   double now) {
     lk = LookupSnapshot{};
     lk.active = true;
@@ -789,15 +789,15 @@ void FillSnapshot(LookupSnapshot& lk, const std::wstring& query, bool found, con
         lk.body = r->body;
         lk.example = r->example;
         lk.source = r->source;
-        lk.expiresAt = now + kResultSeconds;
+        lk.expires_at = now + result_seconds;
     } else {
         lk.status = LookupStatus::NoResult;
-        lk.expiresAt = now + kMessageSeconds;
+        lk.expires_at = now + message_seconds;
     }
 }
 
 // Moves `query` to the front of the recent list. Caller must hold g_stateMutex.
-void PushRecentLocked(SharedState& st, const std::wstring& query, const Result& r) {
+void push_recent_locked(SharedState& st, const std::wstring& query, const Result& r) {
     LookupRecent entry;
     entry.query = query;
     entry.title = r.title;
@@ -808,38 +808,38 @@ void PushRecentLocked(SharedState& st, const std::wstring& query, const Result& 
     if (detail.rfind(L"1. ", 0) == 0) {
         detail.erase(0, 3);
     }
-    entry.detail = ClipToChars(CollapseWhitespace(detail), 60);
+    entry.detail = clip_to_chars(collapse_whitespace(detail), 60);
 
-    auto& list = st.lookupRecent;
-    const std::wstring key = ToLowerCopy(query);
+    auto& list = st.lookup_recent;
+    const std::wstring key = to_lower_copy(query);
     list.erase(std::remove_if(list.begin(), list.end(),
-                              [&](const LookupRecent& e) { return ToLowerCopy(e.query) == key; }),
+                              [&](const LookupRecent& e) { return to_lower_copy(e.query) == key; }),
                list.end());
     list.insert(list.begin(), std::move(entry));
-    if (list.size() > kRecentCapacity) {
-        list.erase(list.begin() + static_cast<std::ptrdiff_t>(kRecentCapacity), list.end());
+    if (list.size() > recent_capacity) {
+        list.erase(list.begin() + static_cast<std::ptrdiff_t>(recent_capacity), list.end());
     }
 }
 
 // Worker thread -> island. Dropped if the request was superseded or dismissed, or
 // if its "Looking up..." card has already timed out.
-void ApplyResult(uint64_t id, const std::wstring& query, bool found, const Result& r) {
+void apply_result(uint64_t id, const std::wstring& query, bool found, const Result& r) {
     if (!g_running.load()) {
         return;
     }
-    const double now = NowSeconds();
+    const double now = now_seconds();
     {
-        std::lock_guard lock(g_stateMutex);
+        std::lock_guard lock(g_state_mutex);
         LookupSnapshot& lk = g_state.lookup;
-        if (g_lookupRequestSeq.load() != id || !lk.active || now >= lk.expiresAt) {
+        if (g_lookup_request_seq.load() != id || !lk.active || now >= lk.expires_at) {
             return;
         }
-        FillSnapshot(lk, query, found, &r, now);
+        fill_snapshot(lk, query, found, &r, now);
         if (found) {
-            PushRecentLocked(g_state, query, r);
+            push_recent_locked(g_state, query, r);
         }
     }
-    g_layoutDirty = true;  // repaint; the springs resize the island to the new card
+    g_layout_dirty = true;  // repaint; the springs resize the island to the new card
 }
 
 }
@@ -849,16 +849,16 @@ namespace
 {
 
 
-uint64_t PublishNewLookup(const LookupSnapshot& snap, bool nudge = true) {
+uint64_t publish_new_lookup(const LookupSnapshot& snap, bool nudge = true) {
     uint64_t id;
     {
-        std::lock_guard lock(g_stateMutex);
+        std::lock_guard lock(g_state_mutex);
         g_state.lookup = snap;
-        id = ++g_lookupRequestSeq;
+        id = ++g_lookup_request_seq;
     }
-    g_layoutDirty = true;
+    g_layout_dirty = true;
     if (nudge) {
-        TriggerNudge();  // typing and searching stay quiet; only opening the panel bounces
+        trigger_nudge();  // typing and searching stay quiet; only opening the panel bounces
     }
     return id;
 }
@@ -868,34 +868,34 @@ uint64_t PublishNewLookup(const LookupSnapshot& snap, bool nudge = true) {
 // threads also touch, so it only changes under g_stateMutex.
 
 // Keeps the panel alive while the user is interacting with it.
-void TouchLookupPanel() {
-    std::lock_guard lock(g_stateMutex);
+void touch_lookup_panel() {
+    std::lock_guard lock(g_state_mutex);
     if (g_state.lookup.active) {
-        g_state.lookup.expiresAt =
-            std::max(g_state.lookup.expiresAt, NowSeconds() + QuickLookup::kPanelIdleSeconds);
+        g_state.lookup.expires_at =
+            std::max(g_state.lookup.expires_at, now_seconds() + quick_lookup::panel_idle_seconds);
     }
 }
 
-std::vector<LookupRow> CurrentLookupRows(LookupStatus* status) {
-    std::lock_guard lock(g_stateMutex);
+std::vector<LookupRow> current_lookup_rows(LookupStatus* status) {
+    std::lock_guard lock(g_state_mutex);
     if (status) *status = g_state.lookup.status;
-    return BuildLookupRows(g_state.lookupRecent, g_lookupUi);
+    return build_lookup_rows(g_state.lookup_recent, g_lookup_ui);
 }
 
-void ForceForeground(HWND hwnd) {
+void force_foreground(HWND hwnd) {
     INPUT input{};
     SendInput(1, &input, sizeof(INPUT));
     SetForegroundWindow(hwnd);
     BringWindowToTop(hwnd);
-    DwmBackdrop::EnsureBehind(hwnd);
+    dwm_backdrop::ensure_behind(hwnd);
     SetFocus(hwnd);
 }
 
 // The island is WS_EX_NOACTIVATE so it never steals focus. While the search box is
 // open it has to be able to receive keys, so the flag is dropped for the session.
-void BeginLookupSession(HWND hwnd) {
+void begin_lookup_session(HWND hwnd) {
     HWND previous = GetForegroundWindow();
-    g_lookupUi.prevForeground = (previous && previous != hwnd) ? previous : nullptr;
+    g_lookup_ui.prev_foreground = (previous && previous != hwnd) ? previous : nullptr;
 
     const LONG_PTR ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
     if (ex & WS_EX_NOACTIVATE) {
@@ -904,18 +904,18 @@ void BeginLookupSession(HWND hwnd) {
     if (!IsWindowVisible(hwnd)) {
         ShowWindow(hwnd, SW_SHOWNOACTIVATE);
     }
-    ForceForeground(hwnd);
+    force_foreground(hwnd);
 }
 
-void EndLookupSession(HWND hwnd) {
-    if (!g_lookupUi.open) return;
-    HWND previous = g_lookupUi.prevForeground;
-    const bool hadFocus = GetForegroundWindow() == hwnd;
-    g_lookupUi = LookupUiState{};  // open = false first, so the focus change below can't re-enter
+void end_lookup_session(HWND hwnd) {
+    if (!g_lookup_ui.open) return;
+    HWND previous = g_lookup_ui.prev_foreground;
+    const bool had_focus = GetForegroundWindow() == hwnd;
+    g_lookup_ui = LookupUiState{};  // open = false first, so the focus change below can't re-enter
 
     const LONG_PTR ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
     SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex | WS_EX_NOACTIVATE);
-    if (hadFocus && previous && IsWindow(previous) && IsWindowVisible(previous)) {
+    if (had_focus && previous && IsWindow(previous) && IsWindowVisible(previous)) {
         SetForegroundWindow(previous);
     }
 }
@@ -924,14 +924,14 @@ void EndLookupSession(HWND hwnd) {
 
 
 
-void CloseLookupPanel(HWND hwnd) {
+void close_lookup_panel(HWND hwnd) {
     {
-        std::lock_guard lock(g_stateMutex);
+        std::lock_guard lock(g_state_mutex);
         g_state.lookup.active = false;
-        ++g_lookupRequestSeq;  // a reply still in flight is now ignored
+        ++g_lookup_request_seq;  // a reply still in flight is now ignored
     }
-    g_layoutDirty = true;
-    EndLookupSession(hwnd);
+    g_layout_dirty = true;
+    end_lookup_session(hwnd);
 }
 
 
@@ -940,51 +940,51 @@ namespace
 
 
 // Runs a lookup and shows the outcome in the panel.
-void SubmitLookup(const std::wstring& rawText) {
-    const std::wstring query = QuickLookup::NormalizeQuery(rawText);
-    if (query.empty() || query.size() > QuickLookup::kMaxQueryChars) {
+void submit_lookup(const std::wstring& raw_text) {
+    const std::wstring query = quick_lookup::normalize_query(raw_text);
+    if (query.empty() || query.size() > quick_lookup::max_query_chars) {
         return;
     }
 
-    const double now = NowSeconds();
-    LookupUiState& ui = g_lookupUi;
+    const double now = now_seconds();
+    LookupUiState& ui = g_lookup_ui;
     ui.text = query;
     ui.caret = query.size();
-    ui.selectAll = false;
+    ui.select_all = false;
     ui.selected = 0;
-    ui.caretResetAt = now;
+    ui.caret_reset_at = now;
 
     LookupSnapshot snap;
     snap.active = true;
     snap.query = query;
 
-    const std::wstring key = ToLowerCopy(query);
-    bool cachedFound = false;
-    QuickLookup::Result cached;
-    if (QuickLookup::CacheLookup(key, &cachedFound, &cached)) {
-        QuickLookup::FillSnapshot(snap, query, cachedFound, &cached, now);
-        if (cachedFound) {
-            std::lock_guard lock(g_stateMutex);
-            QuickLookup::PushRecentLocked(g_state, query, cached);  // bump it to the top
+    const std::wstring key = to_lower_copy(query);
+    bool cached_found = false;
+    quick_lookup::Result cached;
+    if (quick_lookup::cache_lookup(key, &cached_found, &cached)) {
+        quick_lookup::fill_snapshot(snap, query, cached_found, &cached, now);
+        if (cached_found) {
+            std::lock_guard lock(g_state_mutex);
+            quick_lookup::push_recent_locked(g_state, query, cached);  // bump it to the top
         }
-        PublishNewLookup(snap, false);
+        publish_new_lookup(snap, false);
         return;
     }
 
     snap.status = LookupStatus::Loading;
-    snap.expiresAt = now + QuickLookup::kLoadingTimeoutSeconds;
-    const uint64_t id = PublishNewLookup(snap, false);
+    snap.expires_at = now + quick_lookup::loading_timeout_seconds;
+    const uint64_t id = publish_new_lookup(snap, false);
 
     // The query text is deliberately not logged.
     host::log(L"Quick Lookup: request started.");
     std::thread([id, query, key]() {
         try {
-            QuickLookup::Result result;
-            const QuickLookup::Outcome outcome = QuickLookup::LookupText(query, &result);
-            if (outcome != QuickLookup::Outcome::Failed) {
-                QuickLookup::CacheStore(key, outcome == QuickLookup::Outcome::Found, result);
+            quick_lookup::Result result;
+            const quick_lookup::Outcome outcome = quick_lookup::lookup_text(query, &result);
+            if (outcome != quick_lookup::Outcome::Failed) {
+                quick_lookup::cache_store(key, outcome == quick_lookup::Outcome::Found, result);
             }
-            QuickLookup::ApplyResult(id, query, outcome == QuickLookup::Outcome::Found, result);
+            quick_lookup::apply_result(id, query, outcome == quick_lookup::Outcome::Found, result);
             host::log(L"Quick Lookup: finished (outcome %d).", static_cast<int>(outcome));
         } catch (...) {
             host::log(L"Quick Lookup: lookup threw an exception.");
@@ -992,45 +992,45 @@ void SubmitLookup(const std::wstring& rawText) {
     }).detach();
 }
 
-void SubmitLookupSelection() {
+void submit_lookup_selection() {
     LookupStatus status = LookupStatus::Search;
-    const std::vector<LookupRow> rows = CurrentLookupRows(&status);
+    const std::vector<LookupRow> rows = current_lookup_rows(&status);
     if (status == LookupStatus::Search && !rows.empty()) {
-        const int idx = ClampInt(g_lookupUi.selected, 0, static_cast<int>(rows.size()) - 1);
-        SubmitLookup(rows[static_cast<size_t>(idx)].query);
+        const int idx = clamp_int(g_lookup_ui.selected, 0, static_cast<int>(rows.size()) - 1);
+        submit_lookup(rows[static_cast<size_t>(idx)].query);
     } else {
-        SubmitLookup(g_lookupUi.text);
+        submit_lookup(g_lookup_ui.text);
     }
 }
 
 // Call after any change to the text. Editing leaves the result view and goes back
 // to the list, and drops any reply still in flight.
-void LookupUiEdited() {
-    LookupUiState& ui = g_lookupUi;
-    const double now = NowSeconds();
+void lookup_ui_edited() {
+    LookupUiState& ui = g_lookup_ui;
+    const double now = now_seconds();
     ui.selected = 0;
-    ui.selectAll = false;
-    ui.caretResetAt = now;
+    ui.select_all = false;
+    ui.caret_reset_at = now;
 
-    bool leaveResult = false;
+    bool leave_result = false;
     {
-        std::lock_guard lock(g_stateMutex);
-        leaveResult = g_state.lookup.active && g_state.lookup.status != LookupStatus::Search;
+        std::lock_guard lock(g_state_mutex);
+        leave_result = g_state.lookup.active && g_state.lookup.status != LookupStatus::Search;
     }
-    if (leaveResult) {
+    if (leave_result) {
         LookupSnapshot snap;
         snap.active = true;
         snap.status = LookupStatus::Search;
-        snap.expiresAt = now + QuickLookup::kPanelIdleSeconds;
-        PublishNewLookup(snap, false);
+        snap.expires_at = now + quick_lookup::panel_idle_seconds;
+        publish_new_lookup(snap, false);
     } else {
-        TouchLookupPanel();
+        touch_lookup_panel();
     }
-    g_layoutDirty = true;
+    g_layout_dirty = true;
 }
 
-void InsertIntoLookupField(const std::wstring& raw) {
-    LookupUiState& ui = g_lookupUi;
+void insert_into_lookup_field(const std::wstring& raw) {
+    LookupUiState& ui = g_lookup_ui;
     std::wstring s;
     s.reserve(raw.size());
     for (wchar_t c : raw) {
@@ -1038,15 +1038,15 @@ void InsertIntoLookupField(const std::wstring& raw) {
     }
     if (s.empty()) return;
 
-    if (ui.selectAll) {
+    if (ui.select_all) {
         ui.text.clear();
         ui.caret = 0;
-        ui.selectAll = false;
+        ui.select_all = false;
     }
     ui.caret = std::min(ui.caret, ui.text.size());
 
-    const size_t maxChars = QuickLookup::kMaxQueryChars;
-    const size_t room = maxChars > ui.text.size() ? maxChars - ui.text.size() : 0;
+    const size_t max_chars = quick_lookup::max_query_chars;
+    const size_t room = max_chars > ui.text.size() ? max_chars - ui.text.size() : 0;
     if (room == 0) return;
     if (s.size() > room) {
         s.resize(room);
@@ -1054,28 +1054,28 @@ void InsertIntoLookupField(const std::wstring& raw) {
     }
     ui.text.insert(ui.caret, s);
     ui.caret += s.size();
-    LookupUiEdited();
+    lookup_ui_edited();
 }
 
-size_t LookupStepBack(const std::wstring& t, size_t i) {
+size_t lookup_step_back(const std::wstring& t, size_t i) {
     if (i == 0) return 0;
     --i;
     if (i > 0 && IS_LOW_SURROGATE(t[i]) && IS_HIGH_SURROGATE(t[i - 1])) --i;
     return i;
 }
 
-size_t LookupStepForward(const std::wstring& t, size_t i) {
+size_t lookup_step_forward(const std::wstring& t, size_t i) {
     if (i >= t.size()) return t.size();
     return (IS_HIGH_SURROGATE(t[i]) && i + 1 < t.size()) ? i + 2 : i + 1;
 }
 
-size_t LookupPrevWord(const std::wstring& t, size_t i) {
+size_t lookup_prev_word(const std::wstring& t, size_t i) {
     while (i > 0 && iswspace(t[i - 1])) --i;
     while (i > 0 && !iswspace(t[i - 1])) --i;
     return i;
 }
 
-size_t LookupNextWord(const std::wstring& t, size_t i) {
+size_t lookup_next_word(const std::wstring& t, size_t i) {
     while (i < t.size() && !iswspace(t[i])) ++i;
     while (i < t.size() && iswspace(t[i])) ++i;
     return i;
@@ -1086,232 +1086,232 @@ size_t LookupNextWord(const std::wstring& t, size_t i) {
 
 
 // Called on the render thread when the hotkey fires.
-void StartQuickLookup(HWND hwnd) {
+void start_quick_lookup(HWND hwnd) {
     bool enabled = false;
     {
-        std::lock_guard lock(g_settingsMutex);
-        enabled = g_settings.quickLookup;
+        std::lock_guard lock(g_settings_mutex);
+        enabled = g_settings.quick_lookup;
     }
     // A manually hidden island has nothing to show the panel on.
-    if (!enabled || g_manuallyHidden.load()) {
+    if (!enabled || g_manually_hidden.load()) {
         return;
     }
 
     // Hotkey again = close.
-    if (g_lookupUi.open) {
-        CloseLookupPanel(hwnd);
+    if (g_lookup_ui.open) {
+        close_lookup_panel(hwnd);
         return;
     }
 
     // Clipboard text is only offered as a suggestion row; nothing is sent anywhere yet.
-    std::wstring clip = QuickLookup::NormalizeQuery(ReadClipboardText(hwnd));
-    if (clip.size() > QuickLookup::kMaxQueryChars) {
+    std::wstring clip = quick_lookup::normalize_query(read_clipboard_text(hwnd));
+    if (clip.size() > quick_lookup::max_query_chars) {
         clip.clear();
     }
 
-    const double now = NowSeconds();
-    g_lookupUi = LookupUiState{};
-    g_lookupUi.open = true;
-    g_lookupUi.clipboardQuery = clip;
-    g_lookupUi.caretResetAt = now;
+    const double now = now_seconds();
+    g_lookup_ui = LookupUiState{};
+    g_lookup_ui.open = true;
+    g_lookup_ui.clipboard_query = clip;
+    g_lookup_ui.caret_reset_at = now;
 
     LookupSnapshot snap;
     snap.active = true;
     snap.status = LookupStatus::Search;
-    snap.expiresAt = now + QuickLookup::kPanelIdleSeconds;
-    PublishNewLookup(snap);
+    snap.expires_at = now + quick_lookup::panel_idle_seconds;
+    publish_new_lookup(snap);
 
-    BeginLookupSession(hwnd);
+    begin_lookup_session(hwnd);
 }
 
 // WM_KEYDOWN. Printable characters arrive separately through WM_CHAR.
-bool HandleLookupKeyDown(HWND hwnd, WPARAM vk) {
-    LookupUiState& ui = g_lookupUi;
+bool handle_lookup_key_down(HWND hwnd, WPARAM vk) {
+    LookupUiState& ui = g_lookup_ui;
     if (!ui.open) return false;
     const bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
     bool moved = false;
 
     switch (vk) {
         case VK_ESCAPE:
-            CloseLookupPanel(hwnd);
+            close_lookup_panel(hwnd);
             return true;
         case VK_RETURN:
-            SubmitLookupSelection();
+            submit_lookup_selection();
             return true;
         case VK_UP:
         case VK_DOWN: {
             LookupStatus status = LookupStatus::Search;
-            const std::vector<LookupRow> rows = CurrentLookupRows(&status);
+            const std::vector<LookupRow> rows = current_lookup_rows(&status);
             if (status == LookupStatus::Search && !rows.empty()) {
                 const int n = static_cast<int>(rows.size());
-                ui.selected = (ClampInt(ui.selected, 0, n - 1) + (vk == VK_DOWN ? 1 : n - 1)) % n;
+                ui.selected = (clamp_int(ui.selected, 0, n - 1) + (vk == VK_DOWN ? 1 : n - 1)) % n;
             }
             moved = true;
             break;
         }
         case VK_LEFT:
-            ui.caret = ui.selectAll ? 0 : (ctrl ? LookupPrevWord(ui.text, ui.caret)
-                                                : LookupStepBack(ui.text, ui.caret));
-            ui.selectAll = false;
+            ui.caret = ui.select_all ? 0 : (ctrl ? lookup_prev_word(ui.text, ui.caret)
+                                                : lookup_step_back(ui.text, ui.caret));
+            ui.select_all = false;
             moved = true;
             break;
         case VK_RIGHT:
-            ui.caret = ui.selectAll ? ui.text.size() : (ctrl ? LookupNextWord(ui.text, ui.caret)
-                                                             : LookupStepForward(ui.text, ui.caret));
-            ui.selectAll = false;
+            ui.caret = ui.select_all ? ui.text.size() : (ctrl ? lookup_next_word(ui.text, ui.caret)
+                                                             : lookup_step_forward(ui.text, ui.caret));
+            ui.select_all = false;
             moved = true;
             break;
         case VK_HOME:
             ui.caret = 0;
-            ui.selectAll = false;
+            ui.select_all = false;
             moved = true;
             break;
         case VK_END:
             ui.caret = ui.text.size();
-            ui.selectAll = false;
+            ui.select_all = false;
             moved = true;
             break;
         case VK_BACK:
-            if (ui.selectAll) {
+            if (ui.select_all) {
                 ui.text.clear();
                 ui.caret = 0;
             } else if (ui.caret > 0) {
-                const size_t from = ctrl ? LookupPrevWord(ui.text, ui.caret)
-                                         : LookupStepBack(ui.text, ui.caret);
+                const size_t from = ctrl ? lookup_prev_word(ui.text, ui.caret)
+                                         : lookup_step_back(ui.text, ui.caret);
                 ui.text.erase(from, ui.caret - from);
                 ui.caret = from;
             } else {
                 return true;
             }
-            LookupUiEdited();
+            lookup_ui_edited();
             return true;
         case VK_DELETE:
-            if (ui.selectAll) {
+            if (ui.select_all) {
                 ui.text.clear();
                 ui.caret = 0;
             } else if (ui.caret < ui.text.size()) {
-                const size_t to = LookupStepForward(ui.text, ui.caret);
+                const size_t to = lookup_step_forward(ui.text, ui.caret);
                 ui.text.erase(ui.caret, to - ui.caret);
             } else {
                 return true;
             }
-            LookupUiEdited();
+            lookup_ui_edited();
             return true;
         case 'A':
             if (!ctrl) return false;
-            ui.selectAll = !ui.text.empty();
+            ui.select_all = !ui.text.empty();
             moved = true;
             break;
         case 'V':
             if (!ctrl) return false;
-            InsertIntoLookupField(QuickLookup::CollapseWhitespace(
-                ReadClipboardText(hwnd), QuickLookup::kMaxQueryChars));
+            insert_into_lookup_field(quick_lookup::collapse_whitespace(
+                read_clipboard_text(hwnd), quick_lookup::max_query_chars));
             return true;
         default:
             return false;
     }
 
     if (moved) {
-        ui.caretResetAt = NowSeconds();
-        TouchLookupPanel();
-        g_layoutDirty = true;
+        ui.caret_reset_at = now_seconds();
+        touch_lookup_panel();
+        g_layout_dirty = true;
     }
     return true;
 }
 
-bool HandleLookupChar(wchar_t ch) {
-    if (!g_lookupUi.open) return false;
+bool handle_lookup_char(wchar_t ch) {
+    if (!g_lookup_ui.open) return false;
     if (ch < 0x20 || ch == 0x7F) return true;  // control keys are handled in WM_KEYDOWN
-    InsertIntoLookupField(std::wstring(1, ch));
+    insert_into_lookup_field(std::wstring(1, ch));
     return true;
 }
 
 // Returns true when the click belonged to the panel (so it must not fall through
 // to "open the media app" and friends).
-bool HandleLookupClick(int x, int y) {
-    LookupUiState& ui = g_lookupUi;
+bool handle_lookup_click(int x, int y) {
+    LookupUiState& ui = g_lookup_ui;
     if (!ui.open) return false;
 
     LookupStatus status = LookupStatus::Search;
-    const std::vector<LookupRow> rows = CurrentLookupRows(&status);
-    const MediaContentPoint pt = MediaContentFromClient(x, y);
-    TouchLookupPanel();
+    const std::vector<LookupRow> rows = current_lookup_rows(&status);
+    const MediaContentPoint pt = media_content_from_client(x, y);
+    touch_lookup_panel();
     if (!pt.valid) return true;
 
     if (status == LookupStatus::Search) {
-        const bool header = LookupHasHeader(ui, rows);
-        if (header && LookupHasRecentRows(rows) && LookupClearHitTest(pt)) {
+        const bool header = lookup_has_header(ui, rows);
+        if (header && lookup_has_recent_rows(rows) && lookup_clear_hit_test(pt)) {
             {
-                std::lock_guard lock(g_stateMutex);
-                g_state.lookupRecent.clear();
+                std::lock_guard lock(g_state_mutex);
+                g_state.lookup_recent.clear();
             }
             ui.selected = 0;
-            g_layoutDirty = true;
+            g_layout_dirty = true;
             return true;
         }
-        const int row = LookupRowAtContentPoint(pt, static_cast<int>(rows.size()), header);
+        const int row = lookup_row_at_content_point(pt, static_cast<int>(rows.size()), header);
         if (row >= 0) {
-            SubmitLookup(rows[static_cast<size_t>(row)].query);
+            submit_lookup(rows[static_cast<size_t>(row)].query);
             return true;
         }
     }
-    if (LookupFieldHitTest(pt)) {
+    if (lookup_field_hit_test(pt)) {
         ui.caret = ui.text.size();
-        ui.selectAll = false;
-        ui.caretResetAt = NowSeconds();
-        g_layoutDirty = true;
+        ui.select_all = false;
+        ui.caret_reset_at = now_seconds();
+        g_layout_dirty = true;
     }
     return true;
 }
 
-void HandleLookupMouseMove(int x, int y) {
-    LookupUiState& ui = g_lookupUi;
+void handle_lookup_mouse_move(int x, int y) {
+    LookupUiState& ui = g_lookup_ui;
     LookupStatus status = LookupStatus::Search;
-    const std::vector<LookupRow> rows = CurrentLookupRows(&status);
-    TouchLookupPanel();
+    const std::vector<LookupRow> rows = current_lookup_rows(&status);
+    touch_lookup_panel();
     if (status != LookupStatus::Search) return;
 
-    const int row = LookupRowAtContentPoint(MediaContentFromClient(x, y),
+    const int row = lookup_row_at_content_point(media_content_from_client(x, y),
                                             static_cast<int>(rows.size()),
-                                            LookupHasHeader(ui, rows));
+                                            lookup_has_header(ui, rows));
     if (row >= 0 && row != ui.selected) {
         ui.selected = row;
-        g_layoutDirty = true;
+        g_layout_dirty = true;
     }
 }
 
-LPCWSTR LookupCursorAt(int x, int y) {
+LPCWSTR lookup_cursor_at(int x, int y) {
     LookupStatus status = LookupStatus::Search;
-    const std::vector<LookupRow> rows = CurrentLookupRows(&status);
-    const MediaContentPoint pt = MediaContentFromClient(x, y);
+    const std::vector<LookupRow> rows = current_lookup_rows(&status);
+    const MediaContentPoint pt = media_content_from_client(x, y);
     if (status == LookupStatus::Search) {
-        const bool header = LookupHasHeader(g_lookupUi, rows);
-        if ((header && LookupHasRecentRows(rows) && LookupClearHitTest(pt)) ||
-            LookupRowAtContentPoint(pt, static_cast<int>(rows.size()), header) >= 0) {
+        const bool header = lookup_has_header(g_lookup_ui, rows);
+        if ((header && lookup_has_recent_rows(rows) && lookup_clear_hit_test(pt)) ||
+            lookup_row_at_content_point(pt, static_cast<int>(rows.size()), header) >= 0) {
             return IDC_HAND;
         }
     }
-    return LookupFieldHitTest(pt) ? IDC_IBEAM : IDC_ARROW;
+    return lookup_field_hit_test(pt) ? IDC_IBEAM : IDC_ARROW;
 }
 
 // Registers (or releases) the Quick Lookup hotkey. Render thread only, because
 // RegisterHotKey must run on the thread that owns the window.
-void ApplyLookupHotkey() {
+void apply_lookup_hotkey() {
     HWND hwnd = g_hwnd;
     if (!hwnd) {
         return;
     }
-    if (g_lookupHotkeyRegistered) {
-        UnregisterHotKey(hwnd, ID_LOOKUP_HOTKEY);
-        g_lookupHotkeyRegistered = false;
+    if (g_lookup_hotkey_registered) {
+        UnregisterHotKey(hwnd, id_lookup_hotkey);
+        g_lookup_hotkey_registered = false;
     }
 
-    const Settings settings = GetSettingsCopy();
-    if (!settings.quickLookup) {
+    const Settings settings = get_settings_copy();
+    if (!settings.quick_lookup) {
         return;
     }
-    if (RegisterHotKey(hwnd, ID_LOOKUP_HOTKEY, settings.lookupModifiers, settings.lookupVk)) {
-        g_lookupHotkeyRegistered = true;
+    if (RegisterHotKey(hwnd, id_lookup_hotkey, settings.lookup_modifiers, settings.lookup_vk)) {
+        g_lookup_hotkey_registered = true;
     } else {
         host::log(L"Failed to register Quick Lookup hotkey (error %lu).", GetLastError());
     }

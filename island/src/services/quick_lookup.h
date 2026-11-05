@@ -17,37 +17,37 @@ struct LookupRow {
     std::wstring label;
     std::wstring detail;
 };
-std::wstring LookupTypedQuery(const LookupUiState& ui);
-std::vector<LookupRow> BuildLookupRows(const std::vector<LookupRecent>& recents,
+std::wstring lookup_typed_query(const LookupUiState& ui);
+std::vector<LookupRow> build_lookup_rows(const std::vector<LookupRecent>& recents,
                                        const LookupUiState& ui);
 
 // The "Recent / Clear" header only exists while the box is empty.
-inline bool LookupHasHeader(const LookupUiState& ui, const std::vector<LookupRow>& rows) {
-    return !rows.empty() && LookupTypedQuery(ui).empty();
+inline bool lookup_has_header(const LookupUiState& ui, const std::vector<LookupRow>& rows) {
+    return !rows.empty() && lookup_typed_query(ui).empty();
 }
 
-inline bool LookupHasRecentRows(const std::vector<LookupRow>& rows) {
+inline bool lookup_has_recent_rows(const std::vector<LookupRow>& rows) {
     return std::any_of(rows.begin(), rows.end(),
                        [](const LookupRow& r) { return r.kind == LookupRowKind::Recent; });
 }
 
-inline bool LookupCaretVisible(double now, double resetAt) {
-    return std::fmod(std::max(0.0, now - resetAt), LookupLayout::kCaretPeriod) <
-           LookupLayout::kCaretOn;
+inline bool lookup_caret_visible(double now, double reset_at) {
+    return std::fmod(std::max(0.0, now - reset_at), lookup_layout::caret_period) <
+           lookup_layout::caret_on;
 }
 
 }
 
 namespace island
 {
-namespace QuickLookup
+namespace quick_lookup
 {
 
 
-constexpr double kPanelIdleSeconds = 25.0;       // panel closes this long after the last key / mouse move
-constexpr size_t kMaxQueryChars = 80;            // longer text is never sent anywhere
-std::wstring CollapseWhitespace(const std::wstring& in, size_t maxChars = std::wstring::npos);
-std::wstring NormalizeQuery(const std::wstring& raw);
+constexpr double panel_idle_seconds = 25.0;       // panel closes this long after the last key / mouse move
+constexpr size_t max_query_chars = 80;            // longer text is never sent anywhere
+std::wstring collapse_whitespace(const std::wstring& in, size_t max_chars = std::wstring::npos);
+std::wstring normalize_query(const std::wstring& raw);
 
 }
 }
@@ -55,13 +55,13 @@ std::wstring NormalizeQuery(const std::wstring& raw);
 namespace island
 {
 
-void CloseLookupPanel(HWND hwnd);
-void StartQuickLookup(HWND hwnd);
-bool HandleLookupKeyDown(HWND hwnd, WPARAM vk);
-bool HandleLookupChar(wchar_t ch);
-bool HandleLookupClick(int x, int y);
-void HandleLookupMouseMove(int x, int y);
-LPCWSTR LookupCursorAt(int x, int y);
-void ApplyLookupHotkey();
+void close_lookup_panel(HWND hwnd);
+void start_quick_lookup(HWND hwnd);
+bool handle_lookup_key_down(HWND hwnd, WPARAM vk);
+bool handle_lookup_char(wchar_t ch);
+bool handle_lookup_click(int x, int y);
+void handle_lookup_mouse_move(int x, int y);
+LPCWSTR lookup_cursor_at(int x, int y);
+void apply_lookup_hotkey();
 
 }

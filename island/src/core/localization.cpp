@@ -5,7 +5,7 @@ namespace island
 
 
 // "Playing from %s" + "Brave" -> "Playing from Brave"
-std::wstring FormatWithName(const wchar_t* format, const std::wstring& name) {
+std::wstring format_with_name(const wchar_t* format, const std::wstring& name) {
     std::wstring out = format;
     const size_t pos = out.find(L"%s");
     if (pos != std::wstring::npos) {
@@ -14,9 +14,9 @@ std::wstring FormatWithName(const wchar_t* format, const std::wstring& name) {
     return out;
 }
 
-UiLanguage LanguageFromTag(std::wstring_view tag) {
+UiLanguage language_from_tag(std::wstring_view tag) {
     struct Entry { const wchar_t* tag; UiLanguage lang; };
-    static constexpr Entry kTags[] = {
+    static constexpr Entry k_tags[] = {
         {L"en", UiLanguage::English},   {L"fr", UiLanguage::French},
         {L"es", UiLanguage::Spanish},   {L"de", UiLanguage::German},
         {L"pt", UiLanguage::Portuguese},{L"it", UiLanguage::Italian},
@@ -27,7 +27,7 @@ UiLanguage LanguageFromTag(std::wstring_view tag) {
     if (tag.size() < 2) {
         return UiLanguage::English;
     }
-    for (const Entry& e : kTags) {
+    for (const Entry& e : k_tags) {
         // Prefix match so "pt-BR" / "zh-Hans-CN" resolve to their base language.
         if (_wcsnicmp(tag.data(), e.tag, 2) == 0) {
             return e.lang;
@@ -37,10 +37,10 @@ UiLanguage LanguageFromTag(std::wstring_view tag) {
 }
 
 // Resolves the "auto" language setting from the user's Windows UI language.
-UiLanguage DetectSystemLanguage() {
+UiLanguage detect_system_language() {
     wchar_t name[LOCALE_NAME_MAX_LENGTH] = {};
     if (GetUserDefaultLocaleName(name, ARRAYSIZE(name)) > 0) {
-        return LanguageFromTag(name);
+        return language_from_tag(name);
     }
     return UiLanguage::English;
 }
@@ -50,12 +50,12 @@ UiLanguage DetectSystemLanguage() {
 // Formats the time honouring the 12h/24h override and the seconds toggle.
 // Windows' own locale formatting is used unless the user forced a mode, so the
 // default keeps regional conventions (separators, AM/PM placement) intact.
-std::wstring FormatIslandTime(const SYSTEMTIME& local, bool followSystem, bool use24Hour,
-                              bool showSeconds) {
+std::wstring format_island_time(const SYSTEMTIME& local, bool follow_system, bool use24_hour,
+                              bool show_seconds) {
     wchar_t buffer[64] = {};
 
-    if (followSystem) {
-        const DWORD flags = showSeconds ? 0 : TIME_NOSECONDS;
+    if (follow_system) {
+        const DWORD flags = show_seconds ? 0 : TIME_NOSECONDS;
         if (GetTimeFormatEx(LOCALE_NAME_USER_DEFAULT, flags, &local, nullptr, buffer,
                             ARRAYSIZE(buffer)) > 0) {
             return buffer;
@@ -64,8 +64,8 @@ std::wstring FormatIslandTime(const SYSTEMTIME& local, bool followSystem, bool u
     }
 
     // Explicit override: build the pattern rather than fighting locale flags.
-    const wchar_t* pattern = use24Hour ? (showSeconds ? L"HH:mm:ss" : L"HH:mm")
-                                       : (showSeconds ? L"h:mm:ss tt" : L"h:mm tt");
+    const wchar_t* pattern = use24_hour ? (show_seconds ? L"HH:mm:ss" : L"HH:mm")
+                                       : (show_seconds ? L"h:mm:ss tt" : L"h:mm tt");
     if (GetTimeFormatEx(LOCALE_NAME_USER_DEFAULT, 0, &local, pattern, buffer,
                         ARRAYSIZE(buffer)) > 0) {
         return buffer;
@@ -76,12 +76,12 @@ std::wstring FormatIslandTime(const SYSTEMTIME& local, bool followSystem, bool u
 // Formats the date. A custom pattern is passed straight to Windows, which
 // already supports yyyy / MM / dd / MMM / MMMM / ddd / dddd and prints anything
 // else literally -- so CJK patterns such as yyyy年MM月dd日 work as typed.
-std::wstring FormatIslandDate(const SYSTEMTIME& local, const std::wstring& customFormat,
-                              const wchar_t* fallbackPattern) {
+std::wstring format_island_date(const SYSTEMTIME& local, const std::wstring& custom_format,
+                              const wchar_t* fallback_pattern) {
     wchar_t buffer[128] = {};
 
-    if (!customFormat.empty()) {
-        if (GetDateFormatEx(LOCALE_NAME_USER_DEFAULT, 0, &local, customFormat.c_str(), buffer,
+    if (!custom_format.empty()) {
+        if (GetDateFormatEx(LOCALE_NAME_USER_DEFAULT, 0, &local, custom_format.c_str(), buffer,
                             ARRAYSIZE(buffer), nullptr) > 0) {
             return buffer;
         }
@@ -89,14 +89,14 @@ std::wstring FormatIslandDate(const SYSTEMTIME& local, const std::wstring& custo
         // nothing at all.
     }
 
-    if (GetDateFormatEx(LOCALE_NAME_USER_DEFAULT, 0, &local, fallbackPattern, buffer,
+    if (GetDateFormatEx(LOCALE_NAME_USER_DEFAULT, 0, &local, fallback_pattern, buffer,
                         ARRAYSIZE(buffer), nullptr) > 0) {
         return buffer;
     }
     return std::wstring();
 }
 
-const wchar_t* Loc(const wchar_t* english) {
+const wchar_t* loc(const wchar_t* english) {
     struct Row {
         const wchar_t* key;
         // Indexed by UiLanguage; nullptr falls back to the English key.
@@ -104,7 +104,7 @@ const wchar_t* Loc(const wchar_t* english) {
     };
 
     // Order: en, fr, es, de, pt, it, ru, tr, hi, zh, ja, ko
-    static const Row kRows[] = {
+    static const Row k_rows[] = {
         {L"Media", {nullptr, L"Média", L"Multimedia", L"Medien", L"Mídia", L"Media", L"Медиа", L"Medya", L"मीडिया", L"媒体", L"メディア", L"미디어"}},
         {L"Calendar", {nullptr, L"Calendrier", L"Calendario", L"Kalender", L"Calendário", L"Calendario", L"Календарь", L"Takvim", L"कैलेंडर", L"日历", L"カレンダー", L"캘린더"}},
         {L"Weather", {nullptr, L"Météo", L"Tiempo", L"Wetter", L"Tempo", L"Meteo", L"Погода", L"Hava", L"मौसम", L"天气", L"天気", L"날씨"}},
@@ -142,15 +142,15 @@ const wchar_t* Loc(const wchar_t* english) {
         {L"Paused in %s", {nullptr, L"En pause dans %s", L"En pausa en %s", L"Pausiert in %s", L"Pausado em %s", L"In pausa in %s", L"Приостановлено в %s", L"%s içinde duraklatıldı", L"%s में रोका गया", L"已在 %s 中暂停", L"%s で一時停止中", L"%s에서 일시 중지됨"}},
     };
 
-    const int langIndex = g_uiLanguage.load(std::memory_order_relaxed);
-    if (langIndex <= static_cast<int>(UiLanguage::English) ||
-        langIndex >= static_cast<int>(UiLanguage::Count)) {
+    const int lang_index = g_ui_language.load(std::memory_order_relaxed);
+    if (lang_index <= static_cast<int>(UiLanguage::English) ||
+        lang_index >= static_cast<int>(UiLanguage::Count)) {
         return english;
     }
 
-    for (const Row& row : kRows) {
+    for (const Row& row : k_rows) {
         if (wcscmp(row.key, english) == 0) {
-            const wchar_t* translated = row.text[static_cast<size_t>(langIndex)];
+            const wchar_t* translated = row.text[static_cast<size_t>(lang_index)];
             return translated ? translated : english;
         }
     }

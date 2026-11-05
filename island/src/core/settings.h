@@ -4,7 +4,7 @@
 namespace island
 {
 
-std::wstring GetStringSettingCopy(PCWSTR name);
-void LoadSettings();
+std::wstring get_string_setting_copy(PCWSTR name);
+void load_settings();
 
 }

@@ -5,26 +5,26 @@ namespace island
 
 
 // --- Weather Fetching Helpers ---
-std::string HttpGet(const wchar_t* host, const wchar_t* path, bool https) {
+std::string http_get(const wchar_t* host, const wchar_t* path, bool https) {
     std::string response;
-    HINTERNET hSession = WinHttpOpen(L"DynamicIsland/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
-    if (!hSession) {
+    HINTERNET h_session = WinHttpOpen(L"DynamicIsland/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+    if (!h_session) {
         host::log(L"Weather HttpGet: WinHttpOpen failed with error %lu", GetLastError());
         return response;
     }
 
-    HINTERNET hConnect = WinHttpConnect(hSession, host, https ? INTERNET_DEFAULT_HTTPS_PORT : INTERNET_DEFAULT_HTTP_PORT, 0);
-    if (hConnect) {
-        HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET", path, nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, https ? WINHTTP_FLAG_SECURE : 0);
-        if (hRequest) {
-            if (WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0) &&
-                WinHttpReceiveResponse(hRequest, nullptr)) {
+    HINTERNET h_connect = WinHttpConnect(h_session, host, https ? INTERNET_DEFAULT_HTTPS_PORT : INTERNET_DEFAULT_HTTP_PORT, 0);
+    if (h_connect) {
+        HINTERNET h_request = WinHttpOpenRequest(h_connect, L"GET", path, nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, https ? WINHTTP_FLAG_SECURE : 0);
+        if (h_request) {
+            if (WinHttpSendRequest(h_request, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0) &&
+                WinHttpReceiveResponse(h_request, nullptr)) {
                 DWORD size = 0;
                 DWORD downloaded = 0;
                 do {
-                    if (WinHttpQueryDataAvailable(hRequest, &size) && size > 0) {
+                    if (WinHttpQueryDataAvailable(h_request, &size) && size > 0) {
                         std::vector<char> buffer(size + 1);
-                        if (WinHttpReadData(hRequest, buffer.data(), size, &downloaded)) {
+                        if (WinHttpReadData(h_request, buffer.data(), size, &downloaded)) {
                             buffer[downloaded] = '\0';
                             response.append(buffer.data());
                         } else {
@@ -35,50 +35,50 @@ std::string HttpGet(const wchar_t* host, const wchar_t* path, bool https) {
             } else {
                 host::log(L"Weather HttpGet: WinHttpSendRequest/ReceiveResponse failed with error %lu", GetLastError());
             }
-            WinHttpCloseHandle(hRequest);
+            WinHttpCloseHandle(h_request);
         } else {
             host::log(L"Weather HttpGet: WinHttpOpenRequest failed with error %lu", GetLastError());
         }
-        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(h_connect);
     } else {
         host::log(L"Weather HttpGet: WinHttpConnect failed with error %lu", GetLastError());
     }
-    WinHttpCloseHandle(hSession);
+    WinHttpCloseHandle(h_session);
     return response;
 }
 
-HttpResult HttpGetEx(const wchar_t* host, const wchar_t* path, bool https, const wchar_t* userAgent) {
+HttpResult http_get_ex(const wchar_t* host, const wchar_t* path, bool https, const wchar_t* user_agent) {
     HttpResult result;
-    HINTERNET hSession = WinHttpOpen(userAgent, WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+    HINTERNET h_session = WinHttpOpen(user_agent, WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
                                      WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
-    if (!hSession) {
+    if (!h_session) {
         return result;
     }
     // resolve, connect, send, receive (ms). Without these a dead network can park
     // the lyrics thread for a very long time.
-    WinHttpSetTimeouts(hSession, 8000, 8000, 10000, 15000);
+    WinHttpSetTimeouts(h_session, 8000, 8000, 10000, 15000);
 
-    HINTERNET hConnect = WinHttpConnect(hSession, host,
+    HINTERNET h_connect = WinHttpConnect(h_session, host,
                                         https ? INTERNET_DEFAULT_HTTPS_PORT : INTERNET_DEFAULT_HTTP_PORT, 0);
-    if (hConnect) {
-        HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET", path, nullptr, WINHTTP_NO_REFERER,
+    if (h_connect) {
+        HINTERNET h_request = WinHttpOpenRequest(h_connect, L"GET", path, nullptr, WINHTTP_NO_REFERER,
                                                 WINHTTP_DEFAULT_ACCEPT_TYPES,
                                                 https ? WINHTTP_FLAG_SECURE : 0);
-        if (hRequest) {
-            if (WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
+        if (h_request) {
+            if (WinHttpSendRequest(h_request, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
                                    WINHTTP_NO_REQUEST_DATA, 0, 0, 0) &&
-                WinHttpReceiveResponse(hRequest, nullptr)) {
+                WinHttpReceiveResponse(h_request, nullptr)) {
                 DWORD status = 0;
-                DWORD statusSize = sizeof(status);
-                if (WinHttpQueryHeaders(hRequest,
+                DWORD status_size = sizeof(status);
+                if (WinHttpQueryHeaders(h_request,
                                         WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
-                                        WINHTTP_HEADER_NAME_BY_INDEX, &status, &statusSize,
+                                        WINHTTP_HEADER_NAME_BY_INDEX, &status, &status_size,
                                         WINHTTP_NO_HEADER_INDEX)) {
-                    bool readOk = true;
+                    bool read_ok = true;
                     for (;;) {
                         DWORD size = 0;
-                        if (!WinHttpQueryDataAvailable(hRequest, &size)) {
-                            readOk = false;
+                        if (!WinHttpQueryDataAvailable(h_request, &size)) {
+                            read_ok = false;
                             break;
                         }
                         if (size == 0) {
@@ -86,27 +86,27 @@ HttpResult HttpGetEx(const wchar_t* host, const wchar_t* path, bool https, const
                         }
                         std::vector<char> buffer(size);
                         DWORD downloaded = 0;
-                        if (!WinHttpReadData(hRequest, buffer.data(), size, &downloaded)) {
-                            readOk = false;
+                        if (!WinHttpReadData(h_request, buffer.data(), size, &downloaded)) {
+                            read_ok = false;
                             break;
                         }
                         result.body.append(buffer.data(), downloaded);
                         if (result.body.size() > 4u * 1024u * 1024u) {  // sanity cap
-                            readOk = false;
+                            read_ok = false;
                             break;
                         }
                     }
-                    if (readOk) {
+                    if (read_ok) {
                         result.ok = true;
                         result.status = status;
                     }
                 }
             }
-            WinHttpCloseHandle(hRequest);
+            WinHttpCloseHandle(h_request);
         }
-        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(h_connect);
     }
-    WinHttpCloseHandle(hSession);
+    WinHttpCloseHandle(h_session);
     return result;
 }
 
@@ -114,19 +114,19 @@ HttpResult HttpGetEx(const wchar_t* host, const wchar_t* path, bool https, const
 // used to be escaped, so a city containing a comma, an accent or any other
 // non-ASCII character produced a malformed request; wttr.in then answered with
 // an error page that the parser happily turned into "0 degrees".
-std::wstring PercentEncodeUtf8(const std::wstring& text) {
+std::wstring percent_encode_utf8(const std::wstring& text) {
     // Some users worked around the old space-only escaping by typing the escape
     // themselves ("New%20York"). Re-encoding that would send "New%2520York", so
     // an already-encoded value is passed through untouched. Only the exact
     // "%XX" shape counts, so a literal percent sign in a name still encodes.
-    auto looksPreEncoded = [](const std::wstring& value) {
+    auto looks_pre_encoded = [](const std::wstring& value) {
         const size_t pos = value.find(L'%');
         if (pos == std::wstring::npos || pos + 2 >= value.size()) {
             return false;
         }
         return iswxdigit(value[pos + 1]) && iswxdigit(value[pos + 2]);
     };
-    if (looksPreEncoded(text)) {
+    if (looks_pre_encoded(text)) {
         return text;
     }
 
@@ -138,7 +138,7 @@ std::wstring PercentEncodeUtf8(const std::wstring& text) {
     std::string utf8(static_cast<size_t>(bytes - 1), '\0');
     WideCharToMultiByte(CP_UTF8, 0, text.c_str(), -1, utf8.data(), bytes, nullptr, nullptr);
 
-    static constexpr wchar_t kHexDigits[] = L"0123456789ABCDEF";
+    static constexpr wchar_t hex_digits[] = L"0123456789ABCDEF";
     std::wstring out;
     out.reserve(utf8.size() * 3);
     for (const unsigned char c : utf8) {
@@ -149,8 +149,8 @@ std::wstring PercentEncodeUtf8(const std::wstring& text) {
             out.push_back(static_cast<wchar_t>(c));
         } else {
             out.push_back(L'%');
-            out.push_back(kHexDigits[(c >> 4) & 0x0f]);
-            out.push_back(kHexDigits[c & 0x0f]);
+            out.push_back(hex_digits[(c >> 4) & 0x0f]);
+            out.push_back(hex_digits[c & 0x0f]);
         }
     }
     return out;

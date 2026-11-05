@@ -4,6 +4,6 @@
 namespace island
 {
 
-DWORD WINAPI GitHubThreadProc(void*);
+DWORD WINAPI git_hub_thread_proc(void*);
 
 }

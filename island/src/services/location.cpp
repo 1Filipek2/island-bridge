@@ -139,7 +139,7 @@ std::optional<geo::Point> current_point()
 std::optional<std::wstring> place_name(geo::Point point)
 {
     const std::wstring path = geo::reverse_path(point, user_language());
-    const HttpResult result = HttpGetEx(nominatim_host, path.c_str(), true, user_agent);
+    const HttpResult result = http_get_ex(nominatim_host, path.c_str(), true, user_agent);
 
     if (!result.ok || result.status != 200)
     {

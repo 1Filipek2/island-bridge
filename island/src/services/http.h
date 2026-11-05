@@ -4,7 +4,7 @@
 namespace island
 {
 
-std::string HttpGet(const wchar_t* host, const wchar_t* path, bool https = true);
+std::string http_get(const wchar_t* host, const wchar_t* path, bool https = true);
 
 // HTTP GET that distinguishes "the server answered" from "the transport failed".
 // HttpGet() above returns an empty string for both, which is why a lyrics cache
@@ -16,11 +16,11 @@ struct HttpResult {
 
     // A real answer: lyrics (200 with a body) or "no such track" (404). Anything
     // else (timeout, 429, 5xx, empty 200) is a failure that must never be cached.
-    bool IsDefinitive() const {
+    bool is_definitive() const {
         return ok && ((status == 200 && !body.empty()) || status == 404);
     }
 };
-HttpResult HttpGetEx(const wchar_t* host, const wchar_t* path, bool https, const wchar_t* userAgent);
-std::wstring PercentEncodeUtf8(const std::wstring& text);
+HttpResult http_get_ex(const wchar_t* host, const wchar_t* path, bool https, const wchar_t* user_agent);
+std::wstring percent_encode_utf8(const std::wstring& text);
 
 }

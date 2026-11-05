@@ -213,7 +213,7 @@ PixelsRef decode_icon(const std::vector<std::uint8_t>& bytes)
 
     BitmapPixels decoded;
 
-    if (!DecodeImageBytesToPixels(bytes, &decoded))
+    if (!decode_image_bytes_to_pixels(bytes, &decoded))
     {
         return PixelsRef{};
     }

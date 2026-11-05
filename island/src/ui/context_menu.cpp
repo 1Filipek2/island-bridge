@@ -19,36 +19,36 @@ namespace
 
 
 // ── Media source menu (right-click submenu and the dock's "+N" list) ─────────
-static constexpr UINT kMediaSourceMenuIdBase = 100;  // 100 = Auto, 101.. = sources
+static constexpr UINT media_source_menu_id_base = 100;  // 100 = Auto, 101.. = sources
 
 // Shape style submenu: +0 = iPhone pill, +1 = Windows 11 flyout, +2 = macOS notch.
-static constexpr UINT kShapeMenuIdBase = 50;
+static constexpr UINT shape_menu_id_base = 50;
 
 // Lyrics sync submenu: +0 header (disabled), +1..+3 earlier 10/50/250, +4..+6 later 10/50/250, +7 reset.
-static constexpr UINT kLyricsSyncMenuIdBase = 60;
+static constexpr UINT lyrics_sync_menu_id_base = 60;
 
 // Right-click nudge for the profile that is active right now (Bluetooth or speakers).
 // Stored separately from the Mod Settings value; effective offset = setting + nudge.
 // Deliberately does not call LoadSettings(), which also resets the pinned state.
-void AdjustLyricsNudge(int deltaMs) {
-    const bool bt = g_defaultOutputIsBluetooth.load(std::memory_order_relaxed);
+void adjust_lyrics_nudge(int delta_ms) {
+    const bool bt = g_default_output_is_bluetooth.load(std::memory_order_relaxed);
     const wchar_t* key = bt ? L"LyricsNudgeBtMs" : L"LyricsNudgeMs";
-    const Settings s = GetSettingsCopy();
-    const int setting = bt ? s.lyricsOffsetBtMs : s.lyricsOffsetMs;
+    const Settings s = get_settings_copy();
+    const int setting = bt ? s.lyrics_offset_bt_ms : s.lyrics_offset_ms;
     // Clamp the nudge so setting + nudge stays in range; repeated presses never pile up invisibly.
-    const int nudge = ClampInt(host::int_value(key, 0) + deltaMs,
-                               -kLyricsOffsetLimitMs - setting, kLyricsOffsetLimitMs - setting);
+    const int nudge = clamp_int(host::int_value(key, 0) + delta_ms,
+                               -lyrics_offset_limit_ms - setting, lyrics_offset_limit_ms - setting);
     host::set_int_value(key, nudge);
-    PublishLyricsOffsets(s.lyricsOffsetMs, s.lyricsOffsetBtMs);
-    g_layoutDirty = true;
+    publish_lyrics_offsets(s.lyrics_offset_ms, s.lyrics_offset_bt_ms);
+    g_layout_dirty = true;
 }
 
-void ResetLyricsNudge() {
-    const bool bt = g_defaultOutputIsBluetooth.load(std::memory_order_relaxed);
+void reset_lyrics_nudge() {
+    const bool bt = g_default_output_is_bluetooth.load(std::memory_order_relaxed);
     host::set_int_value(bt ? L"LyricsNudgeBtMs" : L"LyricsNudgeMs", 0);
-    const Settings s = GetSettingsCopy();
-    PublishLyricsOffsets(s.lyricsOffsetMs, s.lyricsOffsetBtMs);
-    g_layoutDirty = true;
+    const Settings s = get_settings_copy();
+    publish_lyrics_offsets(s.lyrics_offset_ms, s.lyrics_offset_bt_ms);
+    g_layout_dirty = true;
 }
 
 struct MediaSourceMenuItem {
@@ -57,38 +57,38 @@ struct MediaSourceMenuItem {
 };
 
 // Ticks: "Auto" = automatic mode, an app = the one currently being controlled.
-std::vector<MediaSourceMenuItem> AppendMediaSourceItems(HMENU menu) {
+std::vector<MediaSourceMenuItem> append_media_source_items(HMENU menu) {
     std::vector<MediaSourceMenuItem> items;
     std::wstring active;
     {
-        std::lock_guard lock(g_stateMutex);
-        active = g_state.media.sourceAppUserModelId;
-        for (const MediaSourceInfo& source : g_state.mediaSources) {
+        std::lock_guard lock(g_state_mutex);
+        active = g_state.media.source_app_user_model_id;
+        for (const MediaSourceInfo& source : g_state.media_sources) {
             items.push_back(MediaSourceMenuItem{source.aumid, source.name});
         }
     }
 
-    const bool autoMode = GetPreferredMediaSource().empty();
-    AppendMenuW(menu, MF_STRING | (autoMode ? MF_CHECKED : 0), kMediaSourceMenuIdBase, Loc(L"Auto"));
+    const bool auto_mode = get_preferred_media_source().empty();
+    AppendMenuW(menu, MF_STRING | (auto_mode ? MF_CHECKED : 0), media_source_menu_id_base, loc(L"Auto"));
     if (!items.empty()) {
         AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     }
     for (size_t i = 0; i < items.size(); ++i) {
         AppendMenuW(menu, MF_STRING | (items[i].aumid == active ? MF_CHECKED : 0),
-                    kMediaSourceMenuIdBase + 1 + static_cast<UINT>(i), items[i].name.c_str());
+                    media_source_menu_id_base + 1 + static_cast<UINT>(i), items[i].name.c_str());
     }
     return items;
 }
 
-void ApplyMediaSourceMenuCommand(UINT cmd, const std::vector<MediaSourceMenuItem>& items) {
-    if (cmd < kMediaSourceMenuIdBase) return;
-    if (cmd == kMediaSourceMenuIdBase) {
-        LockMediaSource(L"");
+void apply_media_source_menu_command(UINT cmd, const std::vector<MediaSourceMenuItem>& items) {
+    if (cmd < media_source_menu_id_base) return;
+    if (cmd == media_source_menu_id_base) {
+        lock_media_source(L"");
         return;
     }
-    const size_t index = cmd - kMediaSourceMenuIdBase - 1;
+    const size_t index = cmd - media_source_menu_id_base - 1;
     if (index < items.size()) {
-        LockMediaSource(items[index].aumid);
+        lock_media_source(items[index].aumid);
     }
 }
 
@@ -96,18 +96,18 @@ void ApplyMediaSourceMenuCommand(UINT cmd, const std::vector<MediaSourceMenuItem
 
 
 
-void ShowMediaSourcePopup(HWND hwnd, POINT screenPoint) {
+void show_media_source_popup(HWND hwnd, POINT screen_point) {
     HMENU menu = CreatePopupMenu();
-    const std::vector<MediaSourceMenuItem> items = AppendMediaSourceItems(menu);
+    const std::vector<MediaSourceMenuItem> items = append_media_source_items(menu);
     SetForegroundWindow(hwnd);
-    DwmBackdrop::EnsureBehind(hwnd);
+    dwm_backdrop::ensure_behind(hwnd);
     const UINT cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON,
-                                    screenPoint.x, screenPoint.y, 0, hwnd, nullptr);
+                                    screen_point.x, screen_point.y, 0, hwnd, nullptr);
     DestroyMenu(menu);
     PostMessageW(hwnd, WM_NULL, 0, 0);
-    DwmBackdrop::EnsureBehind(hwnd);
-    g_layoutDirty = true;
-    ApplyMediaSourceMenuCommand(cmd, items);
+    dwm_backdrop::ensure_behind(hwnd);
+    g_layout_dirty = true;
+    apply_media_source_menu_command(cmd, items);
 }
 
 
@@ -115,7 +115,7 @@ namespace
 {
 
 
-void OpenIslandBridgeWindow() {
+void open_island_bridge_window() {
     wchar_t path[MAX_PATH] = {};
     const DWORD length = GetModuleFileNameW(nullptr, path, ARRAYSIZE(path));
     wchar_t* slash = length > 0 && length < ARRAYSIZE(path) ? wcsrchr(path, L'\\') : nullptr;
@@ -136,89 +136,89 @@ void OpenIslandBridgeWindow() {
 
 
 
-void ShowContextMenu(HWND hwnd, POINT screenPoint) {
-    bool timerActive = false;
-    bool timerRunning = false;
+void show_context_menu(HWND hwnd, POINT screen_point) {
+    bool timer_active = false;
+    bool timer_running = false;
     {
-        std::lock_guard lock(g_stateMutex);
-        timerActive = g_state.timer.active;
-        timerRunning = g_state.timer.running;
+        std::lock_guard lock(g_state_mutex);
+        timer_active = g_state.timer.active;
+        timer_running = g_state.timer.running;
     }
 
     HMENU menu = CreatePopupMenu();
-    AppendMenuW(menu, MF_STRING, 40, g_manuallyHidden.load() ? L"Show Island" : L"Hide Island");
+    AppendMenuW(menu, MF_STRING, 40, g_manually_hidden.load() ? L"Show Island" : L"Hide Island");
     AppendMenuW(menu, MF_STRING, 1, L"Dismiss");
 
-    HMENU timerMenu = CreatePopupMenu();
-    AppendMenuW(timerMenu, MF_STRING, 30, L"Start 25 min Focus");
-    AppendMenuW(timerMenu, MF_STRING, 31, L"Start 50 min Focus");
-    AppendMenuW(timerMenu, MF_STRING, 32, L"Start 5 min Break");
-    if (timerActive) {
-        AppendMenuW(timerMenu, MF_STRING, 33, timerRunning ? L"Pause Timer" : L"Resume Timer");
-        AppendMenuW(timerMenu, MF_STRING, 34, L"Stop Timer");
+    HMENU timer_menu = CreatePopupMenu();
+    AppendMenuW(timer_menu, MF_STRING, 30, L"Start 25 min Focus");
+    AppendMenuW(timer_menu, MF_STRING, 31, L"Start 50 min Focus");
+    AppendMenuW(timer_menu, MF_STRING, 32, L"Start 5 min Break");
+    if (timer_active) {
+        AppendMenuW(timer_menu, MF_STRING, 33, timer_running ? L"Pause Timer" : L"Resume Timer");
+        AppendMenuW(timer_menu, MF_STRING, 34, L"Stop Timer");
     }
-    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(timerMenu), L"Focus Timer");
+    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(timer_menu), L"Focus Timer");
 
-    std::vector<MediaSourceMenuItem> mediaSourceItems;
+    std::vector<MediaSourceMenuItem> media_source_items;
     {
-        HMENU sourceMenu = CreatePopupMenu();
-        mediaSourceItems = AppendMediaSourceItems(sourceMenu);
-        AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(sourceMenu), Loc(L"Media source"));
+        HMENU source_menu = CreatePopupMenu();
+        media_source_items = append_media_source_items(source_menu);
+        AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(source_menu), loc(L"Media source"));
     }
-    if (g_settings.fileTrayModule) {
-        size_t trayCount = 0;
+    if (g_settings.file_tray_module) {
+        size_t tray_count = 0;
         {
-            std::lock_guard lock(g_stateMutex);
-            trayCount = g_state.fileTrayItems.size();
+            std::lock_guard lock(g_state_mutex);
+            tray_count = g_state.file_tray_items.size();
         }
-        HMENU trayMenu = CreatePopupMenu();
-        AppendMenuW(trayMenu, MF_STRING, 42, L"Paste from clipboard");
-        const std::wstring clearLabel = trayCount == 0
+        HMENU tray_menu = CreatePopupMenu();
+        AppendMenuW(tray_menu, MF_STRING, 42, L"Paste from clipboard");
+        const std::wstring clear_label = tray_count == 0
             ? std::wstring(L"Clear tray")
-            : L"Clear tray (" + std::to_wstring(trayCount) + L")";
-        AppendMenuW(trayMenu, MF_STRING | (trayCount == 0 ? (MF_GRAYED | MF_DISABLED) : 0), 41,
-                    clearLabel.c_str());
-        AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(trayMenu), Loc(L"File Tray"));
+            : L"Clear tray (" + std::to_wstring(tray_count) + L")";
+        AppendMenuW(tray_menu, MF_STRING | (tray_count == 0 ? (MF_GRAYED | MF_DISABLED) : 0), 41,
+                    clear_label.c_str());
+        AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(tray_menu), loc(L"File Tray"));
     }
     AppendMenuW(menu, MF_STRING, 2, L"Pin expanded");
-    AppendMenuW(menu, MF_STRING, 3, g_gameOverlayPinned.load() ? L"Hide game overlay" : L"Show game overlay");
+    AppendMenuW(menu, MF_STRING, 3, g_game_overlay_pinned.load() ? L"Hide game overlay" : L"Show game overlay");
     {
         // g_settings already reflects any right-click override, so it is the
         // source of truth for which style is active.
-        const int currentShape = g_settings.notchStyle ? 2 : (g_settings.w11Style ? 1 : 0);
-        HMENU shapeMenu = CreatePopupMenu();
-        AppendMenuW(shapeMenu, MF_STRING, kShapeMenuIdBase, L"iPhone Pill");
-        AppendMenuW(shapeMenu, MF_STRING, kShapeMenuIdBase + 1, L"Windows 11 Flyout");
-        if (IsBottomPosition(g_settings.position)) {
-            AppendMenuW(shapeMenu, MF_STRING | MF_GRAYED | MF_DISABLED, kShapeMenuIdBase + 2,
+        const int current_shape = g_settings.notch_style ? 2 : (g_settings.w11_style ? 1 : 0);
+        HMENU shape_menu = CreatePopupMenu();
+        AppendMenuW(shape_menu, MF_STRING, shape_menu_id_base, L"iPhone Pill");
+        AppendMenuW(shape_menu, MF_STRING, shape_menu_id_base + 1, L"Windows 11 Flyout");
+        if (is_bottom_position(g_settings.position)) {
+            AppendMenuW(shape_menu, MF_STRING | MF_GRAYED | MF_DISABLED, shape_menu_id_base + 2,
                         L"macOS Notch (unavailable at bottom)");
         } else {
-            AppendMenuW(shapeMenu, MF_STRING, kShapeMenuIdBase + 2, L"macOS Notch");
+            AppendMenuW(shape_menu, MF_STRING, shape_menu_id_base + 2, L"macOS Notch");
         }
-        CheckMenuRadioItem(shapeMenu, kShapeMenuIdBase, kShapeMenuIdBase + 2,
-                           kShapeMenuIdBase + static_cast<UINT>(currentShape), MF_BYCOMMAND);
-        AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(shapeMenu), L"Shape style");
+        CheckMenuRadioItem(shape_menu, shape_menu_id_base, shape_menu_id_base + 2,
+                           shape_menu_id_base + static_cast<UINT>(current_shape), MF_BYCOMMAND);
+        AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(shape_menu), L"Shape style");
     }
-    const int activeExpandOnHover = host::int_value(L"ExpandOnHoverOverride", -1) >= 0
+    const int active_expand_on_hover = host::int_value(L"ExpandOnHoverOverride", -1) >= 0
                           ? host::int_value(L"ExpandOnHoverOverride", 0)
                           : (host::int_setting(L"Behavior.ExpandOnHover") != 0);
-    AppendMenuW(menu, MF_STRING, 11, activeExpandOnHover ? L"Expand on Click" : L"Expand on Hover");
+    AppendMenuW(menu, MF_STRING, 11, active_expand_on_hover ? L"Expand on Click" : L"Expand on Hover");
     AppendMenuW(menu, MF_STRING | (host::int_value(L"CollapsedLyrics", 0) ? MF_CHECKED : 0), 13,
                 L"Show lyrics on collapsed island");
     AppendMenuW(menu,
-                MF_STRING | (g_settings.mediaTabLyrics ? MF_CHECKED : 0),
+                MF_STRING | (g_settings.media_tab_lyrics ? MF_CHECKED : 0),
                 15, L"Show lyrics in media tab");
     {
-        bool cacheOn = false;
+        bool cache_on = false;
         {
-            std::lock_guard lock(g_settingsMutex);
-            cacheOn = g_settings.lyricsCache && g_settings.lyricsCacheMaxMB > 0;
+            std::lock_guard lock(g_settings_mutex);
+            cache_on = g_settings.lyrics_cache && g_settings.lyrics_cache_max_mb > 0;
         }
         // Counters are maintained by the lyrics thread; nothing is scanned here.
-        std::wstring cacheLabel = L"Clear lyrics cache";
-        if (g_lyricsCacheCountsValid.load(std::memory_order_relaxed)) {
-            const int songs = g_lyricsCacheFileCount.load(std::memory_order_relaxed);
-            const uint64_t bytes = g_lyricsCacheBytes.load(std::memory_order_relaxed);
+        std::wstring cache_label = L"Clear lyrics cache";
+        if (g_lyrics_cache_counts_valid.load(std::memory_order_relaxed)) {
+            const int songs = g_lyrics_cache_file_count.load(std::memory_order_relaxed);
+            const uint64_t bytes = g_lyrics_cache_bytes.load(std::memory_order_relaxed);
             wchar_t detail[64] = {};
             if (bytes >= 1048576ull) {
                 swprintf_s(detail, L" (%d songs, %.1f MB)", songs, static_cast<double>(bytes) / 1048576.0);
@@ -226,280 +226,280 @@ void ShowContextMenu(HWND hwnd, POINT screenPoint) {
                 swprintf_s(detail, L" (%d songs, %llu KB)", songs,
                            static_cast<unsigned long long>((bytes + 1023ull) / 1024ull));
             }
-            cacheLabel += detail;
+            cache_label += detail;
         }
-        AppendMenuW(menu, MF_STRING | (cacheOn ? 0 : (MF_GRAYED | MF_DISABLED)), 43, cacheLabel.c_str());
+        AppendMenuW(menu, MF_STRING | (cache_on ? 0 : (MF_GRAYED | MF_DISABLED)), 43, cache_label.c_str());
 
         {
             // Shows and adjusts whichever profile is active right now.
-            const bool bt = g_defaultOutputIsBluetooth.load(std::memory_order_relaxed);
-            const int effective = bt ? g_lyricsEffectiveOffsetBtMs.load(std::memory_order_relaxed)
-                                     : g_lyricsEffectiveOffsetMs.load(std::memory_order_relaxed);
+            const bool bt = g_default_output_is_bluetooth.load(std::memory_order_relaxed);
+            const int effective = bt ? g_lyrics_effective_offset_bt_ms.load(std::memory_order_relaxed)
+                                     : g_lyrics_effective_offset_ms.load(std::memory_order_relaxed);
             wchar_t header[96] = {};
             swprintf_s(header, L"%s: %+d ms", bt ? L"Bluetooth" : L"Speakers", effective);
 
-            HMENU lyricsSyncMenu = CreatePopupMenu();
-            AppendMenuW(lyricsSyncMenu, MF_STRING | MF_GRAYED | MF_DISABLED, kLyricsSyncMenuIdBase, header);
-            AppendMenuW(lyricsSyncMenu, MF_SEPARATOR, 0, nullptr);
-            AppendMenuW(lyricsSyncMenu, MF_STRING, kLyricsSyncMenuIdBase + 1, L"Earlier +10 ms");
-            AppendMenuW(lyricsSyncMenu, MF_STRING, kLyricsSyncMenuIdBase + 2, L"Earlier +50 ms");
-            AppendMenuW(lyricsSyncMenu, MF_STRING, kLyricsSyncMenuIdBase + 3, L"Earlier +250 ms");
-            AppendMenuW(lyricsSyncMenu, MF_SEPARATOR, 0, nullptr);
-            AppendMenuW(lyricsSyncMenu, MF_STRING, kLyricsSyncMenuIdBase + 4, L"Later -10 ms");
-            AppendMenuW(lyricsSyncMenu, MF_STRING, kLyricsSyncMenuIdBase + 5, L"Later -50 ms");
-            AppendMenuW(lyricsSyncMenu, MF_STRING, kLyricsSyncMenuIdBase + 6, L"Later -250 ms");
-            AppendMenuW(lyricsSyncMenu, MF_SEPARATOR, 0, nullptr);
-            AppendMenuW(lyricsSyncMenu, MF_STRING, kLyricsSyncMenuIdBase + 7, L"Reset this profile");
-            AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(lyricsSyncMenu), L"Lyrics sync");
+            HMENU lyrics_sync_menu = CreatePopupMenu();
+            AppendMenuW(lyrics_sync_menu, MF_STRING | MF_GRAYED | MF_DISABLED, lyrics_sync_menu_id_base, header);
+            AppendMenuW(lyrics_sync_menu, MF_SEPARATOR, 0, nullptr);
+            AppendMenuW(lyrics_sync_menu, MF_STRING, lyrics_sync_menu_id_base + 1, L"Earlier +10 ms");
+            AppendMenuW(lyrics_sync_menu, MF_STRING, lyrics_sync_menu_id_base + 2, L"Earlier +50 ms");
+            AppendMenuW(lyrics_sync_menu, MF_STRING, lyrics_sync_menu_id_base + 3, L"Earlier +250 ms");
+            AppendMenuW(lyrics_sync_menu, MF_SEPARATOR, 0, nullptr);
+            AppendMenuW(lyrics_sync_menu, MF_STRING, lyrics_sync_menu_id_base + 4, L"Later -10 ms");
+            AppendMenuW(lyrics_sync_menu, MF_STRING, lyrics_sync_menu_id_base + 5, L"Later -50 ms");
+            AppendMenuW(lyrics_sync_menu, MF_STRING, lyrics_sync_menu_id_base + 6, L"Later -250 ms");
+            AppendMenuW(lyrics_sync_menu, MF_SEPARATOR, 0, nullptr);
+            AppendMenuW(lyrics_sync_menu, MF_STRING, lyrics_sync_menu_id_base + 7, L"Reset this profile");
+            AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(lyrics_sync_menu), L"Lyrics sync");
         }
     }
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-    const int activeOpacity = g_pillOpacityOverride.load();
-    HMENU opacityMenu = CreatePopupMenu();
-    AppendMenuW(opacityMenu, MF_STRING | (activeOpacity == 100 ? MF_CHECKED : 0), 4, L"100% (Opaque)");
-    AppendMenuW(opacityMenu, MF_STRING | (activeOpacity == 85 ? MF_CHECKED : 0), 5, L"85%");
-    AppendMenuW(opacityMenu, MF_STRING | (activeOpacity == 70 ? MF_CHECKED : 0), 6, L"70%");
-    AppendMenuW(opacityMenu, MF_STRING | (activeOpacity == 55 ? MF_CHECKED : 0), 7, L"55%");
-    AppendMenuW(opacityMenu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(opacityMenu, MF_STRING | (activeOpacity < 0 ? MF_CHECKED : 0), 8, L"Theme default");
-    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(opacityMenu), L"Transparency");
+    const int active_opacity = g_pill_opacity_override.load();
+    HMENU opacity_menu = CreatePopupMenu();
+    AppendMenuW(opacity_menu, MF_STRING | (active_opacity == 100 ? MF_CHECKED : 0), 4, L"100% (Opaque)");
+    AppendMenuW(opacity_menu, MF_STRING | (active_opacity == 85 ? MF_CHECKED : 0), 5, L"85%");
+    AppendMenuW(opacity_menu, MF_STRING | (active_opacity == 70 ? MF_CHECKED : 0), 6, L"70%");
+    AppendMenuW(opacity_menu, MF_STRING | (active_opacity == 55 ? MF_CHECKED : 0), 7, L"55%");
+    AppendMenuW(opacity_menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(opacity_menu, MF_STRING | (active_opacity < 0 ? MF_CHECKED : 0), 8, L"Theme default");
+    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(opacity_menu), L"Transparency");
     {
-        const std::vector<WeatherCityEntry> weatherCities = LoadWeatherCities();
-        if (!weatherCities.empty()) {
-            const bool autoCity = IsWeatherCityAuto();
-            const int activeCity = GetActiveWeatherCityIndex(weatherCities.size());
-            HMENU weatherMenu = CreatePopupMenu();
-            std::wstring autoLabel = L"Auto (by location)";
-            if (autoCity) {
-                std::wstring shownCity;
+        const std::vector<WeatherCityEntry> weather_cities = load_weather_cities();
+        if (!weather_cities.empty()) {
+            const bool auto_city = is_weather_city_auto();
+            const int active_city = get_active_weather_city_index(weather_cities.size());
+            HMENU weather_menu = CreatePopupMenu();
+            std::wstring auto_label = L"Auto (by location)";
+            if (auto_city) {
+                std::wstring shown_city;
                 {
-                    std::lock_guard lock(g_stateMutex);
-                    shownCity = g_state.weather.city;
+                    std::lock_guard lock(g_state_mutex);
+                    shown_city = g_state.weather.city;
                 }
-                if (!shownCity.empty()) {
-                    autoLabel += L" \x2013 " + shownCity;
+                if (!shown_city.empty()) {
+                    auto_label += L" \x2013 " + shown_city;
                 }
             }
-            AppendMenuW(weatherMenu, MF_STRING | (autoCity ? MF_CHECKED : 0), kWeatherCityAutoMenuId,
-                        autoLabel.c_str());
-            const location::Status locationStatus = location::status();
-            if (autoCity && location::can_fix(locationStatus)) {
-                AppendMenuW(weatherMenu, MF_STRING, kWeatherLocationFixMenuId,
-                            locationStatus == location::Status::ServiceDisabled
-                                ? Loc(L"Turn on precise location...")
-                                : Loc(L"Allow precise location..."));
+            AppendMenuW(weather_menu, MF_STRING | (auto_city ? MF_CHECKED : 0), weather_city_auto_menu_id,
+                        auto_label.c_str());
+            const location::Status location_status = location::status();
+            if (auto_city && location::can_fix(location_status)) {
+                AppendMenuW(weather_menu, MF_STRING, weather_location_fix_menu_id,
+                            location_status == location::Status::ServiceDisabled
+                                ? loc(L"Turn on precise location...")
+                                : loc(L"Allow precise location..."));
             }
-            AppendMenuW(weatherMenu, MF_SEPARATOR, 0, nullptr);
-            for (size_t i = 0; i < weatherCities.size(); ++i) {
-                AppendMenuW(weatherMenu,
-                            MF_STRING | (!autoCity && static_cast<int>(i) == activeCity ? MF_CHECKED : 0),
-                            kWeatherCityMenuIdBase + static_cast<UINT>(i), weatherCities[i].name.c_str());
+            AppendMenuW(weather_menu, MF_SEPARATOR, 0, nullptr);
+            for (size_t i = 0; i < weather_cities.size(); ++i) {
+                AppendMenuW(weather_menu,
+                            MF_STRING | (!auto_city && static_cast<int>(i) == active_city ? MF_CHECKED : 0),
+                            weather_city_menu_id_base + static_cast<UINT>(i), weather_cities[i].name.c_str());
             }
-            AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(weatherMenu), L"Weather city");
+            AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(weather_menu), L"Weather city");
         }
     }
     // Color theme presets. Built from kThemePalettes and nested in a submenu:
     // nine palettes listed flat would dominate the root menu.
-    const int activeTheme = host::int_value(kThemeValueName, static_cast<int>(g_settings.themePreset));
-    HMENU themeMenu = CreatePopupMenu();
-    for (int i = 0; i < kCustomThemeIndex; ++i) {
-        AppendMenuW(themeMenu, MF_STRING | (activeTheme == i ? MF_CHECKED : 0),
-                    kThemeMenuIdBase + static_cast<UINT>(i), kThemePalettes[i].label);
+    const int active_theme = host::int_value(theme_value_name, static_cast<int>(g_settings.theme_preset));
+    HMENU theme_menu = CreatePopupMenu();
+    for (int i = 0; i < custom_theme_index; ++i) {
+        AppendMenuW(theme_menu, MF_STRING | (active_theme == i ? MF_CHECKED : 0),
+                    theme_menu_id_base + static_cast<UINT>(i), theme_palettes[i].label);
     }
-    AppendMenuW(themeMenu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(themeMenu, MF_STRING | (activeTheme >= kCustomThemeIndex ? MF_CHECKED : 0),
-                kThemeMenuIdBase + static_cast<UINT>(kCustomThemeIndex), L"Custom Colors");
-    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(themeMenu), L"Theme");
+    AppendMenuW(theme_menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(theme_menu, MF_STRING | (active_theme >= custom_theme_index ? MF_CHECKED : 0),
+                theme_menu_id_base + static_cast<UINT>(custom_theme_index), L"Custom Colors");
+    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(theme_menu), L"Theme");
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING, 9, L"Open IslandBridge");
 
     SetForegroundWindow(hwnd);
-    DwmBackdrop::EnsureBehind(hwnd);
+    dwm_backdrop::ensure_behind(hwnd);
     const UINT cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON,
-                                   screenPoint.x, screenPoint.y, 0, hwnd, nullptr);
+                                   screen_point.x, screen_point.y, 0, hwnd, nullptr);
     DestroyMenu(menu);
     PostMessageW(hwnd, WM_NULL, 0, 0);
-    DwmBackdrop::EnsureBehind(hwnd);
-    g_layoutDirty = true;
+    dwm_backdrop::ensure_behind(hwnd);
+    g_layout_dirty = true;
 
     // Theme ids are a contiguous range rather than individual cases, so adding a
     // palette to kThemePalettes needs no change here.
-    if (cmd >= kThemeMenuIdBase &&
-        cmd <= kThemeMenuIdBase + static_cast<UINT>(kCustomThemeIndex)) {
-        host::set_int_value(kThemeValueName, static_cast<int>(cmd - kThemeMenuIdBase));
-        LoadSettings();
+    if (cmd >= theme_menu_id_base &&
+        cmd <= theme_menu_id_base + static_cast<UINT>(custom_theme_index)) {
+        host::set_int_value(theme_value_name, static_cast<int>(cmd - theme_menu_id_base));
+        load_settings();
         return;
     }
 
-    if (cmd == kWeatherLocationFixMenuId) {
-        location::fix_access(g_settingsChangedEvent);
+    if (cmd == weather_location_fix_menu_id) {
+        location::fix_access(g_settings_changed_event);
         return;
     }
 
-    if (cmd == kWeatherCityAutoMenuId ||
-        (cmd >= kWeatherCityMenuIdBase && cmd < kWeatherCityMenuIdBase + kWeatherCityMenuMax)) {
-        host::set_int_value(L"WeatherCityIndex", cmd == kWeatherCityAutoMenuId
-                                                ? kWeatherCityAuto
-                                                : static_cast<int>(cmd - kWeatherCityMenuIdBase));
-        if (g_settingsChangedEvent) {
-            SetEvent(g_settingsChangedEvent);
+    if (cmd == weather_city_auto_menu_id ||
+        (cmd >= weather_city_menu_id_base && cmd < weather_city_menu_id_base + weather_city_menu_max)) {
+        host::set_int_value(L"WeatherCityIndex", cmd == weather_city_auto_menu_id
+                                                ? weather_city_auto
+                                                : static_cast<int>(cmd - weather_city_menu_id_base));
+        if (g_settings_changed_event) {
+            SetEvent(g_settings_changed_event);
         }
         return;
     }
 
-    if (cmd >= kMediaSourceMenuIdBase) {
-        ApplyMediaSourceMenuCommand(cmd, mediaSourceItems);
+    if (cmd >= media_source_menu_id_base) {
+        apply_media_source_menu_command(cmd, media_source_items);
         return;
     }
 
     switch (cmd) {
         case 1:
-            DismissTransientState();
-            g_clickExpanded = false;
-            g_layoutDirty = true;
-            TriggerNudge();
+            dismiss_transient_state();
+            g_click_expanded = false;
+            g_layout_dirty = true;
+            trigger_nudge();
             break;
         case 2: {
-            const bool nextVal = !g_pinnedExpanded.load();
-            g_pinnedExpanded.store(nextVal);
-            host::set_int_value(L"PinnedExpanded", nextVal ? 1 : 0);
+            const bool next_val = !g_pinned_expanded.load();
+            g_pinned_expanded.store(next_val);
+            host::set_int_value(L"PinnedExpanded", next_val ? 1 : 0);
             break;
         }
         case 3: {
-            const bool nextVal = !g_gameOverlayPinned.load();
-            g_gameOverlayPinned.store(nextVal);
-            host::set_int_value(L"GameOverlayPinned", nextVal ? 1 : 0);
+            const bool next_val = !g_game_overlay_pinned.load();
+            g_game_overlay_pinned.store(next_val);
+            host::set_int_value(L"GameOverlayPinned", next_val ? 1 : 0);
             break;
         }
         case 4:
-            g_pillOpacityOverride.store(100);
+            g_pill_opacity_override.store(100);
             host::set_int_value(L"PillOpacityOverride", 100);
-            LoadSettings();
+            load_settings();
             break;
         case 5:
-            g_pillOpacityOverride.store(85);
+            g_pill_opacity_override.store(85);
             host::set_int_value(L"PillOpacityOverride", 85);
-            LoadSettings();
+            load_settings();
             break;
         case 6:
-            g_pillOpacityOverride.store(70);
+            g_pill_opacity_override.store(70);
             host::set_int_value(L"PillOpacityOverride", 70);
-            LoadSettings();
+            load_settings();
             break;
         case 7:
-            g_pillOpacityOverride.store(55);
+            g_pill_opacity_override.store(55);
             host::set_int_value(L"PillOpacityOverride", 55);
-            LoadSettings();
+            load_settings();
             break;
         case 8:
-            g_pillOpacityOverride.store(-1);
+            g_pill_opacity_override.store(-1);
             host::set_int_value(L"PillOpacityOverride", -1);
-            LoadSettings();
+            load_settings();
             break;
         case 9: {
-            OpenIslandBridgeWindow();
+            open_island_bridge_window();
             break;
         }
-        case kShapeMenuIdBase:
-        case kShapeMenuIdBase + 1:
-        case kShapeMenuIdBase + 2: {
-            const bool wantW11 = (cmd == kShapeMenuIdBase + 1);
-            const bool wantNotch = (cmd == kShapeMenuIdBase + 2);
-            if (wantNotch && IsBottomPosition(g_settings.position)) {
+        case shape_menu_id_base:
+        case shape_menu_id_base + 1:
+        case shape_menu_id_base + 2: {
+            const bool want_w11 = (cmd == shape_menu_id_base + 1);
+            const bool want_notch = (cmd == shape_menu_id_base + 2);
+            if (want_notch && is_bottom_position(g_settings.position)) {
                 break;  // a bottom-anchored island can't be a top-edge notch
             }
             // Both overrides are written every time, so exactly one style is active.
-            host::set_int_value(L"W11StyleOverride", wantW11 ? 1 : 0);
-            host::set_int_value(L"NotchStyleOverride", wantNotch ? 1 : 0);
-            LoadSettings();
-            g_layoutDirty = true;
-            TriggerNudge();
+            host::set_int_value(L"W11StyleOverride", want_w11 ? 1 : 0);
+            host::set_int_value(L"NotchStyleOverride", want_notch ? 1 : 0);
+            load_settings();
+            g_layout_dirty = true;
+            trigger_nudge();
             break;
         }
         case 11: {
-            const int activeExpandOnHover = host::int_value(L"ExpandOnHoverOverride", -1) >= 0
+            const int active_expand_on_hover = host::int_value(L"ExpandOnHoverOverride", -1) >= 0
                                   ? host::int_value(L"ExpandOnHoverOverride", 0)
                                   : (host::int_setting(L"Behavior.ExpandOnHover") != 0);
-            host::set_int_value(L"ExpandOnHoverOverride", activeExpandOnHover ? 0 : 1);
-            LoadSettings();
-            g_layoutDirty = true;
+            host::set_int_value(L"ExpandOnHoverOverride", active_expand_on_hover ? 0 : 1);
+            load_settings();
+            g_layout_dirty = true;
             break;
         }
         case 13: {
             host::set_int_value(L"CollapsedLyrics", host::int_value(L"CollapsedLyrics", 0) ? 0 : 1);
-            LoadSettings();
-            g_layoutDirty = true;
-            TriggerNudge();
+            load_settings();
+            g_layout_dirty = true;
+            trigger_nudge();
             break;
         }
         case 15: {
-            const int mediaTabLyricsSetting = host::int_setting(L"Modules.MediaTabLyrics") != 0 ? 1 : 0;
-            host::set_int_value(L"MediaTabLyricsOverride", GetSettingsCopy().mediaTabLyrics ? 0 : 1);
-            host::set_int_value(L"MediaTabLyricsOverrideBase", mediaTabLyricsSetting);
-            LoadSettings();
-            g_layoutDirty = true;
-            TriggerNudge();
+            const int media_tab_lyrics_setting = host::int_setting(L"Modules.MediaTabLyrics") != 0 ? 1 : 0;
+            host::set_int_value(L"MediaTabLyricsOverride", get_settings_copy().media_tab_lyrics ? 0 : 1);
+            host::set_int_value(L"MediaTabLyricsOverrideBase", media_tab_lyrics_setting);
+            load_settings();
+            g_layout_dirty = true;
+            trigger_nudge();
             break;
         }
         case 30:
-            StartFocusTimer(25, false);
+            start_focus_timer(25, false);
             break;
         case 31:
-            StartFocusTimer(50, false);
+            start_focus_timer(50, false);
             break;
         case 32:
-            StartFocusTimer(5, true);
+            start_focus_timer(5, true);
             break;
         case 33:
-            ToggleTimerPause();
+            toggle_timer_pause();
             break;
         case 34:
-            StopFocusTimer();
+            stop_focus_timer();
             break;
         case 40: {
             // Only reachable while visible (a hidden window can't be
             // right-clicked), so in practice this toggles hidden -> the
             // hotkey is the only way back. That's intentional; see readme.
-            const bool nowHidden = !g_manuallyHidden.load();
-            g_manuallyHidden = nowHidden;
-            host::set_int_value(L"ManuallyHidden", nowHidden ? 1 : 0);
-            if (nowHidden) {
-                g_hotkeyUnhideUntil.store(0.0);
+            const bool now_hidden = !g_manually_hidden.load();
+            g_manually_hidden = now_hidden;
+            host::set_int_value(L"ManuallyHidden", now_hidden ? 1 : 0);
+            if (now_hidden) {
+                g_hotkey_unhide_until.store(0.0);
             }
-            g_layoutDirty = true;
+            g_layout_dirty = true;
             break;
         }
-        case kLyricsSyncMenuIdBase + 1:
-        case kLyricsSyncMenuIdBase + 2:
-        case kLyricsSyncMenuIdBase + 3:
-        case kLyricsSyncMenuIdBase + 4:
-        case kLyricsSyncMenuIdBase + 5:
-        case kLyricsSyncMenuIdBase + 6: {
-            static const int kLyricsSteps[] = {10, 50, 250, -10, -50, -250};
-            AdjustLyricsNudge(kLyricsSteps[cmd - kLyricsSyncMenuIdBase - 1]);
+        case lyrics_sync_menu_id_base + 1:
+        case lyrics_sync_menu_id_base + 2:
+        case lyrics_sync_menu_id_base + 3:
+        case lyrics_sync_menu_id_base + 4:
+        case lyrics_sync_menu_id_base + 5:
+        case lyrics_sync_menu_id_base + 6: {
+            static const int lyrics_steps[] = {10, 50, 250, -10, -50, -250};
+            adjust_lyrics_nudge(lyrics_steps[cmd - lyrics_sync_menu_id_base - 1]);
             break;
         }
-        case kLyricsSyncMenuIdBase + 7:
-            ResetLyricsNudge();
+        case lyrics_sync_menu_id_base + 7:
+            reset_lyrics_nudge();
             break;
         case 43:
             // Only sets a flag: the lyrics thread does the deletion (never the render thread)
             // and resets the counters. Lyrics currently on screen are left alone.
-            g_lyricsCacheClearRequested.store(true);
+            g_lyrics_cache_clear_requested.store(true);
             break;
         case 42:
-            PasteIntoFileTray(hwnd);
+            paste_into_file_tray(hwnd);
             break;
         case 41: {
             // Clear the File Tray. Only the island's references are dropped --
             // nothing on disk is touched.
             {
-                std::lock_guard lock(g_stateMutex);
-                g_state.fileTrayItems.clear();
+                std::lock_guard lock(g_state_mutex);
+                g_state.file_tray_items.clear();
             }
-            SaveFileTray();
-            g_hoveredFileTrayRow = -1;
-            g_layoutDirty = true;
+            save_file_tray();
+            g_hovered_file_tray_row = -1;
+            g_layout_dirty = true;
             break;
         }
     }
