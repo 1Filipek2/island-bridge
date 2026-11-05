@@ -3,7 +3,9 @@
 #include "core/model.h"
 #include "core/settings.h"
 #include "core/state.h"
+#include "core/localization.h"
 #include "core/util.h"
+#include "services/location.h"
 
 namespace island
 {
@@ -108,8 +110,7 @@ int FindNearestWeatherCity(const std::vector<WeatherCityEntry>& cities) {
                 bestDistance = a;
             }
         }
-        host::log(L"Weather: location %.3f,%.3f -> nearest city %s", lat, lon,
-               best >= 0 ? cities[best].name.c_str() : L"(none)");
+        host::log(L"Weather: IP location resolved to a configured city");
         return best;
     }
     return -1;
@@ -151,6 +152,52 @@ int WwoCodeFromWmo(int wmo, std::wstring& desc) {
     }
 }
 
+struct LocatedPlace {
+    geo::Point point;
+    std::wstring name;
+    bool named = false;
+};
+
+std::wstring nearest_configured_name(const std::vector<WeatherCityEntry>& cities, geo::Point point) {
+    std::wstring best;
+    double best_km = 0.0;
+    for (const WeatherCityEntry& city : cities) {
+        const geo::Point candidate{wcstod(city.latitude.c_str(), nullptr), wcstod(city.longitude.c_str(), nullptr)};
+        const double km = geo::distance_km(point, candidate);
+        if (best.empty() || km < best_km) {
+            best = city.name;
+            best_km = km;
+        }
+    }
+    return best;
+}
+
+std::optional<WeatherCityEntry> locate_city(const std::vector<WeatherCityEntry>& cities,
+                                            std::optional<LocatedPlace>& place) {
+    const std::optional<geo::Point> point = location::current_point();
+    if (!point) {
+        host::log(L"Weather: Windows location unavailable");
+        return std::nullopt;
+    }
+
+    const bool moved = !place || geo::distance_km(place->point, *point) > geo::rename_distance_km;
+    if (moved || !place->named) {
+        const std::optional<std::wstring> name = location::place_name(*point);
+        if (name) {
+            place = LocatedPlace{*point, *name, true};
+        } else if (moved) {
+            const std::wstring fallback = nearest_configured_name(cities, *point);
+            place = LocatedPlace{*point, fallback.empty() ? std::wstring(Loc(L"Current location")) : fallback, false};
+        }
+        host::log(L"Weather: place name %s", name ? L"resolved" : L"unavailable");
+    } else {
+        place->point = *point;
+    }
+
+    return WeatherCityEntry{place->name, geo::format_coordinate(point->latitude),
+                            geo::format_coordinate(point->longitude)};
+}
+
 std::wstring WindDegreesToCompass(float degrees) {
     static const wchar_t* const kPoints[] = {L"N", L"NNE", L"NE", L"ENE", L"E", L"ESE", L"SE", L"SSE",
                                              L"S", L"SSW", L"SW", L"WSW", L"W", L"WNW", L"NW", L"NNW"};
@@ -172,7 +219,7 @@ bool ReadCurrentNumber(const char* current, const char* key, float& out) {
 
 
 DWORD WINAPI WeatherThreadProc(void*) {
-    // Initial delay to avoid slowing down startup
+    winrt::init_apartment(winrt::apartment_type::multi_threaded);
     WaitForSingleObject(g_stopEvent, 3000);
 
     // Failures back off; a good reading is refreshed every 15 minutes, which
@@ -180,6 +227,7 @@ DWORD WINAPI WeatherThreadProc(void*) {
     static const DWORD kBackoffMs[] = {60 * 1000, 2 * 60 * 1000, 5 * 60 * 1000, 15 * 60 * 1000};
     size_t backoffIndex = 0;
     std::wstring previousKey;
+    std::optional<LocatedPlace> located_place;
 
     while (WaitForSingleObject(g_stopEvent, 0) == WAIT_TIMEOUT) {
         bool isFahrenheit = false;
@@ -197,11 +245,15 @@ DWORD WINAPI WeatherThreadProc(void*) {
 
         const std::vector<WeatherCityEntry> cities = LoadWeatherCities();
         bool weatherCommitted = false;
+        std::optional<WeatherCityEntry> located;
+        if (IsWeatherCityAuto()) {
+            located = locate_city(cities, located_place);
+        }
 
-        if (cities.empty()) {
+        if (cities.empty() && !located) {
             host::log(L"Weather: no valid city in Modules.WeatherCities.");
         } else {
-            if (IsWeatherCityAuto()) {
+            if (!located && IsWeatherCityAuto()) {
                 // Re-check where the PC is on every refresh (and after resume);
                 // on failure the previously found city stays in use.
                 const int nearest = FindNearestWeatherCity(cities);
@@ -209,8 +261,9 @@ DWORD WINAPI WeatherThreadProc(void*) {
                     g_autoWeatherCityIndex = nearest;
                 }
             }
-            const WeatherCityEntry& city = cities[GetActiveWeatherCityIndex(cities.size())];
-            const std::wstring key = city.name + L"|" + city.latitude + L"|" + city.longitude;
+            const WeatherCityEntry& city = located ? *located : cities[GetActiveWeatherCityIndex(cities.size())];
+            const std::wstring key = located ? L"located|" + city.name
+                                             : city.name + L"|" + city.latitude + L"|" + city.longitude;
             if (key != previousKey) {
                 // Never show one city's reading under another city's name.
                 std::lock_guard lock(g_stateMutex);
@@ -226,7 +279,7 @@ DWORD WINAPI WeatherThreadProc(void*) {
                 path += L"&temperature_unit=fahrenheit&wind_speed_unit=mph";
             }
 
-            host::log(L"Weather: requesting Open-Meteo for %s", city.name.c_str());
+            host::log(L"Weather: requesting Open-Meteo");
             const std::string response = HttpGet(L"api.open-meteo.com", path.c_str(), true);
             const char* current = response.empty() ? nullptr : strstr(response.c_str(), "\"current\":{");
 
@@ -264,7 +317,7 @@ DWORD WINAPI WeatherThreadProc(void*) {
                 g_state.weather.feelsLike = hasFeels ? buffer : L"--";
                 g_state.weather.lastUpdated = NowSeconds();
                 weatherCommitted = true;
-                host::log(L"Weather: %s %.1f, %s", city.name.c_str(), temp, desc.c_str());
+                host::log(L"Weather: reading updated");
             } else {
                 host::log(L"Weather: no usable reading from Open-Meteo, keeping previous data.");
             }
@@ -291,6 +344,7 @@ DWORD WINAPI WeatherThreadProc(void*) {
             backoffIndex = 0;
         }
     }
+    winrt::uninit_apartment();
     return 0;
 }
 

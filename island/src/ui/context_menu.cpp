@@ -269,8 +269,15 @@ void ShowContextMenu(HWND hwnd, POINT screenPoint) {
             const int activeCity = GetActiveWeatherCityIndex(weatherCities.size());
             HMENU weatherMenu = CreatePopupMenu();
             std::wstring autoLabel = L"Auto (by location)";
-            if (autoCity && g_autoWeatherCityIndex.load() >= 0) {
-                autoLabel += L" \x2013 " + weatherCities[activeCity].name;
+            if (autoCity) {
+                std::wstring shownCity;
+                {
+                    std::lock_guard lock(g_stateMutex);
+                    shownCity = g_state.weather.city;
+                }
+                if (!shownCity.empty()) {
+                    autoLabel += L" \x2013 " + shownCity;
+                }
             }
             AppendMenuW(weatherMenu, MF_STRING | (autoCity ? MF_CHECKED : 0), kWeatherCityAutoMenuId,
                         autoLabel.c_str());

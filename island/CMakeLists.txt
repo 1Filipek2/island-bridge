@@ -48,8 +48,10 @@ add_library(island_modules OBJECT
     src/notifications/toast_listener.cpp
     src/pipe/pipe_protocol.cpp
     src/pipe/pipe_server.cpp
+    src/services/geo.cpp
     src/services/github.cpp
     src/services/http.cpp
+    src/services/location.cpp
     src/services/quick_lookup.cpp
     src/services/weather.cpp
     src/system/bluetooth.cpp
@@ -98,6 +100,7 @@ if(BUILD_TESTING)
 
     island_test(notification_center_tests src/notifications/notification_center.cpp)
     island_test(island_pipe_tests src/pipe/pipe_protocol.cpp tests/fake_image.cpp)
+    island_test(geo_tests src/services/geo.cpp)
 endif()
 
 target_link_libraries(IslandBridge.Island PRIVATE
