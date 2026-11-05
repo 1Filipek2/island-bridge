@@ -84,7 +84,6 @@ constexpr std::array<SettingDefault, 105> setting_table = {
     SettingDefault{L"Modules.WeatherCities", SettingKind::Text, 0, L"London|51.50735|-0.12776;New York|40.71278|-74.00597"},
     SettingDefault{L"Modules.WeatherFahrenheit", SettingKind::Number, 0, L""},
     SettingDefault{L"Modules.MediaTabLyrics", SettingKind::Number, 0, L""},
-    SettingDefault{L"Modules.Lyrics", SettingKind::Number, 0, L""},
     SettingDefault{L"Modules.LyricsVisualizer", SettingKind::Number, 1, L""},
     SettingDefault{L"Modules.KaraokeLyrics", SettingKind::Number, 1, L""},
     SettingDefault{L"Modules.KaraokeLetterGlow", SettingKind::Number, 1, L""},

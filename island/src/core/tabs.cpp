@@ -19,7 +19,6 @@ int ActiveTabCount(const Settings& settings) {
     if (settings.hardwareMonitorModule) ++count;
     if (settings.fileTrayModule) ++count;
     if (settings.notificationCenterModule) ++count;
-    if (settings.lyrics && g_lyricsTabAvailable.load(std::memory_order_relaxed)) ++count;
     return count;
 }
 
@@ -34,20 +33,12 @@ int NormalizedTabIndex(const Settings& settings) {
 // is actually on screen, so that check needs the card's real index rather than
 // assuming it is the last tab -- which stopped being true once the File Tray
 // was added after it.
-// With "Pin lyrics as first tab" on (and a Lyrics tab present), the media view's
-// order is: lyrics, media, calendar, ... so the media tab and every tab after it
-// sit one position later. Returns the media tab's index: 0 normally, 1 when pinned.
-int MediaTabIndex(const Settings& settings) {
-    return (settings.lyricsPinnedFirst && settings.lyrics &&
-            g_lyricsTabAvailable.load(std::memory_order_relaxed)) ? 1 : 0;
-}
-
 int HardwareMonitorTabIndex(const Settings& settings) {
     if (!settings.hardwareMonitorModule) {
         return -1;
     }
     return 2 + (settings.notificationCenterModule ? 1 : 0) + (settings.weather ? 1 : 0) +
-           (settings.githubModule ? 1 : 0) + MediaTabIndex(settings);
+           (settings.githubModule ? 1 : 0);
 }
 
 int FileTrayTabIndex(const Settings& settings) {
@@ -55,15 +46,14 @@ int FileTrayTabIndex(const Settings& settings) {
         return -1;
     }
     return 2 + (settings.notificationCenterModule ? 1 : 0) + (settings.weather ? 1 : 0) +
-           (settings.githubModule ? 1 : 0) + (settings.hardwareMonitorModule ? 1 : 0) +
-           MediaTabIndex(settings);
+           (settings.githubModule ? 1 : 0) + (settings.hardwareMonitorModule ? 1 : 0);
 }
 
 int NotificationCenterTabIndex(const Settings& settings) {
     if (!settings.notificationCenterModule) {
         return -1;
     }
-    return 1 + MediaTabIndex(settings);
+    return 1;
 }
 
 // Moves the dashboard one tab (+1 = next, -1 = previous). Clamped at both ends:

@@ -351,7 +351,6 @@ void LoadSettings() {
     next.weather = host::int_setting(L"Modules.Weather") != 0;
     next.weatherCity = GetStringSettingWithFallback(L"Modules.WeatherCity", L"Weather.WeatherCity", L"CalendarWeather.WeatherCity");
     next.weatherFahrenheit = host::int_setting(L"Modules.WeatherFahrenheit") != 0;
-    next.lyrics = host::int_setting(L"Modules.Lyrics") != 0;
     next.lyricsVisualizer = host::int_setting(L"Modules.LyricsVisualizer") != 0;
     next.karaokeLyrics = host::int_setting(L"Modules.KaraokeLyrics") != 0;
     next.karaokeLetterGlow = host::int_setting(L"Modules.KaraokeLetterGlow") != 0;
@@ -381,7 +380,6 @@ void LoadSettings() {
     next.expandOnHover = localExpandOnHover >= 0 ? (localExpandOnHover != 0) : (host::int_setting(L"Behavior.ExpandOnHover") != 0);
     // Right-click toggle; stored with Wh_SetIntValue so it survives restarts.
     next.collapsedLyrics = host::int_value(L"CollapsedLyrics", 0) != 0;
-    next.lyricsPinnedFirst = host::int_value(L"LyricsPinnedFirst", 0) != 0;
     {
         // Right-click choice wins until the Mod Settings value is changed.
         const int mediaTabLyricsSetting = host::int_setting(L"Modules.MediaTabLyrics") != 0 ? 1 : 0;

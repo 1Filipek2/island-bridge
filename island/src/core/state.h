@@ -38,9 +38,6 @@ inline HANDLE g_bluetoothThread = nullptr;
 inline HANDLE g_islandPipeThread = nullptr;
 inline std::atomic<bool> g_running = false;
 inline std::atomic<int> g_idleTab = 0;
-// True while a media pill exists, i.e. while the Lyrics tab can be shown.
-// Set by the render loop; read by ActiveTabCount().
-inline std::atomic<bool> g_lyricsTabAvailable{false};
 
 // Lyrics sync offset. Written rarely (settings load, right-click nudge, default-output
 // change) and only read by draw code, so no locks are needed.

@@ -417,8 +417,6 @@ class Renderer {
         marqueeClipboardCache_.layout.Reset();
         marqueeNotificationCache_.layout.Reset();
         scratchColorBrush_.Reset();
-        lyricsActiveTextFormat_.Reset();
-        lyricsActiveFitTextFormat_.Reset();
         karaokeCache_.layout.Reset();
 
         artBitmap_.Reset();
@@ -875,12 +873,6 @@ class Renderer {
             weatherDescFormatSize_ = -1.0f;
         }
 
-        // The lyrics formats are built lazily in DrawLyricsDashboard; throw them
-        // away so they pick up a new font / text size.
-        lyricsActiveTextFormat_.Reset();
-        lyricsActiveTextFormatSize_ = -1.0f;
-        lyricsActiveFitTextFormat_.Reset();
-        lyricsActiveFitTextFormatSize_ = -1.0f;
         karaokeCache_.layout.Reset();
         karaokeCache_.valid = false;
 
@@ -3360,442 +3352,6 @@ class Renderer {
         }
     }
 
-    void DrawLyricsDashboard(const SharedState& state, D2D1_RECT_F rect, const Settings& settings,
-                             float scale) {
-        const double now = NowSeconds();
-
-        // If the tab wasn't on screen a moment ago (island was collapsed), its scroll
-        // position, highlight and visualizer fade are stale. Snap them to the current
-        // state instead of animating them while the island is still expanding.
-        {
-            const bool lyricsFresh = lyricsLastDrawn_ >= 0.0 && (now - lyricsLastDrawn_) < 0.25;
-            lyricsLastDrawn_ = now;
-            g_lastLyricsViewTime.store(now, std::memory_order_relaxed);
-            if (!lyricsFresh) {
-                lyricsScrollAnimStartTime_ = -1.0;  // triggers the snap branch below
-                lyricsWaveformFadeTime_ = -1.0;     // snaps the visualizer alpha
-            }
-        }
-
-        // Lyric effects ramp: 0 while the island is still resizing, then eases to 1 over 0.3s.
-        // A fresh open of the tab on an already-settled island goes straight to 1 (old behaviour).
-        {
-            const bool fxRecent = lyricsFxLast_ >= 0.0 && (now - lyricsFxLast_) < 0.25;
-            const float fxDt = fxRecent ? Clamp(static_cast<float>(now - lyricsFxLast_), 0.001f, 0.05f) : 0.0f;
-            lyricsFxLast_ = now;
-            if (!islandSettled_) {
-                lyricsFxMix_ = 0.0f;
-            } else if (!fxRecent) {
-                lyricsFxMix_ = 1.0f;
-            } else {
-                lyricsFxMix_ = std::min(1.0f, lyricsFxMix_ + fxDt / 0.30f);
-            }
-            if (!islandSettled_ || lyricsFxMix_ < 1.0f) {
-                g_layoutDirty = true;  // keep frames coming until the effects are fully in
-            }
-        }
-
-        // ── Header: title on the left, tiny live visualizer on the right ─────
-        textBrush_->SetOpacity(0.96f);
-        if (boldTextFormat_) {
-            boldTextFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
-            const wchar_t* title = Loc(L"Lyrics");
-            target_->DrawTextW(title, static_cast<UINT32>(wcslen(title)), boldTextFormat_.Get(),
-                               D2D1::RectF(rect.left + 26.0f * scale, rect.top + 14.0f * scale,
-                                           rect.right - 96.0f * scale, rect.top + 36.0f * scale),
-                               textBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
-            boldTextFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
-        }
-
-        {
-            const float waveformTarget = (state.media.playing && settings.lyricsVisualizer) ? 1.0f : 0.0f;
-            if (lyricsWaveformFadeTime_ < 0.0) {
-                lyricsWaveformAlpha_ = waveformTarget;
-            } else {
-                const float dt = Clamp(static_cast<float>(now - lyricsWaveformFadeTime_), 0.0f, 0.25f);
-                const float t = 1.0f - std::exp(-8.0f * dt);
-                lyricsWaveformAlpha_ += (waveformTarget - lyricsWaveformAlpha_) * t;
-            }
-            lyricsWaveformFadeTime_ = now;
-
-            if (lyricsWaveformAlpha_ > 0.01f) {
-                const D2D1_RECT_F waveRect = D2D1::RectF(rect.right - 24.0f * scale - 56.0f * scale,
-                                                         rect.top + 17.0f * scale,
-                                                         rect.right - 24.0f * scale,
-                                                         rect.top + 35.0f * scale);
-                ID2D1Layer* waveFadeLayer = AcquireLayer();
-                if (waveFadeLayer) {
-                    target_->PushLayer(D2D1::LayerParameters(waveRect, nullptr, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE,
-                                                              D2D1::IdentityMatrix(), lyricsWaveformAlpha_, nullptr,
-                                                              D2D1_LAYER_OPTIONS_NONE),
-                                       waveFadeLayer);
-                    DrawSpectrum(state, waveRect, settings, now);
-                    target_->PopLayer();
-                }
-            }
-        }
-
-        const D2D1_RECT_F bodyRect = D2D1::RectF(rect.left + 24.0f * scale, rect.top + 44.0f * scale,
-                                                 rect.right - 24.0f * scale, rect.bottom - 14.0f * scale);
-
-        if (textFormat_) {
-            textFormat_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
-            textFormat_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
-        }
-
-        if (state.lyrics.fetching) {
-            const float pulse = 0.55f + 0.25f * std::sin(static_cast<float>(now * 2.0 * 3.14159265 * 0.6));
-            mutedBrush_->SetOpacity(pulse);
-            const wchar_t* msg = Loc(L"Fetching lyrics...");
-            target_->DrawTextW(msg, static_cast<UINT32>(wcslen(msg)), textFormat_.Get(), bodyRect,
-                               mutedBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
-            mutedBrush_->SetOpacity(0.75f);
-            return;
-        }
-
-        if (!state.lyrics.hasData || state.lyrics.lines.empty()) {
-            mutedBrush_->SetOpacity(0.55f);
-            const wchar_t* msg = Loc(L"No lyrics found for this track.");
-            target_->DrawTextW(msg, static_cast<UINT32>(wcslen(msg)), textFormat_.Get(), bodyRect,
-                               mutedBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
-            mutedBrush_->SetOpacity(0.75f);
-            return;
-        }
-
-        if (state.lyrics.synced) {
-            double currentPositionSec = state.media.positionTicks / 10000000.0;
-            if (state.media.playing && state.media.lastUpdatedTicks > 0) {
-                currentPositionSec += (GetTickCount64() - state.media.lastUpdatedTicks) / 1000.0;
-            }
-
-            // The reported position lags what you hear by a bit; nudge it forward.
-            // Raise this if lyrics feel late, lower it if they feel early.
-            const double kLyricsLookaheadSec = LyricsLookaheadSec();  // 0.49 baseline + speaker/Bluetooth offset
-            if (state.media.playing) {
-                currentPositionSec += kLyricsLookaheadSec;
-            }
-            const int64_t posMs = std::max<int64_t>(0, static_cast<int64_t>(currentPositionSec * 1000.0));
-
-            int currentIndex = 0;
-            for (size_t i = 0; i < state.lyrics.lines.size(); ++i) {
-                if (state.lyrics.lines[i].timeMs <= posMs) {
-                    currentIndex = static_cast<int>(i);
-                } else {
-                    break;
-                }
-            }
-
-            // Fixed-duration ease-in-out scroll toward the active line.
-            constexpr float kScrollAnimDurationSec = 0.55f;
-            constexpr float kHighlightFadeDurationSec = 0.65f;
-            const std::wstring trackKey = state.lyrics.matchedArtist + L"|" + state.lyrics.matchedTitle;
-            // While the island is resizing, keep scroll/highlight snapped to the current line
-            // (same snap as a fresh open). Animations resume once it settles, and the glow
-            // decay starts from that moment.
-            if (trackKey != lyricsScrollTrackKey_ || lyricsScrollAnimStartTime_ < 0.0 ||
-                lyricsFxMix_ <= 0.0f) {
-                lyricsScrollPos_ = static_cast<float>(currentIndex);
-                lyricsScrollAnimStartPos_ = lyricsScrollPos_;
-                lyricsScrollAnimTargetPos_ = lyricsScrollPos_;
-                lyricsScrollAnimStartTime_ = now;
-                lyricsScrollTrackKey_ = trackKey;
-                lyricsHighlightIndex_ = currentIndex;
-                lyricsHighlightPrevIndex_ = currentIndex;
-                lyricsHighlightFadeStartTime_ = now - kHighlightFadeDurationSec;
-            } else {
-                if (static_cast<float>(currentIndex) != lyricsScrollAnimTargetPos_) {
-                    lyricsScrollAnimStartPos_ = lyricsScrollPos_;
-                    lyricsScrollAnimTargetPos_ = static_cast<float>(currentIndex);
-                    lyricsScrollAnimStartTime_ = now;
-
-                    lyricsHighlightPrevIndex_ = lyricsHighlightIndex_;
-                    lyricsHighlightIndex_ = currentIndex;
-                    lyricsHighlightFadeStartTime_ = now;
-                }
-
-                const float elapsed = static_cast<float>(now - lyricsScrollAnimStartTime_);
-                const float t = Clamp(elapsed / kScrollAnimDurationSec, 0.0f, 1.0f);
-                lyricsScrollPos_ = lyricsScrollAnimStartPos_ +
-                    (lyricsScrollAnimTargetPos_ - lyricsScrollAnimStartPos_) * SmoothStep01(t);
-            }
-
-            constexpr int kContextLines = 2;
-            const float lineHeight = 42.0f * scale;
-            const float centerY = (bodyRect.top + bodyRect.bottom) * 0.5f;
-            const int baseIndex = static_cast<int>(std::floor(lyricsScrollPos_));
-
-            // Larger, heavier type for the focused line. Honors the Font family
-            // and Text size settings.
-            constexpr float kLyricsActiveFontSize = 19.5f;
-            const float activeFontSize = kLyricsActiveFontSize * scale * settings.textScale;
-            const wchar_t* activeFamily =
-                settings.fontFamily.empty() ? L"Segoe UI Variable Display" : settings.fontFamily.c_str();
-
-            auto makeActiveFormat = [&](float size, ComPtr<IDWriteTextFormat>& out) {
-                out.Reset();
-                if (!dwriteFactory_) {
-                    return;
-                }
-                HRESULT hr = dwriteFactory_->CreateTextFormat(
-                    activeFamily, nullptr, DWRITE_FONT_WEIGHT_BLACK, DWRITE_FONT_STYLE_NORMAL,
-                    DWRITE_FONT_STRETCH_NORMAL, size, L"", &out);
-                if (FAILED(hr) || !out) {
-                    out.Reset();
-                    dwriteFactory_->CreateTextFormat(
-                        L"Segoe UI", nullptr, DWRITE_FONT_WEIGHT_BLACK, DWRITE_FONT_STYLE_NORMAL,
-                        DWRITE_FONT_STRETCH_NORMAL, size, L"", &out);
-                }
-                if (out) {
-                    out->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
-                    out->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
-                }
-                karaokeCache_.layout.Reset();  // cache is keyed by format pointer
-            };
-
-            if (std::fabs(lyricsActiveTextFormatSize_ - activeFontSize) > 0.01f || !lyricsActiveTextFormat_) {
-                makeActiveFormat(activeFontSize, lyricsActiveTextFormat_);
-                lyricsActiveTextFormatSize_ = activeFontSize;
-            }
-            IDWriteTextFormat* activeFormat =
-                lyricsActiveTextFormat_ ? lyricsActiveTextFormat_.Get() : boldTextFormat_.Get();
-
-            const float kMaxNeighborOpacity = settings.lyricsNeighborLinesVisible ? 0.55f : 0.22f;
-            const bool instantHighlightSwitch = settings.lyricsNeighborLinesVisible;
-            constexpr float kKaraokeUnsungOpacity = 0.6f;
-            constexpr float kKaraokeGlowTrailWidth = 46.0f;
-            constexpr float kKaraokeGlowLeadWidth = 6.0f;
-            constexpr float kKaraokeGlowPeakAlpha = 0.30f;
-
-            constexpr float kFocusFalloffLines = 2.2f;
-            auto EdgeFade = [&](float distanceFromCenter) -> float {
-                const float t = 1.0f - Clamp(std::fabs(distanceFromCenter) / kFocusFalloffLines, 0.0f, 1.0f);
-                return SmoothStep01(t);
-            };
-
-            for (int offset = -kContextLines; offset <= kContextLines; ++offset) {
-                const int idx = baseIndex + offset;
-                if (idx < 0 || idx >= static_cast<int>(state.lyrics.lines.size())) continue;
-
-                const float distance = static_cast<float>(idx) - lyricsScrollPos_;
-                const float y = centerY + distance * lineHeight;
-
-                const float edgeFade = EdgeFade(distance);
-                if (edgeFade <= 0.01f) continue;
-
-                D2D1_RECT_F lineRect = D2D1::RectF(
-                    bodyRect.left, y - lineHeight * 0.5f,
-                    bodyRect.right, y + lineHeight * 0.5f);
-
-                const std::wstring& line = state.lyrics.lines[idx].text;
-                const wchar_t* toDraw = line.empty() ? L"\u266A" : line.c_str();
-                const UINT32 toDrawLen = static_cast<UINT32>(line.empty() ? 1 : line.size());
-
-                float activeBlend = 0.0f;
-                float glowPulse = 0.0f;
-                float karaokeProgress = -1.0f;  // -1 = not the karaoke-wiped line right now
-                if (idx == lyricsHighlightIndex_) {
-                    const double sinceBecameActive = now - lyricsHighlightFadeStartTime_;
-                    const float fadeT = Clamp(static_cast<float>(sinceBecameActive) / kHighlightFadeDurationSec, 0.0f, 1.0f);
-                    activeBlend = instantHighlightSwitch ? 1.0f : SmoothStep01(fadeT);
-
-                    constexpr float kGlowHoldSec = 0.15f;
-                    constexpr float kGlowDecaySec = 0.85f;
-                    if (sinceBecameActive < kHighlightFadeDurationSec) {
-                        glowPulse = fadeT;
-                    } else {
-                        const double afterHold = sinceBecameActive - kHighlightFadeDurationSec - kGlowHoldSec;
-                        if (afterHold < 0.0) {
-                            glowPulse = 1.0f;
-                        } else {
-                            glowPulse = 1.0f - SmoothStep01(Clamp(static_cast<float>(afterHold / kGlowDecaySec), 0.0f, 1.0f));
-                        }
-                    }
-
-                    if (settings.karaokeLyrics) {
-                        const int64_t lineStartMs = state.lyrics.lines[idx].timeMs;
-                        int64_t lineEndMs = lineStartMs + 4000;  // fallback for the last line
-                        if (idx + 1 < static_cast<int>(state.lyrics.lines.size())) {
-                            lineEndMs = state.lyrics.lines[idx + 1].timeMs;
-                        } else if (state.media.endTicks > 0) {
-                            lineEndMs = state.media.endTicks / 10000;
-                        }
-                        const int64_t span = lineEndMs - lineStartMs;
-                        karaokeProgress = span > 0
-                            ? Clamp(static_cast<float>(posMs - lineStartMs) / static_cast<float>(span), 0.0f, 1.0f)
-                            : 1.0f;
-                    }
-                } else if (idx == lyricsHighlightPrevIndex_) {
-                    if (instantHighlightSwitch) {
-                        activeBlend = 0.0f;
-                        glowPulse = 0.0f;
-                    } else {
-                        const float fadeT = Clamp(static_cast<float>(now - lyricsHighlightFadeStartTime_) / kHighlightFadeDurationSec, 0.0f, 1.0f);
-                        activeBlend = std::pow(1.0f - SmoothStep01(fadeT), 1.4f);
-                        glowPulse = 1.0f - SmoothStep01(fadeT);
-                    }
-                }
-
-                // ── Bright / active pass ─────────────────────────────────────
-                if (activeBlend > 0.01f) {
-                    D2D1_RECT_F activeLineRect = D2D1::RectF(
-                        lineRect.left, y - lineHeight * 0.66f,
-                        lineRect.right, y + lineHeight * 0.66f);
-
-                    const float availableWidth = activeLineRect.right - activeLineRect.left;
-                    IDWriteTextFormat* drawFormat = activeFormat;
-
-                    ComPtr<IDWriteTextLayout> measureLayout;
-                    dwriteFactory_->CreateTextLayout(toDraw, toDrawLen, activeFormat,
-                                                     availableWidth, lineHeight, &measureLayout);
-                    float textWidth = availableWidth;
-                    if (measureLayout) {
-                        DWRITE_TEXT_METRICS metrics{};
-                        measureLayout->GetMetrics(&metrics);
-                        textWidth = metrics.widthIncludingTrailingWhitespace;
-                    }
-
-                    // Too wide for the active size: shrink just enough to fit.
-                    if (textWidth > availableWidth && textWidth > 0.0f) {
-                        const float fitFontSize = std::max(
-                            9.0f, kLyricsActiveFontSize * scale * settings.textScale *
-                                      (availableWidth / textWidth) * 0.96f);
-                        if (std::fabs(lyricsActiveFitTextFormatSize_ - fitFontSize) > 0.1f ||
-                            !lyricsActiveFitTextFormat_) {
-                            makeActiveFormat(fitFontSize, lyricsActiveFitTextFormat_);
-                            lyricsActiveFitTextFormatSize_ = fitFontSize;
-                        }
-                        if (lyricsActiveFitTextFormat_) {
-                            drawFormat = lyricsActiveFitTextFormat_.Get();
-                        }
-                    }
-
-                    if (karaokeProgress >= 0.0f) {
-                        const float renderedTextWidth =
-                            (drawFormat == lyricsActiveFitTextFormat_.Get())
-                                ? availableWidth * 0.96f
-                                : std::min(textWidth, availableWidth);
-                        const float wipeX = activeLineRect.left + karaokeProgress * renderedTextWidth;
-
-                        if (settings.karaokeLetterGlow) {
-                            DrawKaraokeLetterPop(toDraw, toDrawLen, drawFormat, activeLineRect,
-                                                 wipeX, activeBlend * edgeFade, kKaraokeUnsungOpacity,
-                                                 settings.karaokeLetterGlow, lyricsFxMix_);
-                        } else {
-                            mutedBrush_->SetOpacity(activeBlend * edgeFade * kKaraokeUnsungOpacity);
-                            target_->DrawTextW(toDraw, toDrawLen, drawFormat, activeLineRect,
-                                               mutedBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
-
-                            if (wipeX > activeLineRect.left) {
-                                D2D1_RECT_F sungClip = D2D1::RectF(
-                                    activeLineRect.left, activeLineRect.top,
-                                    std::min(wipeX, activeLineRect.right), activeLineRect.bottom);
-                                target_->PushAxisAlignedClip(sungClip, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
-                                textBrush_->SetOpacity(activeBlend * edgeFade);
-                                target_->DrawTextW(toDraw, toDrawLen, drawFormat, activeLineRect,
-                                                   textBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
-                                target_->PopAxisAlignedClip();
-                            }
-                        }
-
-                        // Moving glow riding the wipe edge, drawn as text so it
-                        // only lights actual glyph pixels.
-                        if (karaokeProgress < 1.0f && lyricsFxMix_ > 0.01f) {
-                            const float trailWidth = kKaraokeGlowTrailWidth * scale;
-                            const float leadWidth = kKaraokeGlowLeadWidth * scale;
-                            const float peakAlpha = kKaraokeGlowPeakAlpha * activeBlend * edgeFade * lyricsFxMix_;
-                            const float peakOffset = trailWidth / (trailWidth + leadWidth);
-                            D2D1_GRADIENT_STOP glowStops[3] = {
-                                {0.0f, D2D1::ColorF(1.0f, 1.0f, 1.0f, 0.0f)},
-                                {peakOffset, D2D1::ColorF(1.0f, 1.0f, 1.0f, peakAlpha)},
-                                {1.0f, D2D1::ColorF(1.0f, 1.0f, 1.0f, 0.0f)},
-                            };
-                            ComPtr<ID2D1GradientStopCollection> glowStopCollection;
-                            target_->CreateGradientStopCollection(glowStops, 3, &glowStopCollection);
-                            if (glowStopCollection) {
-                                ComPtr<ID2D1LinearGradientBrush> glowBrush;
-                                target_->CreateLinearGradientBrush(
-                                    D2D1::LinearGradientBrushProperties(
-                                        D2D1::Point2F(wipeX - trailWidth, y),
-                                        D2D1::Point2F(wipeX + leadWidth, y)),
-                                    glowStopCollection.Get(), &glowBrush);
-                                if (glowBrush) {
-                                    target_->DrawTextW(toDraw, toDrawLen, drawFormat, activeLineRect,
-                                                       glowBrush.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
-                                }
-                            }
-                        }
-                    } else {
-                        // Whole-line highlight (karaoke off, or the line fading out).
-                        const float glowStrength = glowPulse * edgeFade * lyricsFxMix_;
-                        if (glowStrength > 0.02f) {
-                            constexpr int kGlowStampCount = 8;
-                            constexpr float kGlowRadiusInner = 0.9f;
-                            constexpr float kGlowRadiusOuter = 2.0f;
-                            constexpr float kGlowRadiusBloom = 4.2f;
-                            const float innerAlpha = 0.05f * glowStrength;
-                            const float outerAlpha = 0.028f * glowStrength;
-                            const float bloomAlpha = 0.016f * glowStrength;
-
-                            for (int ring = 0; ring < 3; ++ring) {
-                                const float radius = (ring == 0 ? kGlowRadiusInner
-                                                       : ring == 1 ? kGlowRadiusOuter
-                                                                   : kGlowRadiusBloom) * scale;
-                                const float alpha = (ring == 0 ? innerAlpha
-                                                      : ring == 1 ? outerAlpha
-                                                                  : bloomAlpha);
-                                if (alpha <= 0.002f) continue;
-
-                                textBrush_->SetOpacity(alpha);
-                                for (int i = 0; i < kGlowStampCount; ++i) {
-                                    const float a = (2.0f * 3.14159265f * i) / kGlowStampCount;
-                                    const float ox = std::cos(a) * radius;
-                                    const float oy = std::sin(a) * radius;
-                                    D2D1_RECT_F stampRect = D2D1::RectF(
-                                        activeLineRect.left + ox, activeLineRect.top + oy,
-                                        activeLineRect.right + ox, activeLineRect.bottom + oy);
-                                    target_->DrawTextW(toDraw, toDrawLen, drawFormat, stampRect,
-                                                       textBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
-                                }
-                            }
-                        }
-
-                        textBrush_->SetOpacity(activeBlend * edgeFade);
-                        target_->DrawTextW(toDraw, toDrawLen, drawFormat, activeLineRect,
-                                           textBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
-                    }
-                }
-
-                // ── Dim / neighbor pass ──────────────────────────────────────
-                const float dimOpacity = kMaxNeighborOpacity * (1.0f - activeBlend) * edgeFade;
-                if (dimOpacity > 0.01f) {
-                    mutedBrush_->SetOpacity(dimOpacity);
-                    target_->DrawTextW(toDraw, toDrawLen, textFormat_.Get(), lineRect,
-                                       mutedBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
-                }
-            }
-
-            textBrush_->SetOpacity(0.96f);
-            mutedBrush_->SetOpacity(0.75f);
-        } else {
-            // Unsynced (plain) lyrics: a simple static list.
-            const float lineHeight = 19.0f * scale;
-            const size_t maxLines = std::min<size_t>(
-                state.lyrics.lines.size(),
-                static_cast<size_t>((bodyRect.bottom - bodyRect.top) / lineHeight));
-
-            textBrush_->SetOpacity(0.82f);
-            for (size_t i = 0; i < maxLines; ++i) {
-                D2D1_RECT_F lineRect = D2D1::RectF(
-                    bodyRect.left, bodyRect.top + i * lineHeight,
-                    bodyRect.right, bodyRect.top + (i + 1) * lineHeight);
-                const std::wstring& line = state.lyrics.lines[i].text;
-                target_->DrawTextW(line.c_str(), static_cast<UINT32>(line.size()), textFormat_.Get(),
-                                   lineRect, textBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
-            }
-            textBrush_->SetOpacity(0.96f);
-        }
-    }
-
     void DrawTimeDashboard(const SharedState& state, D2D1_RECT_F rect, const Settings& settings, double now, float scale, SYSTEMTIME& local) {
         (void)now;
 
@@ -4613,7 +4169,7 @@ class Renderer {
         constexpr float kArtExpandSec = 0.26f;
         // The art only travels to its expanded spot on the Media tab. On any other
         // first tab (e.g. pinned lyrics) it just follows the height, with no throttle.
-        const bool artOnMediaTab = NormalizedTabIndex(settings) == MediaTabIndex(settings);
+        const bool artOnMediaTab = NormalizedTabIndex(settings) == 0;
         const bool freshMorph = artMorphLast_ >= 0.0 && (now - artMorphLast_) < 0.25;
         const float dtMorph = freshMorph ? Clamp(static_cast<float>(now - artMorphLast_), 0.001f, 0.05f) : 0.0f;
         artMorphLast_ = now;
@@ -4676,9 +4232,6 @@ class Renderer {
 
             // Order must match ActiveTabCount()/FileTrayTabIndex().
             std::vector<int> activeTabs;
-            // Lyrics goes first when pinned; otherwise it stays last. Must match MediaTabIndex().
-            const bool lyricsFirst = settings.lyricsPinnedFirst && settings.lyrics;
-            if (lyricsFirst) activeTabs.push_back(5);  // Lyrics (pinned first)
             activeTabs.push_back(0); // Media
             if (settings.notificationCenterModule) activeTabs.push_back(7);
             if (settings.weather) activeTabs.push_back(2); // Weather
@@ -4686,7 +4239,6 @@ class Renderer {
             if (settings.githubModule) activeTabs.push_back(6);
             if (settings.hardwareMonitorModule) activeTabs.push_back(3);
             if (settings.fileTrayModule) activeTabs.push_back(4);
-            if (settings.lyrics && !lyricsFirst) activeTabs.push_back(5);  // Lyrics (last)
 
             // Same settings object as the list above, so the index can't be
             // normalised against a tab set that no longer matches.
@@ -4939,18 +4491,6 @@ class Renderer {
                 DrawFileTrayDashboard(state, rect, settings, 1.0f);
             } else if (activeTabId == 7) {
                 DrawNotificationCenterDashboard(state, rect, 1.0f);
-            } else if (activeTabId == 5) {
-                // Laid out at the final expanded size and pinned to the top, so growing
-                // the island only reveals the lyrics instead of sliding them around.
-                // Resting expanded size (380x184 times the hover scale), so the layout never
-                // follows the spring's overshoot. At rest this equals the old max() result.
-                const float lyricsW = MediaLayout::kExpandedWidth * hoverScale_;
-                const float lyricsH = MediaLayout::kExpandedHeight * hoverScale_;
-                const float lyricsCx = (rect.left + rect.right) * 0.5f;
-                DrawLyricsDashboard(state,
-                                    D2D1::RectF(lyricsCx - lyricsW * 0.5f, rect.top,
-                                                lyricsCx + lyricsW * 0.5f, rect.top + lyricsH),
-                                    settings, 1.0f);
             }
             };  // end drawTabContent
 
@@ -5056,7 +4596,7 @@ class Renderer {
         // source badge). Alpha is eased so switching tabs can't make it pop in.
         {
             const bool trayDrag = g_trayDragOver.load(std::memory_order_relaxed);
-            const bool onMediaTab = NormalizedTabIndex(settings) == MediaTabIndex(settings);
+            const bool onMediaTab = NormalizedTabIndex(settings) == 0;
             const float targetAlpha = trayDrag ? 0.0f : (onMediaTab ? 1.0f : collapsedAlpha);
 
             const bool recent = artOuterLast_ >= 0.0 && (now - artOuterLast_) < 0.25;
@@ -9526,28 +9066,11 @@ class Renderer {
     std::wstring immFmtFamily_;
     MarqueeLayoutCache marqueeImmersiveCache_;
     LinearGradientSlot immKaraokeGrad_;
-    float lyricsScrollPos_ = 0.0f;
-    float lyricsScrollAnimStartPos_ = 0.0f;
-    float lyricsScrollAnimTargetPos_ = 0.0f;
-    double lyricsScrollAnimStartTime_ = -1.0;
-    std::wstring lyricsScrollTrackKey_;
-    int lyricsHighlightIndex_ = -1;
-    int lyricsHighlightPrevIndex_ = -1;
-    double lyricsHighlightFadeStartTime_ = -1.0;
-    ComPtr<IDWriteTextFormat> lyricsActiveTextFormat_;
-    float lyricsActiveTextFormatSize_ = -1.0f;
-    ComPtr<IDWriteTextFormat> lyricsActiveFitTextFormat_;
-    float lyricsActiveFitTextFormatSize_ = -1.0f;
-    float lyricsWaveformAlpha_ = 0.0f;
-    double lyricsWaveformFadeTime_ = -1.0;
-    double lyricsLastDrawn_ = -1.0;  // last frame the lyrics tab was painted
     float  hoverScale_ = 1.0f;       // pill scale set by Render(); gives the resting expanded size
     float  islandSizeLastW_ = 0.0f;  // island resize tracking (see DrawMedia)
     float  islandSizeLastH_ = 0.0f;
     double islandSizeMovedAt_ = -1e9;
     bool   islandSettled_ = true;    // false while the island is still springing to a new size
-    float  lyricsFxMix_ = 1.0f;      // 0 while resizing, eases to 1 after; scales lyric effects
-    double lyricsFxLast_ = -1.0;
     float settingsOpacity_ = 0.96f;
     D2D1_COLOR_F pillBgColor_ = D2D1::ColorF(0.031f, 0.031f, 0.039f, 1.0f);
     // Design tokens for the current frame, rebuilt by EnsureBrushes.
@@ -10142,9 +9665,6 @@ DWORD WINAPI RenderThreadProc(void*) {
         }
 
         const std::vector<IslandKind> kinds = ChooseActivities(snapshot, g_settings, now);
-        g_lyricsTabAvailable.store(
-            g_settings.lyrics && g_settings.media && snapshot.media.available,
-            std::memory_order_relaxed);
         Activity primary = ActivityForKind(kinds[0], g_settings, snapshot);
         std::optional<Activity> secondary;
         if (kinds.size() >= 2) {

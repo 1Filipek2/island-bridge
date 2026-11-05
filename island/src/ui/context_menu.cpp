@@ -205,10 +205,6 @@ void ShowContextMenu(HWND hwnd, POINT screenPoint) {
     AppendMenuW(menu, MF_STRING | (host::int_value(L"CollapsedLyrics", 0) ? MF_CHECKED : 0), 13,
                 L"Show lyrics on collapsed island");
     AppendMenuW(menu,
-                MF_STRING | (host::int_value(L"LyricsPinnedFirst", 0) ? MF_CHECKED : 0) |
-                    (g_settings.lyrics ? 0 : (MF_GRAYED | MF_DISABLED)),
-                14, L"Pin lyrics as first tab");
-    AppendMenuW(menu,
                 MF_STRING | (g_settings.mediaTabLyrics ? MF_CHECKED : 0),
                 15, L"Show lyrics in media tab");
     {
@@ -412,14 +408,6 @@ void ShowContextMenu(HWND hwnd, POINT screenPoint) {
         case 13: {
             host::set_int_value(L"CollapsedLyrics", host::int_value(L"CollapsedLyrics", 0) ? 0 : 1);
             LoadSettings();
-            g_layoutDirty = true;
-            TriggerNudge();
-            break;
-        }
-        case 14: {
-            host::set_int_value(L"LyricsPinnedFirst", host::int_value(L"LyricsPinnedFirst", 0) ? 0 : 1);
-            LoadSettings();
-            g_idleTab = 0;  // back to the (new) first tab
             g_layoutDirty = true;
             TriggerNudge();
             break;

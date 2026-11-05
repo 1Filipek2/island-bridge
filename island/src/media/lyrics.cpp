@@ -503,8 +503,7 @@ DWORD WINAPI LyricsThreadProc(void*) {
         uint64_t diskCapBytes = 0;
         {
             std::lock_guard lock(g_settingsMutex);
-            lyricsEnabled = (g_settings.lyrics || g_settings.collapsedLyrics ||
-                             g_settings.mediaTabLyrics) && g_settings.media;
+            lyricsEnabled = (g_settings.collapsedLyrics || g_settings.mediaTabLyrics) && g_settings.media;
             diskCacheOn = g_settings.lyricsCache && g_settings.lyricsCacheMaxMB > 0;
             diskCapBytes = static_cast<uint64_t>(std::max(0, g_settings.lyricsCacheMaxMB)) * 1024ull * 1024ull;
         }

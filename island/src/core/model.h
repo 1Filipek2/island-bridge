@@ -250,7 +250,6 @@ struct Settings {
     bool weather = true;
     std::wstring weatherCity;
     bool weatherFahrenheit = false;
-    bool lyrics = false;
     bool lyricsVisualizer = true;
     bool karaokeLyrics = true;
     bool karaokeLetterGlow = true;
@@ -258,7 +257,6 @@ struct Settings {
     int lyricsOffsetMs = 0;      // Modules.LyricsOffsetMs, speakers / wired, ms
     int lyricsOffsetBtMs = 0;    // Modules.LyricsOffsetBluetoothMs, Bluetooth output, ms
     bool collapsedLyrics = false;  // lyrics inside the collapsed media pill (right-click toggle)
-    bool lyricsPinnedFirst = false;  // Lyrics tab is the first tab of the expanded media view (right-click toggle)
     bool lyricsCache = true;       // Modules.LyricsCache
     int lyricsCacheMaxMB = 25;     // Modules.LyricsCacheMaxMB; 0 = disk cache off
     bool mediaTabLyrics = false;   // lyrics side panel in the expanded media tab

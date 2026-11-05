@@ -294,7 +294,7 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 }
 
                 const int currentTab = NormalizedTabIndex(g_settings);
-                if (mediaActive && currentTab == MediaTabIndex(g_settings)) {
+                if (mediaActive && currentTab == 0) {
                     const MediaContentPoint cp = MediaContentFromClient(pt.x, pt.y);
                     const bool hoverClickable = MediaArtHitTest(cp) ||
                                                MediaTransportHitTest(cp) != -1 ||
@@ -363,7 +363,7 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 }
 
                 const int currentTab = NormalizedTabIndex(g_settings);
-                if (mediaActive && currentTab == MediaTabIndex(g_settings)) {
+                if (mediaActive && currentTab == 0) {
                     const MediaContentPoint cp = MediaContentFromClient(xPos, yPos);
 
                     // Source dock: remember the held slot for its press animation.
@@ -445,7 +445,7 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             const int currentTab = NormalizedTabIndex(g_settings);
 
             int hoveredSlot = -1;
-            if (mediaActive && currentTab == MediaTabIndex(g_settings)) {
+            if (mediaActive && currentTab == 0) {
                 const MediaContentPoint mediaPt = MediaContentFromClient(xPos, yPos);
                 hoveredSlot = ResolveSourceDockHit(mediaPt).slot;
                 // The dock's right edge overlaps the prev button's slop; the dock wins.
@@ -460,7 +460,7 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             }
             {
                 bool onLyricsBtn = false;
-                if (g_settings.mediaTabLyrics && mediaActive && currentTab == MediaTabIndex(g_settings)) {
+                if (g_settings.mediaTabLyrics && mediaActive && currentTab == 0) {
                     onLyricsBtn = MediaLyricsButtonHitTest(MediaContentFromClient(xPos, yPos));
                 }
                 if (g_hoveredLyricsBtn.exchange(onLyricsBtn) != onLyricsBtn) {
@@ -742,7 +742,7 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     return 0;
                 }
 
-                if (mediaActive && currentTab == MediaTabIndex(g_settings)) {
+                if (mediaActive && currentTab == 0) {
                     // Source dock: "+N" opens the list, another slot switches to it.
                     {
                         const DockHit dock = ResolveSourceDockHit(cp);
@@ -785,7 +785,7 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
                 if (height > 50.0f) {
                     if (mediaActive) {
-                        if (currentTab == MediaTabIndex(g_settings)) {
+                        if (currentTab == 0) {
                             OpenRelevantApp();
                         }
                     } else if (kinds.empty() || kinds[0] != IslandKind::Idle) {
