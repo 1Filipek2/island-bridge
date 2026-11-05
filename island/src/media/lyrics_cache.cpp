@@ -7,23 +7,23 @@ namespace lyrics_cache
 {
 namespace
 {
-constexpr int64_t found_ttl_sec = 90LL * 24 * 3600;    // found lyrics: refetched after 90 days
-constexpr int64_t not_found_ttl_sec = 3LL * 24 * 3600; // "not found": retried after 3 days
-constexpr size_t memory_capacity = 30;
+constexpr std::int64_t found_ttl_sec = 90LL * 24 * 3600;    // found lyrics: refetched after 90 days
+constexpr std::int64_t not_found_ttl_sec = 3LL * 24 * 3600; // "not found": retried after 3 days
+constexpr std::size_t memory_capacity = 30;
 constexpr int loose_duration_tolerance_sec = 3;   // browsers disagree by a second or two
-constexpr uint64_t max_entry_bytes = 1024 * 1024; // anything bigger is treated as corrupt
+constexpr std::uint64_t max_entry_bytes = 1024 * 1024; // anything bigger is treated as corrupt
 constexpr double cleanup_min_interval_sec = 60.0;
 
 struct Entry
 {
     Status status = Status::Found;
     bool synced = false;
-    int64_t saved_at = 0; // unix seconds
+    std::int64_t saved_at = 0; // unix seconds
     int duration_sec = 0;
     std::wstring loose_key;
     std::wstring full_key;
-    uint64_t loose_hash = 0;
-    uint64_t full_hash = 0;
+    std::uint64_t loose_hash = 0;
+    std::uint64_t full_hash = 0;
     std::vector<LyricsLine> lines;
 };
 
@@ -43,7 +43,7 @@ std::string wide_to_utf8(const std::wstring& w)
     {
         return std::string();
     }
-    std::string out(static_cast<size_t>(len), '\0');
+    std::string out(static_cast<std::size_t>(len), '\0');
     WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), out.data(), len, nullptr, nullptr);
     return out;
 }
@@ -59,7 +59,7 @@ std::wstring utf8_to_wide(const std::string& s)
     {
         return std::wstring();
     }
-    std::wstring out(static_cast<size_t>(len), L'\0');
+    std::wstring out(static_cast<std::size_t>(len), L'\0');
     MultiByteToWideChar(CP_UTF8, 0, s.data(), static_cast<int>(s.size()), out.data(), len);
     return out;
 }
@@ -70,19 +70,19 @@ namespace lyrics_cache
 {
 namespace
 {
-int64_t unix_now()
+std::int64_t unix_now()
 {
     FILETIME ft = {};
     GetSystemTimeAsFileTime(&ft);
     ULARGE_INTEGER u = {};
     u.LowPart = ft.dwLowDateTime;
     u.HighPart = ft.dwHighDateTime;
-    return static_cast<int64_t>(u.QuadPart / 10000000ULL) - 11644473600LL;
+    return static_cast<std::int64_t>(u.QuadPart / 10000000ULL) - 11644473600LL;
 }
 
-uint64_t fnv1a64(const std::string& bytes)
+std::uint64_t fnv1a64(const std::string& bytes)
 {
-    uint64_t h = 14695981039346656037ULL;
+    std::uint64_t h = 14695981039346656037ULL;
     for (unsigned char c : bytes)
     {
         h ^= c;
@@ -91,14 +91,14 @@ uint64_t fnv1a64(const std::string& bytes)
     return h;
 }
 
-uint64_t hash_key(const std::wstring& key)
+std::uint64_t hash_key(const std::wstring& key)
 {
     return fnv1a64(wide_to_utf8(key));
 }
 
 bool ends_with(const std::wstring& s, const wchar_t* suffix)
 {
-    const size_t n = wcslen(suffix);
+    const std::size_t n = std::wcslen(suffix);
     return s.size() >= n && _wcsicmp(s.c_str() + s.size() - n, suffix) == 0;
 }
 
@@ -110,7 +110,7 @@ std::wstring normalize_part(const std::wstring& in)
     bool pending_space = false;
     for (wchar_t ch : in)
     {
-        if (iswspace(ch) || ch == L'|')
+        if (std::iswspace(ch) || ch == L'|')
         {
             pending_space = !out.empty();
             continue;
@@ -120,7 +120,7 @@ std::wstring normalize_part(const std::wstring& in)
             out.push_back(L' ');
             pending_space = false;
         }
-        out.push_back(static_cast<wchar_t>(towlower(ch)));
+        out.push_back(static_cast<wchar_t>(std::towlower(ch)));
     }
     return out;
 }
@@ -130,7 +130,7 @@ std::wstring normalize_part(const std::wstring& in)
 
 namespace lyrics_cache
 {
-Keys build_keys(const std::wstring& title, const std::wstring& artist, const std::wstring& album, int64_t end_ticks)
+Keys build_keys(const std::wstring& title, const std::wstring& artist, const std::wstring& album, std::int64_t end_ticks)
 {
     Keys k;
     k.duration_sec = end_ticks > 0 ? static_cast<int>(static_cast<double>(end_ticks) / 10000000.0 + 0.5) : 0;
@@ -147,7 +147,7 @@ namespace lyrics_cache
 {
 namespace
 {
-std::wstring file_name_for(uint64_t loose_hash, uint64_t full_hash)
+std::wstring file_name_for(std::uint64_t loose_hash, std::uint64_t full_hash)
 {
     wchar_t name[48] = {};
     swprintf_s(name, L"%016llx-%016llx.lrc", static_cast<unsigned long long>(loose_hash),
@@ -164,7 +164,7 @@ bool duration_compatible(int a, int b)
     return std::abs(a - b) <= loose_duration_tolerance_sec;
 }
 
-bool entry_expired(const Entry& e, int64_t now_unix)
+bool entry_expired(const Entry& e, std::int64_t now_unix)
 {
     if (e.saved_at <= 0 || e.saved_at > now_unix + 86400)
     {
@@ -173,7 +173,7 @@ bool entry_expired(const Entry& e, int64_t now_unix)
     return (now_unix - e.saved_at) > (e.status == Status::Found ? found_ttl_sec : not_found_ttl_sec);
 }
 
-void counters_adjust(int d_count, int64_t d_bytes)
+void counters_adjust(int d_count, std::int64_t d_bytes)
 {
     // Single writer (the lyrics thread); the menu only reads.
     int c = g_lyrics_cache_file_count.load(std::memory_order_relaxed) + d_count;
@@ -182,12 +182,12 @@ void counters_adjust(int d_count, int64_t d_bytes)
         c = 0;
     }
     g_lyrics_cache_file_count.store(c, std::memory_order_relaxed);
-    int64_t b = static_cast<int64_t>(g_lyrics_cache_bytes.load(std::memory_order_relaxed)) + d_bytes;
+    std::int64_t b = static_cast<std::int64_t>(g_lyrics_cache_bytes.load(std::memory_order_relaxed)) + d_bytes;
     if (b < 0)
     {
         b = 0;
     }
-    g_lyrics_cache_bytes.store(static_cast<uint64_t>(b), std::memory_order_relaxed);
+    g_lyrics_cache_bytes.store(static_cast<std::uint64_t>(b), std::memory_order_relaxed);
 }
 
 // cache folder: <island storage>\lyrics.
@@ -236,7 +236,7 @@ void put_memory(Entry e)
     }
 }
 
-const Entry* find_in_memory(const Keys& k, int64_t now_unix)
+const Entry* find_in_memory(const Keys& k, std::int64_t now_unix)
 {
     auto& mem = memory();
     int exact_idx = -1;
@@ -244,7 +244,7 @@ const Entry* find_in_memory(const Keys& k, int64_t now_unix)
     int loose_score = 1 << 30;
     for (int i = static_cast<int>(mem.size()) - 1; i >= 0; --i)
     {
-        const Entry& e = mem[static_cast<size_t>(i)];
+        const Entry& e = mem[static_cast<std::size_t>(i)];
         if (entry_expired(e, now_unix))
         {
             continue;
@@ -378,14 +378,14 @@ std::string serialize_entry(const Entry& e, const std::wstring& title, const std
 
 bool parse_entry(const std::string& data, Entry* out)
 {
-    size_t pos = 0;
+    std::size_t pos = 0;
     auto next_line = [&](std::string* line) -> bool
     {
         if (pos >= data.size())
         {
             return false;
         }
-        const size_t end = data.find('\n', pos);
+        const std::size_t end = data.find('\n', pos);
         if (end == std::string::npos)
         {
             *line = data.substr(pos);
@@ -414,7 +414,7 @@ bool parse_entry(const std::string& data, Entry* out)
             header_ended = true;
             break;
         }
-        const size_t eq = line.find('=');
+        const std::size_t eq = line.find('=');
         if (eq == std::string::npos)
         {
             continue;
@@ -423,7 +423,7 @@ bool parse_entry(const std::string& data, Entry* out)
         const std::string val = line.substr(eq + 1);
         if (key == "saved")
         {
-            e.saved_at = static_cast<int64_t>(strtoll(val.c_str(), nullptr, 10));
+            e.saved_at = static_cast<std::int64_t>(strtoll(val.c_str(), nullptr, 10));
             have_saved = e.saved_at > 0;
         }
         else if (key == "status")
@@ -445,7 +445,7 @@ bool parse_entry(const std::string& data, Entry* out)
         }
         else if (key == "dur")
         {
-            e.duration_sec = static_cast<int>(strtol(val.c_str(), nullptr, 10));
+            e.duration_sec = static_cast<int>(std::strtol(val.c_str(), nullptr, 10));
         }
         else if (key == "lkey")
         {
@@ -466,10 +466,10 @@ bool parse_entry(const std::string& data, Entry* out)
     if (e.status == Status::Found)
     {
         const std::wstring body = utf8_to_wide(data.substr(pos));
-        size_t start = 0;
+        std::size_t start = 0;
         while (start < body.size())
         {
-            size_t end = body.find(L'\n', start);
+            std::size_t end = body.find(L'\n', start);
             if (end == std::wstring::npos)
             {
                 end = body.size();
@@ -484,12 +484,12 @@ bool parse_entry(const std::string& data, Entry* out)
             LyricsLine ll;
             if (e.synced)
             {
-                const size_t tab = row.find(L'\t');
+                const std::size_t tab = row.find(L'\t');
                 if (tab == std::wstring::npos || tab == 0)
                 {
                     return false;
                 }
-                ll.time_ms = static_cast<int64_t>(wcstoll(row.c_str(), nullptr, 10));
+                ll.time_ms = static_cast<std::int64_t>(wcstoll(row.c_str(), nullptr, 10));
                 ll.text = row.substr(tab + 1);
             }
             else
@@ -519,7 +519,7 @@ enum class LoadResult
     Expired
 };
 
-LoadResult load_entry(const std::wstring& path, int64_t now_unix, Entry* out, uint64_t* size_out)
+LoadResult load_entry(const std::wstring& path, std::int64_t now_unix, Entry* out, std::uint64_t* size_out)
 {
     HANDLE h = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -531,10 +531,10 @@ LoadResult load_entry(const std::wstring& path, int64_t now_unix, Entry* out, ui
     LARGE_INTEGER size = {};
     std::string data;
     bool read_ok =
-        GetFileSizeEx(h, &size) && size.QuadPart > 0 && static_cast<uint64_t>(size.QuadPart) <= max_entry_bytes;
+        GetFileSizeEx(h, &size) && size.QuadPart > 0 && static_cast<std::uint64_t>(size.QuadPart) <= max_entry_bytes;
     if (read_ok)
     {
-        data.resize(static_cast<size_t>(size.QuadPart));
+        data.resize(static_cast<std::size_t>(size.QuadPart));
         DWORD got = 0;
         read_ok = ReadFile(h, data.data(), static_cast<DWORD>(size.QuadPart), &got, nullptr) &&
                   got == static_cast<DWORD>(size.QuadPart);
@@ -542,7 +542,7 @@ LoadResult load_entry(const std::wstring& path, int64_t now_unix, Entry* out, ui
     CloseHandle(h);
     if (size_out)
     {
-        *size_out = size.QuadPart > 0 ? static_cast<uint64_t>(size.QuadPart) : 0;
+        *size_out = size.QuadPart > 0 ? static_cast<std::uint64_t>(size.QuadPart) : 0;
     }
 
     Entry e;
@@ -562,16 +562,16 @@ LoadResult load_entry(const std::wstring& path, int64_t now_unix, Entry* out, ui
     return LoadResult::Ok;
 }
 
-void remove_entry_file(const std::wstring& path, uint64_t known_size)
+void remove_entry_file(const std::wstring& path, std::uint64_t known_size)
 {
     if (DeleteFileW(path.c_str()))
     {
-        counters_adjust(-1, -static_cast<int64_t>(known_size));
+        counters_adjust(-1, -static_cast<std::int64_t>(known_size));
     }
 }
 
 // Disk layer
-bool lookup_disk(const Keys& k, int64_t now_unix, Entry* out)
+bool lookup_disk(const Keys& k, std::int64_t now_unix, Entry* out)
 {
     const std::wstring& dir = cache_dir(false);
     if (dir.empty())
@@ -584,7 +584,7 @@ bool lookup_disk(const Keys& k, int64_t now_unix, Entry* out)
     {
         const std::wstring path = dir + L"\\" + exact_name;
         Entry e;
-        uint64_t size = 0;
+        std::uint64_t size = 0;
         const LoadResult r = load_entry(path, now_unix, &e, &size);
         if (r == LoadResult::Ok && e.full_key == k.full)
         { // key check also guards hash collisions
@@ -631,7 +631,7 @@ bool lookup_disk(const Keys& k, int64_t now_unix, Entry* out)
     for (const std::wstring& path : candidates)
     {
         Entry e;
-        uint64_t size = 0;
+        std::uint64_t size = 0;
         const LoadResult r = load_entry(path, now_unix, &e, &size);
         if (r == LoadResult::Invalid || r == LoadResult::Expired)
         {
@@ -669,7 +669,7 @@ bool lookup_disk(const Keys& k, int64_t now_unix, Entry* out)
 bool g_cleanup_due = false;
 bool g_scanned_once = false;
 double g_last_cleanup = -1e9;
-uint64_t g_last_cap = 0;
+std::uint64_t g_last_cap = 0;
 
 void write_entry_to_disk(const Entry& e, const std::wstring& title, const std::wstring& artist)
 {
@@ -684,7 +684,7 @@ void write_entry_to_disk(const Entry& e, const std::wstring& title, const std::w
 
     WIN32_FILE_ATTRIBUTE_DATA old = {};
     const bool had_old = GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &old) != 0;
-    const uint64_t old_size = had_old ? ((static_cast<uint64_t>(old.nFileSizeHigh) << 32) | old.nFileSizeLow) : 0;
+    const std::uint64_t old_size = had_old ? ((static_cast<std::uint64_t>(old.nFileSizeHigh) << 32) | old.nFileSizeLow) : 0;
 
     if (!write_file_atomic(path, data))
     {
@@ -693,16 +693,16 @@ void write_entry_to_disk(const Entry& e, const std::wstring& title, const std::w
     }
     if (had_old)
     {
-        counters_adjust(0, static_cast<int64_t>(data.size()) - static_cast<int64_t>(old_size));
+        counters_adjust(0, static_cast<std::int64_t>(data.size()) - static_cast<std::int64_t>(old_size));
     }
     else
     {
-        counters_adjust(1, static_cast<int64_t>(data.size()));
+        counters_adjust(1, static_cast<std::int64_t>(data.size()));
     }
     g_cleanup_due = true;
 }
 
-bool peek_header(const std::wstring& path, int64_t* saved_at, bool* found)
+bool peek_header(const std::wstring& path, std::int64_t* saved_at, bool* found)
 {
     HANDLE h = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -721,27 +721,27 @@ bool peek_header(const std::wstring& path, int64_t* saved_at, bool* found)
     buf[got] = '\0';
 
     static const char magic_line[] = "DIWLC 1\n";
-    if (strncmp(buf, magic_line, sizeof(magic_line) - 1) != 0)
+    if (std::strncmp(buf, magic_line, sizeof(magic_line) - 1) != 0)
     {
         return false;
     }
     const char* p = buf + sizeof(magic_line) - 1;
-    if (strncmp(p, "saved=", 6) != 0)
+    if (std::strncmp(p, "saved=", 6) != 0)
     {
         return false;
     }
-    *saved_at = static_cast<int64_t>(strtoll(p + 6, nullptr, 10));
-    const char* nl = strchr(p, '\n');
+    *saved_at = static_cast<std::int64_t>(strtoll(p + 6, nullptr, 10));
+    const char* nl = std::strchr(p, '\n');
     if (!nl)
     {
         return false;
     }
     p = nl + 1;
-    if (strncmp(p, "status=found", 12) == 0)
+    if (std::strncmp(p, "status=found", 12) == 0)
     {
         *found = true;
     }
-    else if (strncmp(p, "status=notfound", 15) == 0)
+    else if (std::strncmp(p, "status=notfound", 15) == 0)
     {
         *found = false;
     }
@@ -754,18 +754,18 @@ bool peek_header(const std::wstring& path, int64_t* saved_at, bool* found)
 
 // One pass: sweep .tmp files, delete corrupt or expired entries, recount, then evict least recently
 // used files down to 90% of the cap. Files not ending in .lrc are never touched.
-void cleanup_pass(uint64_t cap_bytes)
+void cleanup_pass(std::uint64_t cap_bytes)
 {
     struct FileInfo
     {
         std::wstring path;
-        uint64_t size;
+        std::uint64_t size;
         ULONGLONG last_write;
     };
 
     std::vector<FileInfo> files;
-    uint64_t total_bytes = 0;
-    const int64_t now_unix = unix_now();
+    std::uint64_t total_bytes = 0;
+    const std::int64_t now_unix = unix_now();
     const std::wstring& dir = cache_dir(false);
 
     if (!dir.empty())
@@ -792,7 +792,7 @@ void cleanup_pass(uint64_t cap_bytes)
                     continue;
                 }
 
-                int64_t saved_at = 0;
+                std::int64_t saved_at = 0;
                 bool found = false;
                 bool drop = !peek_header(path, &saved_at, &found);
                 if (!drop)
@@ -808,7 +808,7 @@ void cleanup_pass(uint64_t cap_bytes)
                 ULARGE_INTEGER lw = {};
                 lw.LowPart = fd.ftLastWriteTime.dwLowDateTime;
                 lw.HighPart = fd.ftLastWriteTime.dwHighDateTime;
-                const uint64_t size = (static_cast<uint64_t>(fd.nFileSizeHigh) << 32) | fd.nFileSizeLow;
+                const std::uint64_t size = (static_cast<std::uint64_t>(fd.nFileSizeHigh) << 32) | fd.nFileSizeLow;
                 files.push_back(FileInfo{path, size, lw.QuadPart});
                 total_bytes += size;
             } while (FindNextFileW(find, &fd));
@@ -816,7 +816,7 @@ void cleanup_pass(uint64_t cap_bytes)
         }
     }
 
-    size_t remaining = files.size();
+    std::size_t remaining = files.size();
     if (cap_bytes > 0 && total_bytes > cap_bytes)
     {
         std::sort(files.begin(), files.end(),
@@ -824,8 +824,8 @@ void cleanup_pass(uint64_t cap_bytes)
                   {
                       return a.last_write < b.last_write;
                   });
-        const uint64_t target = cap_bytes - cap_bytes / 10;
-        for (size_t i = 0; i < files.size() && total_bytes > target; ++i)
+        const std::uint64_t target = cap_bytes - cap_bytes / 10;
+        for (std::size_t i = 0; i < files.size() && total_bytes > target; ++i)
         {
             if (DeleteFileW(files[i].path.c_str()))
             {
@@ -845,7 +845,7 @@ void cleanup_pass(uint64_t cap_bytes)
 
 namespace lyrics_cache
 {
-void maybe_cleanup(bool disk_on, uint64_t cap_bytes) noexcept
+void maybe_cleanup(bool disk_on, std::uint64_t cap_bytes) noexcept
 {
     if (!disk_on)
     {
@@ -939,7 +939,7 @@ namespace lyrics_cache
 {
 bool lookup(const Keys& k, bool disk_on, const std::wstring& title, const std::wstring& artist, LyricsSnapshot* out)
 {
-    const int64_t now_unix = unix_now();
+    const std::int64_t now_unix = unix_now();
 
     if (const Entry* m = find_in_memory(k, now_unix))
     {

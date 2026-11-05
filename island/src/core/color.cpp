@@ -10,9 +10,9 @@ bool equals_no_case(std::wstring_view a, std::wstring_view b)
         return false;
     }
 
-    for (size_t i = 0; i < a.size(); ++i)
+    for (std::size_t i = 0; i < a.size(); ++i)
     {
-        if (towlower(a[i]) != towlower(b[i]))
+        if (std::towlower(a[i]) != std::towlower(b[i]))
         {
             return false;
         }
@@ -23,7 +23,7 @@ bool equals_no_case(std::wstring_view a, std::wstring_view b)
 
 D2D1_COLOR_F color_from_hex(std::wstring text, D2D1_COLOR_F fallback)
 {
-    const size_t first_char = text.find_first_not_of(L" \t\r\n");
+    const std::size_t first_char = text.find_first_not_of(L" \t\r\n");
     if (first_char == std::wstring::npos)
     {
         return fallback;
@@ -36,7 +36,7 @@ D2D1_COLOR_F color_from_hex(std::wstring text, D2D1_COLOR_F fallback)
     }
 
     // Accepted forms: RGB, RGBA, RRGGBB, RRGGBBAA.
-    const size_t digits = text.size();
+    const std::size_t digits = text.size();
     if (digits != 3 && digits != 4 && digits != 6 && digits != 8)
     {
         return fallback;

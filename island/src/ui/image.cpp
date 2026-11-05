@@ -5,7 +5,7 @@
 
 namespace island
 {
-bool decode_image_bytes_to_pixels(const std::vector<uint8_t>& bytes, BitmapPixels* out_pixels)
+bool decode_image_bytes_to_pixels(const std::vector<std::uint8_t>& bytes, BitmapPixels* out_pixels)
 {
     if (!out_pixels || bytes.empty())
     {
@@ -26,7 +26,7 @@ bool decode_image_bytes_to_pixels(const std::vector<uint8_t>& bytes, BitmapPixel
     }
 
     void* locked = GlobalLock(mem);
-    memcpy(locked, bytes.data(), bytes.size());
+    std::memcpy(locked, bytes.data(), bytes.size());
     GlobalUnlock(mem);
 
     ComPtr<IStream> stream;
@@ -76,7 +76,7 @@ bool decode_image_bytes_to_pixels(const std::vector<uint8_t>& bytes, BitmapPixel
     BitmapPixels pixels;
     pixels.width = width;
     pixels.height = height;
-    pixels.bgra.resize(static_cast<size_t>(width) * height * 4);
+    pixels.bgra.resize(static_cast<std::size_t>(width) * height * 4);
 
     hr = converter->CopyPixels(nullptr, width * 4, static_cast<UINT>(pixels.bgra.size()), pixels.bgra.data());
     if (FAILED(hr))
@@ -86,20 +86,20 @@ bool decode_image_bytes_to_pixels(const std::vector<uint8_t>& bytes, BitmapPixel
 
     struct Bucket
     {
-        uint32_t count = 0;
-        uint32_t r = 0;
-        uint32_t g = 0;
-        uint32_t b = 0;
-        uint32_t sat_sum = 0;
+        std::uint32_t count = 0;
+        std::uint32_t r = 0;
+        std::uint32_t g = 0;
+        std::uint32_t b = 0;
+        std::uint32_t sat_sum = 0;
     };
 
     std::array<Bucket, 16 * 16 * 16> buckets{};
-    for (size_t i = 0; i + 3 < pixels.bgra.size(); i += 4)
+    for (std::size_t i = 0; i + 3 < pixels.bgra.size(); i += 4)
     {
-        const uint8_t alpha = pixels.bgra[i + 3];
-        const uint8_t blue = pixels.bgra[i + 0];
-        const uint8_t green = pixels.bgra[i + 1];
-        const uint8_t red = pixels.bgra[i + 2];
+        const std::uint8_t alpha = pixels.bgra[i + 3];
+        const std::uint8_t blue = pixels.bgra[i + 0];
+        const std::uint8_t green = pixels.bgra[i + 1];
+        const std::uint8_t red = pixels.bgra[i + 2];
         if (alpha < 32)
         {
             continue;
@@ -114,14 +114,14 @@ bool decode_image_bytes_to_pixels(const std::vector<uint8_t>& bytes, BitmapPixel
             continue;
         }
 
-        const size_t bucket_index = ((red >> 4) << 8) | ((green >> 4) << 4) | (blue >> 4);
+        const std::size_t bucket_index = ((red >> 4) << 8) | ((green >> 4) << 4) | (blue >> 4);
         Bucket& bucket = buckets[bucket_index];
-        const uint32_t weight = 1 + static_cast<uint32_t>(saturation / 32);
+        const std::uint32_t weight = 1 + static_cast<std::uint32_t>(saturation / 32);
         bucket.count += weight;
         bucket.r += red * weight;
         bucket.g += green * weight;
         bucket.b += blue * weight;
-        bucket.sat_sum += static_cast<uint32_t>(saturation) * weight;
+        bucket.sat_sum += static_cast<std::uint32_t>(saturation) * weight;
     }
 
     // Vibrancy-weighted winner: of the top 3 buckets by count, the most saturated wins, so a large muted
@@ -129,11 +129,11 @@ bool decode_image_bytes_to_pixels(const std::vector<uint8_t>& bytes, BitmapPixel
     struct Candidate
     {
         const Bucket* b = nullptr;
-        size_t idx = 0;
+        std::size_t idx = 0;
     };
 
     Candidate top[3];
-    for (size_t i = 0; i < buckets.size(); ++i)
+    for (std::size_t i = 0; i < buckets.size(); ++i)
     {
         const Bucket& bk = buckets[i];
         if (bk.count == 0)
@@ -155,7 +155,7 @@ bool decode_image_bytes_to_pixels(const std::vector<uint8_t>& bytes, BitmapPixel
     }
 
     const Bucket* best = nullptr;
-    size_t best_idx = 0;
+    std::size_t best_idx = 0;
     float best_vibrancy = -1.0f;
     for (int s = 0; s < 3; ++s)
     {
@@ -175,7 +175,7 @@ bool decode_image_bytes_to_pixels(const std::vector<uint8_t>& bytes, BitmapPixel
     if (best && best->count > 0)
     {
         // Pool the winning bucket with its 26 neighbours so a color on a bucket boundary stays stable.
-        uint64_t pool_count = 0;
+        std::uint64_t pool_count = 0;
         double pool_r = 0, pool_g = 0, pool_b = 0;
 
         const int bi = static_cast<int>((best_idx >> 8) & 0xF);
@@ -193,8 +193,8 @@ bool decode_image_bytes_to_pixels(const std::vector<uint8_t>& bytes, BitmapPixel
                     {
                         continue;
                     }
-                    const size_t n_idx =
-                        (static_cast<size_t>(ni) << 8) | (static_cast<size_t>(nj) << 4) | static_cast<size_t>(nk);
+                    const std::size_t n_idx =
+                        (static_cast<std::size_t>(ni) << 8) | (static_cast<std::size_t>(nj) << 4) | static_cast<std::size_t>(nk);
                     const Bucket& nb = buckets[n_idx];
                     if (nb.count == 0)
                     {

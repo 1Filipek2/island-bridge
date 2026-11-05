@@ -87,7 +87,7 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                 if (GetFileAttributesExW(path, GetFileExInfoStandard, &attr))
                 {
                     item.is_directory = (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-                    item.size_bytes = (static_cast<uint64_t>(attr.nFileSizeHigh) << 32) | attr.nFileSizeLow;
+                    item.size_bytes = (static_cast<std::uint64_t>(attr.nFileSizeHigh) << 32) | attr.nFileSizeLow;
                 }
 
                 SHFILEINFOW info = {};
@@ -118,7 +118,7 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                     g_state.file_tray_items.push_back(std::move(item));
                 }
 
-                const size_t cap = static_cast<size_t>(std::max(1, g_settings.file_tray_max_items));
+                const std::size_t cap = static_cast<std::size_t>(std::max(1, g_settings.file_tray_max_items));
                 while (g_state.file_tray_items.size() > cap)
                 {
                     g_state.file_tray_items.erase(g_state.file_tray_items.begin());
@@ -390,7 +390,7 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                     s_tray_press_active = true;
                     s_tray_press_pt.x = x_pos;
                     s_tray_press_pt.y = y_pos;
-                    s_tray_press_path = g_state.file_tray_items[static_cast<size_t>(count - 1 - row)].path;
+                    s_tray_press_path = g_state.file_tray_items[static_cast<std::size_t>(count - 1 - row)].path;
                 }
             }
 
@@ -470,14 +470,14 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                 if (now - g_last_live_seek_time.load(std::memory_order_relaxed) >= 0.15)
                 {
                     g_last_live_seek_time.store(now, std::memory_order_relaxed);
-                    int64_t end_ticks = 0;
+                    std::int64_t end_ticks = 0;
                     {
                         std::lock_guard lock(g_state_mutex);
                         end_ticks = g_state.media.end_ticks;
                     }
                     if (end_ticks > 0)
                     {
-                        seek_media_to_ticks(static_cast<int64_t>(fraction * end_ticks));
+                        seek_media_to_ticks(static_cast<std::int64_t>(fraction * end_ticks));
                     }
                 }
                 return 0;
@@ -523,7 +523,7 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
             int hovered_action = -1;
             if (g_settings.file_tray_module && current_tab == file_tray_tab_index(g_settings))
             {
-                size_t tray_count = 0;
+                std::size_t tray_count = 0;
                 {
                     std::lock_guard lock(g_state_mutex);
                     tray_count = g_state.file_tray_items.size();
@@ -576,8 +576,8 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                 {
                     s_tray_press_active = false;
                 }
-                else if (abs(x_pos - s_tray_press_pt.x) >= GetSystemMetrics(SM_CXDRAG) ||
-                         abs(y_pos - s_tray_press_pt.y) >= GetSystemMetrics(SM_CYDRAG))
+                else if (std::abs(x_pos - s_tray_press_pt.x) >= GetSystemMetrics(SM_CXDRAG) ||
+                         std::abs(y_pos - s_tray_press_pt.y) >= GetSystemMetrics(SM_CYDRAG))
                 {
                     s_tray_press_active = false;
                     const std::wstring drag_path = s_tray_press_path;
@@ -646,14 +646,14 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                 ReleaseCapture();
 
                 const float final_fraction = clamp(g_scrub_drag_fraction.load(std::memory_order_relaxed), 0.0f, 1.0f);
-                int64_t end_ticks = 0;
+                std::int64_t end_ticks = 0;
                 {
                     std::lock_guard lock(g_state_mutex);
                     end_ticks = g_state.media.end_ticks;
                 }
                 if (end_ticks > 0)
                 {
-                    const int64_t target_ticks = static_cast<int64_t>(final_fraction * end_ticks);
+                    const std::int64_t target_ticks = static_cast<std::int64_t>(final_fraction * end_ticks);
                     seek_media_to_ticks(target_ticks);
                     std::lock_guard lock(g_state_mutex);
                     g_state.media.position_ticks = target_ticks;
@@ -682,8 +682,8 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
             {
                 const int dx = x_pos - s_touch_start.x;
                 const int dy = y_pos - s_touch_start.y;
-                const int travel = abs(dy) > abs(dx) ? dy : dx;
-                if (abs(travel) > 40)
+                const int travel = std::abs(dy) > std::abs(dx) ? dy : dx;
+                if (std::abs(travel) > 40)
                 {
                     if (active_tab_count(get_settings_copy()) > 1)
                     {
@@ -791,7 +791,7 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                         const int row = file_tray_row_at_content_point(cp, count);
                         if (row >= 0)
                         {
-                            const size_t index = static_cast<size_t>(count - 1 - row);
+                            const std::size_t index = static_cast<std::size_t>(count - 1 - row);
                             if (file_tray_remove_hit_test(cp, row))
                             {
                                 g_state.file_tray_items.erase(g_state.file_tray_items.begin() +
@@ -950,13 +950,13 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
             s_last_wheel_event = wheel_now;
             s_wheel_accum += delta;
 
-            if (abs(s_wheel_accum) < WHEEL_DELTA)
+            if (std::abs(s_wheel_accum) < WHEEL_DELTA)
             {
                 return 0;
             }
 
             // At most one notch is held pending, so inertia cannot race through every tab.
-            const bool precise = abs(delta) < WHEEL_DELTA;
+            const bool precise = std::abs(delta) < WHEEL_DELTA;
             const ULONGLONG cooldown = precise ? 200 : 85;
             if (wheel_now - s_last_wheel_step < cooldown)
             {

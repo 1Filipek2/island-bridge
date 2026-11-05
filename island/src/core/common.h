@@ -85,4 +85,3 @@
 #endif
 
 using Microsoft::WRL::ComPtr;
-using namespace std::chrono_literals;

@@ -23,7 +23,7 @@ static constexpr UINT weather_city_auto_menu_id = 96;
 static constexpr UINT weather_location_fix_menu_id = 97; // free slot between the cities (80..95) and media (100..)
 inline std::atomic<int> g_auto_weather_city_index{-1};   // last nearest city found, -1 = unknown
 bool is_weather_city_auto();
-int get_active_weather_city_index(size_t city_count);
+int get_active_weather_city_index(std::size_t city_count);
 DWORD WINAPI weather_thread_proc(void*);
 
 }

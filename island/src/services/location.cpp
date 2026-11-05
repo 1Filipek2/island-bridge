@@ -99,22 +99,22 @@ void open_privacy_settings()
 
 std::optional<geo::Point> current_point()
 {
-    using namespace winrt::Windows::Devices::Geolocation;
+    namespace geolocation = winrt::Windows::Devices::Geolocation;
 
     try
     {
-        const GeolocationAccessStatus access = Geolocator::RequestAccessAsync().get();
+        const geolocation::GeolocationAccessStatus access = geolocation::Geolocator::RequestAccessAsync().get();
 
-        if (access != GeolocationAccessStatus::Allowed)
+        if (access != geolocation::GeolocationAccessStatus::Allowed)
         {
             publish(Status::Denied);
             return std::nullopt;
         }
 
-        Geolocator locator;
-        locator.DesiredAccuracy(PositionAccuracy::Default);
-        const Geoposition position = locator.GetGeopositionAsync(maximum_age, locate_timeout).get();
-        const BasicGeoposition coordinate = position.Coordinate().Point().Position();
+        geolocation::Geolocator locator;
+        locator.DesiredAccuracy(geolocation::PositionAccuracy::Default);
+        const geolocation::Geoposition position = locator.GetGeopositionAsync(maximum_age, locate_timeout).get();
+        const geolocation::BasicGeoposition coordinate = position.Coordinate().Point().Position();
         const geo::Point point{coordinate.Latitude, coordinate.Longitude};
 
         if (!geo::valid(point))

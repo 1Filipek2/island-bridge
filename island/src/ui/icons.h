@@ -23,7 +23,7 @@ std::wstring find_browser_media_site_badge(const std::wstring& source_app_user_m
 PixelsRef find_media_source_icon(const std::wstring& source_app_user_model_id);
 wchar_t notification_initial(const std::wstring& app);
 PixelsRef find_app_icon_by_name(const std::wstring& app_name, UINT size);
-std::vector<uint8_t> read_win_rt_stream_bytes(
+std::vector<std::uint8_t> read_win_rt_stream_bytes(
     const winrt::Windows::Storage::Streams::IRandomAccessStreamReference& reference);
 
 }

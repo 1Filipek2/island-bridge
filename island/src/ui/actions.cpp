@@ -107,7 +107,7 @@ void toggle_endpoint_mute()
     }
 }
 
-void seek_media_to_ticks(int64_t target_ticks)
+void seek_media_to_ticks(std::int64_t target_ticks)
 {
     std::thread(
         [target_ticks]()
@@ -278,7 +278,7 @@ BOOL CALLBACK enum_windows_proc(HWND hwnd, LPARAM l_param)
         auto it = std::search(w_title.begin(), w_title.end(), search->target_title.begin(), search->target_title.end(),
                               [](wchar_t ch1, wchar_t ch2)
                               {
-                                  return towlower(ch1) == towlower(ch2);
+                                  return std::towlower(ch1) == std::towlower(ch2);
                               });
 
         if (it != w_title.end())
@@ -312,7 +312,7 @@ BOOL CALLBACK enum_windows_proc(HWND hwnd, LPARAM l_param)
                 else
                 {
                     std::wstring exe_name = exe_lower;
-                    size_t slash_pos = exe_name.find_last_of(L"\\/");
+                    std::size_t slash_pos = exe_name.find_last_of(L"\\/");
                     if (slash_pos != std::wstring::npos)
                     {
                         exe_name = exe_name.substr(slash_pos + 1);
@@ -377,7 +377,7 @@ void open_relevant_app()
         {
             if (GetFileAttributesW(execute_path.c_str()) == INVALID_FILE_ATTRIBUTES)
             {
-                size_t x86_pos = execute_path.find(L" (x86)");
+                std::size_t x86_pos = execute_path.find(L" (x86)");
                 if (x86_pos != std::wstring::npos)
                 {
                     std::wstring alt_path = execute_path;

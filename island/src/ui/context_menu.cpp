@@ -75,7 +75,7 @@ std::vector<MediaSourceMenuItem> append_media_source_items(HMENU menu)
     {
         AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     }
-    for (size_t i = 0; i < items.size(); ++i)
+    for (std::size_t i = 0; i < items.size(); ++i)
     {
         AppendMenuW(menu, MF_STRING | (items[i].aumid == active ? MF_CHECKED : 0),
                     media_source_menu_id_base + 1 + static_cast<UINT>(i), items[i].name.c_str());
@@ -94,7 +94,7 @@ void apply_media_source_menu_command(UINT cmd, const std::vector<MediaSourceMenu
         lock_media_source(L"");
         return;
     }
-    const size_t index = cmd - media_source_menu_id_base - 1;
+    const std::size_t index = cmd - media_source_menu_id_base - 1;
     if (index < items.size())
     {
         lock_media_source(items[index].aumid);
@@ -124,7 +124,7 @@ void open_island_bridge_window()
 {
     wchar_t path[MAX_PATH] = {};
     const DWORD length = GetModuleFileNameW(nullptr, path, ARRAYSIZE(path));
-    wchar_t* slash = length > 0 && length < ARRAYSIZE(path) ? wcsrchr(path, L'\\') : nullptr;
+    wchar_t* slash = length > 0 && length < ARRAYSIZE(path) ? std::wcsrchr(path, L'\\') : nullptr;
     if (!slash)
     {
         return;
@@ -176,7 +176,7 @@ void show_context_menu(HWND hwnd, POINT screen_point)
     }
     if (g_settings.file_tray_module)
     {
-        size_t tray_count = 0;
+        std::size_t tray_count = 0;
         {
             std::lock_guard lock(g_state_mutex);
             tray_count = g_state.file_tray_items.size();
@@ -225,7 +225,7 @@ void show_context_menu(HWND hwnd, POINT screen_point)
         if (g_lyrics_cache_counts_valid.load(std::memory_order_relaxed))
         {
             const int songs = g_lyrics_cache_file_count.load(std::memory_order_relaxed);
-            const uint64_t bytes = g_lyrics_cache_bytes.load(std::memory_order_relaxed);
+            const std::uint64_t bytes = g_lyrics_cache_bytes.load(std::memory_order_relaxed);
             wchar_t detail[64] = {};
             if (bytes >= 1048576ull)
             {
@@ -302,7 +302,7 @@ void show_context_menu(HWND hwnd, POINT screen_point)
                                                                                  : loc(L"Allow precise location..."));
             }
             AppendMenuW(weather_menu, MF_SEPARATOR, 0, nullptr);
-            for (size_t i = 0; i < weather_cities.size(); ++i)
+            for (std::size_t i = 0; i < weather_cities.size(); ++i)
             {
                 AppendMenuW(weather_menu,
                             MF_STRING | (!auto_city && static_cast<int>(i) == active_city ? MF_CHECKED : 0),

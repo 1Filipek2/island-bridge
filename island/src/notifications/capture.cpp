@@ -115,11 +115,11 @@ bool read_clipboard_image_pixels(HWND hwnd, BitmapPixels* out_pixels, UINT max_d
     BitmapPixels pixels;
     pixels.width = dst_w;
     pixels.height = dst_h;
-    pixels.bgra.resize(static_cast<size_t>(dst_w) * dst_h * 4);
-    memcpy(pixels.bgra.data(), bits, pixels.bgra.size());
+    pixels.bgra.resize(static_cast<std::size_t>(dst_w) * dst_h * 4);
+    std::memcpy(pixels.bgra.data(), bits, pixels.bgra.size());
 
     // GDI blits leave alpha at 0; D2D expects premultiplied alpha, so set it.
-    for (size_t i = 3; i < pixels.bgra.size(); i += 4)
+    for (std::size_t i = 3; i < pixels.bgra.size(); i += 4)
     {
         pixels.bgra[i] = 255;
     }
@@ -272,7 +272,7 @@ void capture_shell_notification(HWND hwnd)
                                     {
                                         BSTR name = nullptr;
                                         el->get_CurrentName(&name);
-                                        if (name && wcslen(name) > 0)
+                                        if (name && std::wcslen(name) > 0)
                                         {
                                             std::wstring chunk = name;
                                             if (chunk != L"Notification" && chunk != L"New notification")
@@ -385,7 +385,7 @@ void capture_clipboard(HWND hwnd)
     std::wstring text = read_clipboard_text(hwnd);
     if (!text.empty())
     {
-        constexpr size_t max_chars = 96;
+        constexpr std::size_t max_chars = 96;
         std::replace(text.begin(), text.end(), L'\r', L' ');
         std::replace(text.begin(), text.end(), L'\n', L' ');
         if (text.size() > max_chars)

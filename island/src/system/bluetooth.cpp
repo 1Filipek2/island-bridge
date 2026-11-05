@@ -67,20 +67,20 @@ BluetoothDeviceCategory classify_bluetooth_device(const winrt::Windows::Devices:
 
 int try_read_bluetooth_battery_percent_ble(winrt::hstring const& device_id)
 {
-    using namespace winrt::Windows::Devices::Bluetooth;
-    using namespace winrt::Windows::Devices::Bluetooth::GenericAttributeProfile;
+    namespace bluetooth = winrt::Windows::Devices::Bluetooth;
+    namespace gatt = winrt::Windows::Devices::Bluetooth::GenericAttributeProfile;
 
     try
     {
-        auto ble_device = BluetoothLEDevice::FromIdAsync(device_id).get();
+        auto ble_device = bluetooth::BluetoothLEDevice::FromIdAsync(device_id).get();
         if (!ble_device)
         {
             return -1;
         }
 
         auto services_result =
-            ble_device.GetGattServicesForUuidAsync(GattServiceUuids::Battery(), BluetoothCacheMode::Uncached).get();
-        if (services_result.Status() != GattCommunicationStatus::Success || services_result.Services().Size() == 0)
+            ble_device.GetGattServicesForUuidAsync(gatt::GattServiceUuids::Battery(), bluetooth::BluetoothCacheMode::Uncached).get();
+        if (services_result.Status() != gatt::GattCommunicationStatus::Success || services_result.Services().Size() == 0)
         {
             return -1;
         }
@@ -88,16 +88,16 @@ int try_read_bluetooth_battery_percent_ble(winrt::hstring const& device_id)
         auto service = services_result.Services().GetAt(0);
         auto chars_result =
             service
-                .GetCharacteristicsForUuidAsync(GattCharacteristicUuids::BatteryLevel(), BluetoothCacheMode::Uncached)
+                .GetCharacteristicsForUuidAsync(gatt::GattCharacteristicUuids::BatteryLevel(), bluetooth::BluetoothCacheMode::Uncached)
                 .get();
-        if (chars_result.Status() != GattCommunicationStatus::Success || chars_result.Characteristics().Size() == 0)
+        if (chars_result.Status() != gatt::GattCommunicationStatus::Success || chars_result.Characteristics().Size() == 0)
         {
             return -1;
         }
 
         auto characteristic = chars_result.Characteristics().GetAt(0);
-        auto read_result = characteristic.ReadValueAsync(BluetoothCacheMode::Uncached).get();
-        if (read_result.Status() != GattCommunicationStatus::Success)
+        auto read_result = characteristic.ReadValueAsync(bluetooth::BluetoothCacheMode::Uncached).get();
+        if (read_result.Status() != gatt::GattCommunicationStatus::Success)
         {
             return -1;
         }
@@ -109,7 +109,7 @@ int try_read_bluetooth_battery_percent_ble(winrt::hstring const& device_id)
         }
 
         auto reader = winrt::Windows::Storage::Streams::DataReader::FromBuffer(buffer);
-        uint8_t raw = reader.ReadByte();
+        std::uint8_t raw = reader.ReadByte();
         return clamp_int(static_cast<int>(raw), 0, 100);
     }
     catch (...)
@@ -126,7 +126,7 @@ static const GUID guid_dev_class_bluetooth = {
 static const DEVPROPKEY pkey_bluetooth_battery = {
     {0x104ea319, 0x6ee2, 0x4701, {0xbd, 0x47, 0x8d, 0xdb, 0xf4, 0x25, 0xbb, 0xe5}}, 2};
 
-int try_read_classic_bluetooth_battery_percent(uint64_t address)
+int try_read_classic_bluetooth_battery_percent(std::uint64_t address)
 {
     if (!address)
     {
@@ -255,17 +255,17 @@ bool is_bluetooth_card_allowed(const std::wstring& device_name)
     const std::wstring list = to_lower_copy(get_string_setting_copy(L"Modules.BluetoothAllowList"));
     const std::wstring name = to_lower_copy(device_name);
     bool any_entry = false;
-    size_t start = 0;
+    std::size_t start = 0;
     while (start <= list.size())
     {
-        size_t end = list.find(L';', start);
+        std::size_t end = list.find(L';', start);
         if (end == std::wstring::npos)
         {
             end = list.size();
         }
         std::wstring entry = list.substr(start, end - start);
         start = end + 1;
-        const size_t first = entry.find_first_not_of(L" \t");
+        const std::size_t first = entry.find_first_not_of(L" \t");
         if (first == std::wstring::npos)
         {
             continue;
@@ -315,7 +315,7 @@ void handle_bluetooth_connected(const winrt::Windows::Devices::Enumeration::Devi
 
     host::log(L"Bluetooth: connected - %s", name.c_str());
 
-    const uint64_t my_generation = ++g_bluetooth_connect_generation;
+    const std::uint64_t my_generation = ++g_bluetooth_connect_generation;
     const std::wstring device_id = info.Id().c_str();
 
     BluetoothDeviceSnapshot snapshot;

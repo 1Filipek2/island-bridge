@@ -116,40 +116,38 @@ void stop_threads()
 
 }
 
-using namespace island;
-
 bool island_start()
 {
-    load_settings();
+    island::load_settings();
 
-    if (!start_threads())
+    if (!island::start_threads())
     {
-        stop_threads();
+        island::stop_threads();
         return false;
     }
 
-    g_layout_dirty = true;
+    island::g_layout_dirty = true;
     host::log(L"Island started.");
     return true;
 }
 
 void island_settings_changed()
 {
-    load_settings();
-    toast_listener::sync_thread();
+    island::load_settings();
+    island::toast_listener::sync_thread();
 }
 
 void island_stop()
 {
-    if (g_hwnd)
+    if (island::g_hwnd)
     {
-        PostMessageW(g_hwnd, WM_CLOSE, 0, 0);
+        PostMessageW(island::g_hwnd, WM_CLOSE, 0, 0);
     }
-    stop_threads();
+    island::stop_threads();
     host::log(L"Island stopped.");
 }
 
 HANDLE island_render_thread()
 {
-    return g_render_thread;
+    return island::g_render_thread;
 }

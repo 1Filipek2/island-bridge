@@ -50,8 +50,8 @@ namespace island
 namespace quick_lookup
 {
 constexpr double panel_idle_seconds = 25.0; // panel closes this long after the last key / mouse move
-constexpr size_t max_query_chars = 80;      // longer text is never sent anywhere
-std::wstring collapse_whitespace(const std::wstring& in, size_t max_chars = std::wstring::npos);
+constexpr std::size_t max_query_chars = 80;      // longer text is never sent anywhere
+std::wstring collapse_whitespace(const std::wstring& in, std::size_t max_chars = std::wstring::npos);
 std::wstring normalize_query(const std::wstring& raw);
 
 }

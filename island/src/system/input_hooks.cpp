@@ -103,15 +103,15 @@ namespace
 // Low-level mouse hook: wakes the parked render thread when the cursor nears the hidden island, so
 // hover-to-unhide needs no polling.
 HHOOK g_mouse_hook = nullptr;
-std::atomic<int64_t> g_last_mouse_wake_check_ms = 0;
+std::atomic<std::int64_t> g_last_mouse_wake_check_ms = 0;
 
 LRESULT CALLBACK low_level_mouse_proc(int n_code, WPARAM w_param, LPARAM l_param)
 {
     if (n_code == HC_ACTION && w_param == WM_MOUSEMOVE && g_settings.unhide_on_hover &&
         g_auto_hidden_parked.load(std::memory_order_relaxed))
     {
-        const int64_t now_ms = static_cast<int64_t>(GetTickCount64());
-        const int64_t last = g_last_mouse_wake_check_ms.load(std::memory_order_relaxed);
+        const std::int64_t now_ms = static_cast<std::int64_t>(GetTickCount64());
+        const std::int64_t last = g_last_mouse_wake_check_ms.load(std::memory_order_relaxed);
         if (now_ms - last >= 60)
         {
             g_last_mouse_wake_check_ms.store(now_ms, std::memory_order_relaxed);

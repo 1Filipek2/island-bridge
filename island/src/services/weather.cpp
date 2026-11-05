@@ -7,6 +7,8 @@
 #include "core/util.h"
 #include "services/location.h"
 
+#include <charconv>
+
 namespace island
 {
 namespace
@@ -14,10 +16,10 @@ namespace
 std::vector<WeatherCityEntry> parse_weather_cities(const std::wstring& spec)
 {
     std::vector<WeatherCityEntry> cities;
-    size_t start = 0;
+    std::size_t start = 0;
     while (start <= spec.size() && cities.size() < weather_city_menu_max)
     {
-        size_t end = spec.find(L';', start);
+        std::size_t end = spec.find(L';', start);
         if (end == std::wstring::npos)
         {
             end = spec.size();
@@ -25,8 +27,8 @@ std::vector<WeatherCityEntry> parse_weather_cities(const std::wstring& spec)
         const std::wstring item = spec.substr(start, end - start);
         start = end + 1;
 
-        const size_t first = item.find(L'|');
-        const size_t second = first == std::wstring::npos ? first : item.find(L'|', first + 1);
+        const std::size_t first = item.find(L'|');
+        const std::size_t second = first == std::wstring::npos ? first : item.find(L'|', first + 1);
         if (second == std::wstring::npos)
         {
             continue;
@@ -36,8 +38,8 @@ std::vector<WeatherCityEntry> parse_weather_cities(const std::wstring& spec)
                               item.substr(second + 1)};
         wchar_t* lat_end = nullptr;
         wchar_t* lon_end = nullptr;
-        const double lat = wcstod(city.latitude.c_str(), &lat_end);
-        const double lon = wcstod(city.longitude.c_str(), &lon_end);
+        const double lat = std::wcstod(city.latitude.c_str(), &lat_end);
+        const double lon = std::wcstod(city.longitude.c_str(), &lon_end);
         if (city.name.empty() || city.latitude.empty() || city.longitude.empty() || *lat_end != L'\0' ||
             *lon_end != L'\0' || lat < -90.0 || lat > 90.0 || lon < -180.0 || lon > 180.0)
         {
@@ -61,32 +63,32 @@ bool is_weather_city_auto()
     return host::int_value(L"WeatherCityIndex", weather_city_auto) == weather_city_auto;
 }
 
-int get_active_weather_city_index(size_t city_count)
+int get_active_weather_city_index(std::size_t city_count)
 {
     int index = host::int_value(L"WeatherCityIndex", weather_city_auto);
     if (index == weather_city_auto)
     {
         index = g_auto_weather_city_index.load();
     }
-    return (index >= 0 && static_cast<size_t>(index) < city_count) ? index : 0;
+    return (index >= 0 && static_cast<std::size_t>(index) < city_count) ? index : 0;
 }
 
 namespace
 {
 static bool read_json_double(const std::string& json, const char* key, double& out)
 {
-    const char* field = strstr(json.c_str(), key);
+    const char* field = std::strstr(json.c_str(), key);
     if (!field)
     {
         return false;
     }
-    field += strlen(key);
+    field += std::strlen(key);
     while (*field == ' ' || *field == '"')
     {
         ++field;
     }
     char* end = nullptr;
-    out = strtod(field, &end);
+    out = std::strtod(field, &end);
     return end != field;
 }
 
@@ -119,14 +121,14 @@ int find_nearest_weather_city(const std::vector<WeatherCityEntry>& cities)
         int best = -1;
         double best_distance = 0.0;
         const double to_rad = 3.14159265358979323846 / 180.0;
-        for (size_t i = 0; i < cities.size(); ++i)
+        for (std::size_t i = 0; i < cities.size(); ++i)
         {
-            const double c_lat = wcstod(cities[i].latitude.c_str(), nullptr);
-            const double c_lon = wcstod(cities[i].longitude.c_str(), nullptr);
+            const double c_lat = std::wcstod(cities[i].latitude.c_str(), nullptr);
+            const double c_lon = std::wcstod(cities[i].longitude.c_str(), nullptr);
             const double d_lat = (c_lat - lat) * to_rad;
             const double d_lon = (c_lon - lon) * to_rad;
-            const double a = sin(d_lat / 2) * sin(d_lat / 2) +
-                             cos(lat * to_rad) * cos(c_lat * to_rad) * sin(d_lon / 2) * sin(d_lon / 2);
+            const double a = std::sin(d_lat / 2) * std::sin(d_lat / 2) +
+                             std::cos(lat * to_rad) * std::cos(c_lat * to_rad) * std::sin(d_lon / 2) * std::sin(d_lon / 2);
             if (best < 0 || a < best_distance)
             {
                 best = static_cast<int>(i);
@@ -247,7 +249,7 @@ std::wstring nearest_configured_name(const std::vector<WeatherCityEntry>& cities
     double best_km = 0.0;
     for (const WeatherCityEntry& city : cities)
     {
-        const geo::Point candidate{wcstod(city.latitude.c_str(), nullptr), wcstod(city.longitude.c_str(), nullptr)};
+        const geo::Point candidate{std::wcstod(city.latitude.c_str(), nullptr), std::wcstod(city.longitude.c_str(), nullptr)};
         const double km = geo::distance_km(point, candidate);
         if (best.empty() || km < best_km)
         {
@@ -296,20 +298,25 @@ std::wstring wind_degrees_to_compass(float degrees)
 {
     static const wchar_t* const k_points[] = {L"N", L"NNE", L"NE", L"ENE", L"E", L"ESE", L"SE", L"SSE",
                                               L"S", L"SSW", L"SW", L"WSW", L"W", L"WNW", L"NW", L"NNW"};
-    const int sector = static_cast<int>((fmod(degrees, 360.0f) + 360.0f + 11.25f) / 22.5f) % 16;
+    const int sector = static_cast<int>((std::fmod(degrees, 360.0f) + 360.0f + 11.25f) / 22.5f) % 16;
     return k_points[sector];
 }
 
 // Reads only from the "current" object, so "current_units" is never mistaken for a reading.
 bool read_current_number(const char* current, const char* key, float& out)
 {
-    const char* field = strstr(current, key);
+    const char* field = std::strstr(current, key);
     if (!field)
     {
         return false;
     }
-    field += strlen(key);
-    return sscanf(field, "%f", &out) == 1;
+    field += std::strlen(key);
+    while (*field == ' ')
+    {
+        ++field;
+    }
+
+    return std::from_chars(field, field + std::strlen(field), out).ec == std::errc{};
 }
 
 }
@@ -321,7 +328,7 @@ DWORD WINAPI weather_thread_proc(void*)
 
     // Failures back off; a good reading refreshes every 15 min (Open-Meteo's update rate).
     static const DWORD backoff_ms[] = {60 * 1000, 2 * 60 * 1000, 5 * 60 * 1000, 15 * 60 * 1000};
-    size_t backoff_index = 0;
+    std::size_t backoff_index = 0;
     std::wstring previous_key;
     std::optional<LocatedPlace> located_place;
 
@@ -385,7 +392,7 @@ DWORD WINAPI weather_thread_proc(void*)
 
             host::log(L"Weather: requesting Open-Meteo");
             const std::string response = http_get(L"api.open-meteo.com", path.c_str(), true);
-            const char* current = response.empty() ? nullptr : strstr(response.c_str(), "\"current\":{");
+            const char* current = response.empty() ? nullptr : std::strstr(response.c_str(), "\"current\":{");
 
             float temp = 0.0f, feels = 0.0f, humidity = 0.0f, wind = 0.0f, wind_deg = 0.0f, wmo = 0.0f;
             if (current && read_current_number(current, "\"temperature_2m\":", temp) &&
@@ -397,8 +404,8 @@ DWORD WINAPI weather_thread_proc(void*)
                 const bool has_wind_dir = read_current_number(current, "\"wind_direction_10m\":", wind_deg);
 
                 // Whole degrees; + 0.0f turns -0 into 0.
-                temp = roundf(temp) + 0.0f;
-                feels = roundf(feels) + 0.0f;
+                temp = std::roundf(temp) + 0.0f;
+                feels = std::roundf(feels) + 0.0f;
 
                 std::wstring desc;
                 const int code = wwo_code_from_wmo(static_cast<int>(wmo), desc);

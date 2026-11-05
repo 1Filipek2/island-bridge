@@ -65,7 +65,7 @@ std::wstring json_string_unescape(const std::string& raw)
 {
     std::string out;
     out.reserve(raw.size());
-    for (size_t i = 0; i < raw.size(); ++i)
+    for (std::size_t i = 0; i < raw.size(); ++i)
     {
         char c = raw[i];
         if (c == '\\' && i + 1 < raw.size())
@@ -103,7 +103,7 @@ std::wstring json_string_unescape(const std::string& raw)
                     {
                         std::string hex_narrow = raw.substr(i + 2, 4);
                         std::wstring hex_wide = ascii_to_wide(hex_narrow);
-                        wchar_t code = static_cast<wchar_t>(wcstoul(hex_wide.c_str(), nullptr, 16));
+                        wchar_t code = static_cast<wchar_t>(std::wcstoul(hex_wide.c_str(), nullptr, 16));
                         char utf8buf[4] = {};
                         int out_len =
                             WideCharToMultiByte(CP_UTF8, 0, &code, 1, utf8buf, sizeof(utf8buf), nullptr, nullptr);
@@ -140,7 +140,7 @@ std::wstring json_string_unescape(const std::string& raw)
 bool extract_json_string_field(const std::string& json, const char* field_key, std::string* out_raw)
 {
     const std::string key = std::string("\"") + field_key + "\":\"";
-    size_t pos = json.find(key);
+    std::size_t pos = json.find(key);
     if (pos == std::string::npos)
     {
         return false;
@@ -149,7 +149,7 @@ bool extract_json_string_field(const std::string& json, const char* field_key, s
 
     std::string result;
     bool escaped = false;
-    for (size_t i = pos; i < json.size(); ++i)
+    for (std::size_t i = pos; i < json.size(); ++i)
     {
         char c = json[i];
         if (escaped)
@@ -180,9 +180,9 @@ std::vector<std::string> split_json_object_array(const std::string& json)
     int depth = 0;
     bool in_string = false;
     bool escaped = false;
-    size_t object_start = std::string::npos;
+    std::size_t object_start = std::string::npos;
 
-    for (size_t i = 0; i < json.size(); ++i)
+    for (std::size_t i = 0; i < json.size(); ++i)
     {
         char c = json[i];
         if (in_string)
@@ -233,10 +233,10 @@ namespace
 std::vector<LyricsLine> parse_synced_lyrics(const std::wstring& text)
 {
     std::vector<LyricsLine> lines;
-    size_t start = 0;
+    std::size_t start = 0;
     while (start <= text.size())
     {
-        size_t end = text.find(L'\n', start);
+        std::size_t end = text.find(L'\n', start);
         if (end == std::wstring::npos)
         {
             end = text.size();
@@ -245,7 +245,7 @@ std::vector<LyricsLine> parse_synced_lyrics(const std::wstring& text)
 
         if (line.size() >= 3 && line[0] == L'[')
         {
-            const size_t close_bracket = line.find(L']');
+            const std::size_t close_bracket = line.find(L']');
             if (close_bracket != std::wstring::npos)
             {
                 int minutes = 0, seconds = 0, hundredths = 0;
@@ -258,8 +258,8 @@ std::vector<LyricsLine> parse_synced_lyrics(const std::wstring& text)
                         lyric_text.erase(lyric_text.begin());
                     }
                     LyricsLine ll;
-                    ll.time_ms = static_cast<int64_t>(minutes) * 60000 + static_cast<int64_t>(seconds) * 1000 +
-                                 static_cast<int64_t>(hundredths) * 10;
+                    ll.time_ms = static_cast<std::int64_t>(minutes) * 60000 + static_cast<std::int64_t>(seconds) * 1000 +
+                                 static_cast<std::int64_t>(hundredths) * 10;
                     ll.text = std::move(lyric_text);
                     lines.push_back(std::move(ll));
                 }
@@ -278,10 +278,10 @@ std::vector<LyricsLine> parse_synced_lyrics(const std::wstring& text)
 std::vector<LyricsLine> parse_plain_lyrics(const std::wstring& text)
 {
     std::vector<LyricsLine> lines;
-    size_t start = 0;
+    std::size_t start = 0;
     while (start <= text.size())
     {
-        size_t end = text.find(L'\n', start);
+        std::size_t end = text.find(L'\n', start);
         if (end == std::wstring::npos)
         {
             end = text.size();
@@ -305,12 +305,12 @@ std::vector<LyricsLine> parse_plain_lyrics(const std::wstring& text)
 
 std::wstring trim_lyrics_text(const std::wstring& s)
 {
-    const size_t a = s.find_first_not_of(L" \t\r\n");
+    const std::size_t a = s.find_first_not_of(L" \t\r\n");
     if (a == std::wstring::npos)
     {
         return std::wstring();
     }
-    const size_t b = s.find_last_not_of(L" \t\r\n");
+    const std::size_t b = s.find_last_not_of(L" \t\r\n");
     return s.substr(a, b - a + 1);
 }
 
@@ -334,16 +334,16 @@ bool has_lyrics_noise_word(const std::wstring& text)
 // "Song (feat. X) - Remastered 2011 | Channel" -> "Song"
 std::wstring clean_lyrics_title(std::wstring title)
 {
-    for (size_t i = 0; i < title.size();)
+    for (std::size_t i = 0; i < title.size();)
     {
         const wchar_t open = title[i];
         if (open == L'(' || open == L'[')
         {
             const wchar_t close = (open == L'(') ? L')' : L']';
-            const size_t end = title.find(close, i + 1);
+            const std::size_t end = title.find(close, i + 1);
             if (end != std::wstring::npos && has_lyrics_noise_word(title.substr(i + 1, end - i - 1)))
             {
-                size_t from = i;
+                std::size_t from = i;
                 while (from > 0 && title[from - 1] == L' ')
                 {
                     --from;
@@ -355,14 +355,14 @@ std::wstring clean_lyrics_title(std::wstring title)
         }
         ++i;
     }
-    const size_t bar = title.find(L" | ");
+    const std::size_t bar = title.find(L" | ");
     if (bar != std::wstring::npos && bar > 0)
     {
         title.resize(bar);
     }
     for (;;)
     {
-        const size_t dash = title.rfind(L" - ");
+        const std::size_t dash = title.rfind(L" - ");
         if (dash == std::wstring::npos || dash == 0)
         {
             break;
@@ -382,7 +382,7 @@ std::wstring primary_lyrics_artist(std::wstring artist)
     artist = trim_lyrics_text(artist);
     auto ends_with = [](const std::wstring& lower, const wchar_t* suffix)
     {
-        const size_t n = wcslen(suffix);
+        const std::size_t n = std::wcslen(suffix);
         return lower.size() > n && lower.compare(lower.size() - n, n, suffix) == 0;
     };
     std::wstring lower = to_lower_copy(artist);
@@ -398,10 +398,10 @@ std::wstring primary_lyrics_artist(std::wstring artist)
 
     static const wchar_t* const seps[] = {L",",    L";",           L"/",   L" feat",   L" ft.",
                                           L" ft ", L" featuring ", L" x ", L" \u00d7 "};
-    size_t cut = std::wstring::npos;
+    std::size_t cut = std::wstring::npos;
     for (const wchar_t* sep : seps)
     {
-        const size_t pos = lower.find(sep);
+        const std::size_t pos = lower.find(sep);
         if (pos != std::wstring::npos && pos > 0)
         {
             cut = std::min(cut, pos);
@@ -420,14 +420,14 @@ std::wstring normalize_lyrics_match(const std::wstring& in)
     bool space = false;
     for (wchar_t c : in)
     {
-        if (iswalnum(c))
+        if (std::iswalnum(c))
         {
             if (space && !out.empty())
             {
                 out.push_back(L' ');
             }
             space = false;
-            out.push_back(static_cast<wchar_t>(towlower(c)));
+            out.push_back(static_cast<wchar_t>(std::towlower(c)));
         }
         else
         {
@@ -460,7 +460,7 @@ int lyrics_text_match(const std::wstring& a, const std::wstring& b)
 bool extract_json_number_field(const std::string& json, const char* key, double* out)
 {
     const std::string k = std::string("\"") + key + "\":";
-    size_t pos = json.find(k);
+    std::size_t pos = json.find(k);
     if (pos == std::string::npos)
     {
         return false;
@@ -474,7 +474,7 @@ bool extract_json_number_field(const std::string& json, const char* key, double*
     {
         return false;
     }
-    *out = strtod(json.c_str() + pos, nullptr);
+    *out = std::strtod(json.c_str() + pos, nullptr);
     return true;
 }
 
@@ -496,7 +496,7 @@ void consider_lyrics_body(const std::string& body, const std::wstring& want_titl
     }
 
     std::vector<std::string> candidates;
-    const size_t first = body.find_first_not_of(" \t\r\n");
+    const std::size_t first = body.find_first_not_of(" \t\r\n");
     if (first != std::string::npos && body[first] == '[')
     {
         candidates = split_json_object_array(body);
@@ -704,12 +704,12 @@ DWORD WINAPI lyrics_thread_proc(void*)
     {
         bool lyrics_enabled = true;
         bool disk_cache_on = false;
-        uint64_t disk_cap_bytes = 0;
+        std::uint64_t disk_cap_bytes = 0;
         {
             std::lock_guard lock(g_settings_mutex);
             lyrics_enabled = (g_settings.collapsed_lyrics || g_settings.media_tab_lyrics) && g_settings.media;
             disk_cache_on = g_settings.lyrics_cache && g_settings.lyrics_cache_max_mb > 0;
-            disk_cap_bytes = static_cast<uint64_t>(std::max(0, g_settings.lyrics_cache_max_mb)) * 1024ull * 1024ull;
+            disk_cap_bytes = static_cast<std::uint64_t>(std::max(0, g_settings.lyrics_cache_max_mb)) * 1024ull * 1024ull;
         }
         lyrics_cache::IterationGuard cache_guard(disk_cache_on, disk_cap_bytes);
         const bool lyrics_view_visible =
@@ -722,7 +722,7 @@ DWORD WINAPI lyrics_thread_proc(void*)
 
         bool available = false;
         std::wstring title, artist, album;
-        int64_t end_ticks = 0;
+        std::int64_t end_ticks = 0;
         auto read_media = [&]()
         {
             std::lock_guard lock(g_state_mutex);
@@ -830,7 +830,7 @@ DWORD WINAPI lyrics_thread_proc(void*)
             // Network, 429 or 5xx is not "not found": back off and retry.
             ++fail_count;
             static const double backoff[] = {4.0, 10.0, 30.0, 60.0};
-            retry_at_sec = now_seconds() + backoff[std::min<size_t>(fail_count - 1, 3)];
+            retry_at_sec = now_seconds() + backoff[std::min<std::size_t>(fail_count - 1, 3)];
             snap.fetching = (fail_count < 3);
             snap.not_found = (fail_count >= 3);
             host::log(L"Lyrics: request FAILED for %s - %s (fail #%d), retrying later.", artist.c_str(), title.c_str(),

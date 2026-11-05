@@ -93,7 +93,7 @@ std::wstring unescape(const std::string& value)
 {
     std::string out;
     out.reserve(value.size());
-    for (size_t i = 0; i < value.size(); ++i)
+    for (std::size_t i = 0; i < value.size(); ++i)
     {
         if (value[i] == '\\' && i + 1 < value.size())
         {
@@ -222,7 +222,7 @@ void load_file_tray()
     bool read_ok = GetFileSizeEx(h, &size) && size.QuadPart > 0 && size.QuadPart <= max_bytes;
     if (read_ok)
     {
-        data.resize(static_cast<size_t>(size.QuadPart));
+        data.resize(static_cast<std::size_t>(size.QuadPart));
         DWORD got = 0;
         read_ok = ReadFile(h, data.data(), static_cast<DWORD>(size.QuadPart), &got, nullptr) &&
                   got == static_cast<DWORD>(size.QuadPart);
@@ -237,10 +237,10 @@ void load_file_tray()
     }
 
     std::vector<FileTrayItem> loaded;
-    size_t pos = sizeof(k_header) - 1;
+    std::size_t pos = sizeof(k_header) - 1;
     while (pos < data.size())
     {
-        size_t end = data.find('\n', pos);
+        std::size_t end = data.find('\n', pos);
         if (end == std::string::npos)
         {
             end = data.size();
@@ -257,7 +257,7 @@ void load_file_tray()
         if (line[0] == 'T')
         {
             const std::string rest = line.substr(2);
-            const size_t tab = rest.find('\t');
+            const std::size_t tab = rest.find('\t');
             if (tab == std::string::npos)
             {
                 continue;
@@ -292,7 +292,7 @@ void load_file_tray()
             if (exists)
             {
                 item.is_directory = (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-                item.size_bytes = (static_cast<uint64_t>(attr.nFileSizeHigh) << 32) | attr.nFileSizeLow;
+                item.size_bytes = (static_cast<std::uint64_t>(attr.nFileSizeHigh) << 32) | attr.nFileSizeLow;
             }
 
             // A missing file gets its icon from the extension alone (an unplugged drive cannot stall startup).
@@ -324,7 +324,7 @@ void load_file_tray()
     std::lock_guard lock(g_state_mutex);
     auto& items = g_state.file_tray_items;
     items.insert(items.begin(), std::make_move_iterator(loaded.begin()), std::make_move_iterator(loaded.end()));
-    while (items.size() > static_cast<size_t>(max_items))
+    while (items.size() > static_cast<std::size_t>(max_items))
     {
         items.erase(items.begin());
     }
@@ -363,7 +363,7 @@ void add_paths_to_file_tray_core(const std::vector<std::wstring>& paths)
         if (GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &attr))
         {
             item.is_directory = (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-            item.size_bytes = (static_cast<uint64_t>(attr.nFileSizeHigh) << 32) | attr.nFileSizeLow;
+            item.size_bytes = (static_cast<std::uint64_t>(attr.nFileSizeHigh) << 32) | attr.nFileSizeLow;
         }
 
         SHFILEINFOW info = {};
@@ -394,7 +394,7 @@ void add_paths_to_file_tray_core(const std::vector<std::wstring>& paths)
         }
         g_state.file_tray_items.push_back(std::move(item));
     }
-    while (g_state.file_tray_items.size() > static_cast<size_t>(max_items))
+    while (g_state.file_tray_items.size() > static_cast<std::size_t>(max_items))
     {
         g_state.file_tray_items.erase(g_state.file_tray_items.begin());
     }
@@ -462,7 +462,7 @@ namespace
 void add_text_to_file_tray(const std::wstring& raw_text)
 {
     std::wstring text = raw_text;
-    while (!text.empty() && iswspace(text.back()))
+    while (!text.empty() && std::iswspace(text.back()))
     {
         text.pop_back();
     }
@@ -470,13 +470,13 @@ void add_text_to_file_tray(const std::wstring& raw_text)
     {
         return;
     }
-    constexpr size_t k_max_chars = 100000;
+    constexpr std::size_t k_max_chars = 100000;
     if (text.size() > k_max_chars)
     {
         text.resize(k_max_chars);
     }
 
-    constexpr size_t preview_chars = 60;
+    constexpr std::size_t preview_chars = 60;
     std::wstring preview;
     bool last_space = true;
     bool truncated = false;
@@ -534,7 +534,7 @@ void add_text_to_file_tray(const std::wstring& raw_text)
                                }),
                 items.end());
     items.push_back(std::move(item));
-    while (items.size() > static_cast<size_t>(max_items))
+    while (items.size() > static_cast<std::size_t>(max_items))
     {
         items.erase(items.begin());
     }
@@ -549,14 +549,14 @@ void copy_text_to_clipboard(HWND hwnd, const std::wstring& text)
         return;
     }
     EmptyClipboard();
-    const size_t bytes = (text.size() + 1) * sizeof(wchar_t);
+    const std::size_t bytes = (text.size() + 1) * sizeof(wchar_t);
     HGLOBAL mem = GlobalAlloc(GMEM_MOVEABLE, bytes);
     if (mem)
     {
         void* dst = GlobalLock(mem);
         if (dst)
         {
-            memcpy(dst, text.c_str(), bytes);
+            std::memcpy(dst, text.c_str(), bytes);
             GlobalUnlock(mem);
             if (!SetClipboardData(CF_UNICODETEXT, mem))
             {

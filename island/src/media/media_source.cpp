@@ -7,7 +7,7 @@ namespace island
 // Media source selection
 int active_media_source_index(const SharedState& state)
 {
-    for (size_t i = 0; i < state.media_sources.size(); ++i)
+    for (std::size_t i = 0; i < state.media_sources.size(); ++i)
     {
         if (state.media_sources[i].aumid == state.media.source_app_user_model_id)
         {
@@ -65,7 +65,7 @@ void request_media_source_switch(const std::wstring& aumid)
         std::lock_guard lock(g_state_mutex);
         const int active = active_media_source_index(g_state);
         int target = -1;
-        for (size_t i = 0; i < g_state.media_sources.size(); ++i)
+        for (std::size_t i = 0; i < g_state.media_sources.size(); ++i)
         {
             if (g_state.media_sources[i].aumid == aumid)
             {

@@ -6,10 +6,10 @@ namespace island
 {
 struct BitmapPixels
 {
-    std::vector<uint8_t> bgra;
+    std::vector<std::uint8_t> bgra;
     UINT width = 0;
     UINT height = 0;
-    uint64_t generation = 0;
+    std::uint64_t generation = 0;
     D2D1_COLOR_F sampled_accent = D2D1::ColorF(0x4cc9f0);
 };
 

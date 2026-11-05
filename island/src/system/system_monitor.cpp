@@ -107,7 +107,7 @@ static int get_gpu_usage()
             double total = 0;
             for (DWORD i = 0; i < item_count; i++)
             {
-                if (items[i].szName && wcsstr(items[i].szName, L"engtype_3D"))
+                if (items[i].szName && std::wcsstr(items[i].szName, L"engtype_3D"))
                 {
                     total += items[i].FmtValue.doubleValue;
                 }
@@ -164,7 +164,7 @@ static void get_network_usage(float& out_up_mbps, float& out_down_mbps)
                 {
                     if (items[i].szName)
                     {
-                        if (wcsstr(items[i].szName, L"Loopback") == nullptr)
+                        if (std::wcsstr(items[i].szName, L"Loopback") == nullptr)
                         {
                             total += items[i].FmtValue.doubleValue;
                         }

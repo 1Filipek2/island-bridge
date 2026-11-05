@@ -40,7 +40,7 @@ bool screen_clip_ui_active()
     bool hit = false;
     if (QueryFullProcessImageNameW(h, 0, path, &n))
     {
-        const wchar_t* name = wcsrchr(path, L'\\');
+        const wchar_t* name = std::wcsrchr(path, L'\\');
         name = name ? name + 1 : path;
         hit = _wcsicmp(name, L"SnippingTool.exe") == 0 || _wcsicmp(name, L"ScreenClippingHost.exe") == 0;
     }

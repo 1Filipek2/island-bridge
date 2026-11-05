@@ -15,19 +15,19 @@ namespace island
 {
 std::wstring lookup_typed_query(const LookupUiState& ui)
 {
-    const size_t a = ui.text.find_first_not_of(L" \t");
+    const std::size_t a = ui.text.find_first_not_of(L" \t");
     if (a == std::wstring::npos)
     {
         return std::wstring();
     }
-    const size_t b = ui.text.find_last_not_of(L" \t");
+    const std::size_t b = ui.text.find_last_not_of(L" \t");
     return ui.text.substr(a, b - a + 1);
 }
 
 std::vector<LookupRow> build_lookup_rows(const std::vector<LookupRecent>& recents, const LookupUiState& ui)
 {
     std::vector<LookupRow> rows;
-    const size_t cap = static_cast<size_t>(lookup_layout::max_rows);
+    const std::size_t cap = static_cast<std::size_t>(lookup_layout::max_rows);
     const std::wstring typed = lookup_typed_query(ui);
 
     if (typed.empty())
@@ -128,7 +128,7 @@ constexpr wchar_t lookup_user_agent[] =
 
 // Bumped for every request and on dismiss; a worker publishes only if its id is still current.
 // Changed or compared only under g_state_mutex.
-std::atomic<uint64_t> g_lookup_request_seq{0};
+std::atomic<std::uint64_t> g_lookup_request_seq{0};
 bool g_lookup_hotkey_registered = false;
 
 }
@@ -139,12 +139,12 @@ namespace
 {
 constexpr double result_seconds = panel_idle_seconds;
 constexpr double message_seconds = panel_idle_seconds;
-constexpr size_t recent_capacity = 12;
+constexpr std::size_t recent_capacity = 12;
 constexpr double loading_timeout_seconds = 30.0; // upper bound for "Looking up..."
-constexpr size_t k_max_body_chars = 360;
-constexpr size_t max_extract_sentences = 3;
-constexpr size_t max_extract_chars = 320;
-constexpr size_t cache_capacity = 40;
+constexpr std::size_t k_max_body_chars = 360;
+constexpr std::size_t max_extract_sentences = 3;
+constexpr std::size_t max_extract_chars = 320;
+constexpr std::size_t cache_capacity = 40;
 
 struct Result
 {
@@ -169,13 +169,13 @@ enum class Outcome
 namespace quick_lookup
 {
 // Text helpers
-std::wstring collapse_whitespace(const std::wstring& in, size_t max_chars)
+std::wstring collapse_whitespace(const std::wstring& in, std::size_t max_chars)
 {
     std::wstring out;
     bool pending_space = false;
     for (wchar_t ch : in)
     {
-        if (iswspace(ch) || ch == 0x00A0 || ch == L'\0')
+        if (std::iswspace(ch) || ch == 0x00A0 || ch == L'\0')
         {
             pending_space = !out.empty();
             continue;
@@ -202,7 +202,7 @@ namespace
 {
 bool is_edge_punct(wchar_t c)
 {
-    return c != 0 && wcschr(L".,;:!?\"'()[]{}<>\u201c\u201d\u2018\u2019\u00ab\u00bb", c) != nullptr;
+    return c != 0 && std::wcschr(L".,;:!?\"'()[]{}<>\u201c\u201d\u2018\u2019\u00ab\u00bb", c) != nullptr;
 }
 
 }
@@ -234,19 +234,19 @@ namespace quick_lookup
 {
 namespace
 {
-std::wstring clip_to_chars(std::wstring text, size_t max_chars)
+std::wstring clip_to_chars(std::wstring text, std::size_t max_chars)
 {
     if (text.size() <= max_chars)
     {
         return text;
     }
     text.resize(max_chars);
-    const size_t space = text.find_last_of(L' ');
+    const std::size_t space = text.find_last_of(L' ');
     if (space != std::wstring::npos && space > max_chars / 2)
     {
         text.resize(space);
     }
-    while (!text.empty() && (iswspace(text.back()) || text.back() == L',' || text.back() == L';' ||
+    while (!text.empty() && (std::iswspace(text.back()) || text.back() == L',' || text.back() == L';' ||
                              text.back() == L':' || text.back() == L'-'))
     {
         text.pop_back();
@@ -272,7 +272,7 @@ std::wstring title_case(std::wstring text)
         {
             if (word_start)
             {
-                c = static_cast<wchar_t>(towupper(c));
+                c = static_cast<wchar_t>(std::towupper(c));
             }
             word_start = false;
         }
@@ -287,14 +287,14 @@ bool is_sentence_closer(wchar_t c)
 
 // '.', '!' or '?' ends a sentence only before whitespace and a capital, digit or quote, and not after
 // an initial or a common abbreviation.
-bool is_sentence_end(const std::wstring& t, size_t i)
+bool is_sentence_end(const std::wstring& t, std::size_t i)
 {
     const wchar_t c = t[i];
     if (c != L'.' && c != L'!' && c != L'?')
     {
         return false;
     }
-    size_t j = i + 1;
+    std::size_t j = i + 1;
     while (j < t.size() && is_sentence_closer(t[j]))
     {
         ++j;
@@ -303,11 +303,11 @@ bool is_sentence_end(const std::wstring& t, size_t i)
     {
         return true;
     }
-    if (!iswspace(t[j]))
+    if (!std::iswspace(t[j]))
     {
         return false;
     }
-    while (j < t.size() && iswspace(t[j]))
+    while (j < t.size() && std::iswspace(t[j]))
     {
         ++j;
     }
@@ -315,7 +315,7 @@ bool is_sentence_end(const std::wstring& t, size_t i)
     {
         return true;
     }
-    if (!(iswupper(t[j]) || iswdigit(t[j]) || t[j] == L'"' || t[j] == L'\u201c' || t[j] == L'('))
+    if (!(std::iswupper(t[j]) || std::iswdigit(t[j]) || t[j] == L'"' || t[j] == L'\u201c' || t[j] == L'('))
     {
         return false;
     }
@@ -324,8 +324,8 @@ bool is_sentence_end(const std::wstring& t, size_t i)
         return true;
     }
 
-    size_t s = i;
-    while (s > 0 && iswalpha(t[s - 1]))
+    std::size_t s = i;
+    while (s > 0 && std::iswalpha(t[s - 1]))
     {
         --s;
     }
@@ -347,17 +347,17 @@ bool is_sentence_end(const std::wstring& t, size_t i)
     return true;
 }
 
-std::wstring first_sentences(const std::wstring& text, size_t max_sentences, size_t max_chars)
+std::wstring first_sentences(const std::wstring& text, std::size_t max_sentences, std::size_t max_chars)
 {
-    size_t sentences = 0;
-    size_t accepted_end = 0;
-    for (size_t i = 0; i < text.size() && sentences < max_sentences; ++i)
+    std::size_t sentences = 0;
+    std::size_t accepted_end = 0;
+    for (std::size_t i = 0; i < text.size() && sentences < max_sentences; ++i)
     {
         if (!is_sentence_end(text, i))
         {
             continue;
         }
-        size_t end = i + 1;
+        std::size_t end = i + 1;
         while (end < text.size() && is_sentence_closer(text[end]))
         {
             ++end;
@@ -375,7 +375,7 @@ std::wstring first_sentences(const std::wstring& text, size_t max_sentences, siz
         accepted_end = text.size();
     }
     std::wstring out = text.substr(0, accepted_end);
-    while (!out.empty() && iswspace(out.back()))
+    while (!out.empty() && std::iswspace(out.back()))
     {
         out.pop_back();
     }
@@ -383,12 +383,12 @@ std::wstring first_sentences(const std::wstring& text, size_t max_sentences, siz
 }
 
 // JSON helper
-std::string balanced_object_at(const std::string& json, size_t open)
+std::string balanced_object_at(const std::string& json, std::size_t open)
 {
     int depth = 0;
     bool in_string = false;
     bool escaped = false;
-    for (size_t i = open; i < json.size(); ++i)
+    for (std::size_t i = open; i < json.size(); ++i)
     {
         const char c = json[i];
         if (in_string)
@@ -446,7 +446,7 @@ bool cache_lookup(const std::wstring& key, bool* found, Result* out)
 {
     std::lock_guard lock(g_cache_mutex);
     auto& cache = lookup_cache();
-    for (size_t i = cache.size(); i-- > 0;)
+    for (std::size_t i = cache.size(); i-- > 0;)
     {
         if (cache[i].key == key)
         {
@@ -510,25 +510,25 @@ Outcome lookup_dictionary(const std::wstring& word, Result* out)
         extract_json_string_field(entry, "text", &phonetic_raw);
     }
 
-    const size_t meanings_pos = entry.find("\"meanings\":[");
+    const std::size_t meanings_pos = entry.find("\"meanings\":[");
     if (meanings_pos == std::string::npos)
     {
         return Outcome::NotFound;
     }
     std::string pos_raw;
-    const size_t pos_key = entry.find("\"partOfSpeech\":\"", meanings_pos);
+    const std::size_t pos_key = entry.find("\"partOfSpeech\":\"", meanings_pos);
     if (pos_key != std::string::npos)
     {
         extract_json_string_field(entry.substr(pos_key), "partOfSpeech", &pos_raw);
     }
-    const size_t def_key = entry.find("\"definition\":\"", pos_key != std::string::npos ? pos_key : meanings_pos);
+    const std::size_t def_key = entry.find("\"definition\":\"", pos_key != std::string::npos ? pos_key : meanings_pos);
     if (def_key == std::string::npos)
     {
         return Outcome::NotFound;
     }
 
     // Bound to this definition object, so a later "example" is never attributed to it.
-    const size_t def_open = entry.rfind('{', def_key);
+    const std::size_t def_open = entry.rfind('{', def_key);
     const std::string def_object =
         def_open != std::string::npos ? balanced_object_at(entry, def_open) : entry.substr(def_key);
     std::string def_raw, example_raw;
@@ -651,11 +651,11 @@ std::wstring strip_html(const std::wstring& in)
 
     std::wstring decoded;
     decoded.reserve(no_tags.size());
-    for (size_t i = 0; i < no_tags.size(); ++i)
+    for (std::size_t i = 0; i < no_tags.size(); ++i)
     {
         if (no_tags[i] == L'&')
         {
-            const size_t semi = no_tags.find(L';', i);
+            const std::size_t semi = no_tags.find(L';', i);
             if (semi != std::wstring::npos && semi - i <= 9)
             {
                 const std::wstring ent = no_tags.substr(i + 1, semi - i - 1);
@@ -687,8 +687,8 @@ std::wstring strip_html(const std::wstring& in)
                 else if (ent.size() > 1 && ent[0] == L'#')
                 {
                     const unsigned long code = (ent[1] == L'x' || ent[1] == L'X')
-                                                   ? wcstoul(ent.c_str() + 2, nullptr, 16)
-                                                   : wcstoul(ent.c_str() + 1, nullptr, 10);
+                                                   ? std::wcstoul(ent.c_str() + 2, nullptr, 16)
+                                                   : std::wcstoul(ent.c_str() + 1, nullptr, 10);
                     if (code > 0 && code < 0x10000 && !(code >= 0xD800 && code <= 0xDFFF))
                     {
                         rep = static_cast<wchar_t>(code);
@@ -709,13 +709,13 @@ std::wstring strip_html(const std::wstring& in)
 
 bool parse_wiktionary_english(const std::string& body, const std::wstring& title, Result* out)
 {
-    const size_t en_key = body.find("\"en\":[");
+    const std::size_t en_key = body.find("\"en\":[");
     if (en_key == std::string::npos)
     {
         return false;
     }
 
-    auto skip_separators = [](const std::string& s, size_t p)
+    auto skip_separators = [](const std::string& s, std::size_t p)
     {
         while (p < s.size() && (s[p] == ' ' || s[p] == ',' || s[p] == '\n' || s[p] == '\r' || s[p] == '\t'))
         {
@@ -728,7 +728,7 @@ bool parse_wiktionary_english(const std::string& body, const std::wstring& title
     std::vector<std::wstring> definitions;
     std::wstring example;
 
-    size_t p = en_key + 6;
+    std::size_t p = en_key + 6;
     while (p < body.size())
     {
         p = skip_separators(body, p);
@@ -756,12 +756,12 @@ bool parse_wiktionary_english(const std::string& body, const std::wstring& title
         {
             continue;
         }
-        const size_t defs_key = block.find("\"definitions\":[");
+        const std::size_t defs_key = block.find("\"definitions\":[");
         if (defs_key == std::string::npos)
         {
             continue;
         }
-        size_t q = defs_key + 15;
+        std::size_t q = defs_key + 15;
         while (q < block.size() && definitions.size() < 3)
         {
             q = skip_separators(block, q);
@@ -806,7 +806,7 @@ bool parse_wiktionary_english(const std::string& body, const std::wstring& title
 
     Result r;
     r.title = title;
-    for (size_t i = 0; i < parts_of_speech.size(); ++i)
+    for (std::size_t i = 0; i < parts_of_speech.size(); ++i)
     {
         if (i > 0)
         {
@@ -816,7 +816,7 @@ bool parse_wiktionary_english(const std::string& body, const std::wstring& title
     }
 
     std::wstring body_text;
-    for (size_t i = 0; i < definitions.size(); ++i)
+    for (std::size_t i = 0; i < definitions.size(); ++i)
     {
         if (i > 0)
         {
@@ -973,7 +973,7 @@ void push_recent_locked(SharedState& st, const std::wstring& query, const Result
     }
 }
 
-void apply_result(uint64_t id, const std::wstring& query, bool found, const Result& r)
+void apply_result(std::uint64_t id, const std::wstring& query, bool found, const Result& r)
 {
     if (!g_running.load())
     {
@@ -1001,9 +1001,9 @@ void apply_result(uint64_t id, const std::wstring& query, bool found, const Resu
 
 namespace
 {
-uint64_t publish_new_lookup(const LookupSnapshot& snap, bool nudge = true)
+std::uint64_t publish_new_lookup(const LookupSnapshot& snap, bool nudge = true)
 {
-    uint64_t id;
+    std::uint64_t id;
     {
         std::lock_guard lock(g_state_mutex);
         g_state.lookup = snap;
@@ -1137,7 +1137,7 @@ void submit_lookup(const std::wstring& raw_text)
 
     snap.status = LookupStatus::Loading;
     snap.expires_at = now + quick_lookup::loading_timeout_seconds;
-    const uint64_t id = publish_new_lookup(snap, false);
+    const std::uint64_t id = publish_new_lookup(snap, false);
 
     // The query text is deliberately not logged.
     host::log(L"Quick Lookup: request started.");
@@ -1170,7 +1170,7 @@ void submit_lookup_selection()
     if (status == LookupStatus::Search && !rows.empty())
     {
         const int idx = clamp_int(g_lookup_ui.selected, 0, static_cast<int>(rows.size()) - 1);
-        submit_lookup(rows[static_cast<size_t>(idx)].query);
+        submit_lookup(rows[static_cast<std::size_t>(idx)].query);
     }
     else
     {
@@ -1228,8 +1228,8 @@ void insert_into_lookup_field(const std::wstring& raw)
     }
     ui.caret = std::min(ui.caret, ui.text.size());
 
-    const size_t max_chars = quick_lookup::max_query_chars;
-    const size_t room = max_chars > ui.text.size() ? max_chars - ui.text.size() : 0;
+    const std::size_t max_chars = quick_lookup::max_query_chars;
+    const std::size_t room = max_chars > ui.text.size() ? max_chars - ui.text.size() : 0;
     if (room == 0)
     {
         return;
@@ -1247,7 +1247,7 @@ void insert_into_lookup_field(const std::wstring& raw)
     lookup_ui_edited();
 }
 
-size_t lookup_step_back(const std::wstring& t, size_t i)
+std::size_t lookup_step_back(const std::wstring& t, std::size_t i)
 {
     if (i == 0)
     {
@@ -1261,7 +1261,7 @@ size_t lookup_step_back(const std::wstring& t, size_t i)
     return i;
 }
 
-size_t lookup_step_forward(const std::wstring& t, size_t i)
+std::size_t lookup_step_forward(const std::wstring& t, std::size_t i)
 {
     if (i >= t.size())
     {
@@ -1270,26 +1270,26 @@ size_t lookup_step_forward(const std::wstring& t, size_t i)
     return (IS_HIGH_SURROGATE(t[i]) && i + 1 < t.size()) ? i + 2 : i + 1;
 }
 
-size_t lookup_prev_word(const std::wstring& t, size_t i)
+std::size_t lookup_prev_word(const std::wstring& t, std::size_t i)
 {
-    while (i > 0 && iswspace(t[i - 1]))
+    while (i > 0 && std::iswspace(t[i - 1]))
     {
         --i;
     }
-    while (i > 0 && !iswspace(t[i - 1]))
+    while (i > 0 && !std::iswspace(t[i - 1]))
     {
         --i;
     }
     return i;
 }
 
-size_t lookup_next_word(const std::wstring& t, size_t i)
+std::size_t lookup_next_word(const std::wstring& t, std::size_t i)
 {
-    while (i < t.size() && !iswspace(t[i]))
+    while (i < t.size() && !std::iswspace(t[i]))
     {
         ++i;
     }
-    while (i < t.size() && iswspace(t[i]))
+    while (i < t.size() && std::iswspace(t[i]))
     {
         ++i;
     }
@@ -1399,7 +1399,7 @@ bool handle_lookup_key_down(HWND hwnd, WPARAM vk)
             }
             else if (ui.caret > 0)
             {
-                const size_t from = ctrl ? lookup_prev_word(ui.text, ui.caret) : lookup_step_back(ui.text, ui.caret);
+                const std::size_t from = ctrl ? lookup_prev_word(ui.text, ui.caret) : lookup_step_back(ui.text, ui.caret);
                 ui.text.erase(from, ui.caret - from);
                 ui.caret = from;
             }
@@ -1417,7 +1417,7 @@ bool handle_lookup_key_down(HWND hwnd, WPARAM vk)
             }
             else if (ui.caret < ui.text.size())
             {
-                const size_t to = lookup_step_forward(ui.text, ui.caret);
+                const std::size_t to = lookup_step_forward(ui.text, ui.caret);
                 ui.text.erase(ui.caret, to - ui.caret);
             }
             else
@@ -1502,7 +1502,7 @@ bool handle_lookup_click(int x, int y)
         const int row = lookup_row_at_content_point(pt, static_cast<int>(rows.size()), header);
         if (row >= 0)
         {
-            submit_lookup(rows[static_cast<size_t>(row)].query);
+            submit_lookup(rows[static_cast<std::size_t>(row)].query);
             return true;
         }
     }

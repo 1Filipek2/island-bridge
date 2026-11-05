@@ -15,7 +15,7 @@ float sample_audio_amplitude(BYTE* data, UINT32 frames, WAVEFORMATEX* format)
     }
 
     double sum = 0.0;
-    size_t samples = static_cast<size_t>(frames) * format->nChannels;
+    std::size_t samples = static_cast<std::size_t>(frames) * format->nChannels;
 
     if (format->wFormatTag == WAVE_FORMAT_IEEE_FLOAT ||
         (format->wFormatTag == WAVE_FORMAT_EXTENSIBLE &&
@@ -23,15 +23,15 @@ float sample_audio_amplitude(BYTE* data, UINT32 frames, WAVEFORMATEX* format)
          IsEqualGUID(reinterpret_cast<WAVEFORMATEXTENSIBLE*>(format)->SubFormat, sub_type_ieee_float)))
     {
         auto* f = reinterpret_cast<float*>(data);
-        for (size_t i = 0; i < samples; ++i)
+        for (std::size_t i = 0; i < samples; ++i)
         {
             sum += f[i] * f[i];
         }
     }
     else if (format->wBitsPerSample == 16)
     {
-        auto* s = reinterpret_cast<int16_t*>(data);
-        for (size_t i = 0; i < samples; ++i)
+        auto* s = reinterpret_cast<std::int16_t*>(data);
+        for (std::size_t i = 0; i < samples; ++i)
         {
             const double v = s[i] / 32768.0;
             sum += v * v;
@@ -46,8 +46,8 @@ float sample_audio_amplitude(BYTE* data, UINT32 frames, WAVEFORMATEX* format)
 // (50 Hz .. 14 kHz) with attack/release and slow auto-gain. Audio thread only.
 struct SpectrumAnalyzer
 {
-    static constexpr size_t k_window = 1024;
-    static constexpr size_t hop = 512;
+    static constexpr std::size_t k_window = 1024;
+    static constexpr std::size_t hop = 512;
 
     static constexpr int log2_window = 10;
 
@@ -55,14 +55,14 @@ struct SpectrumAnalyzer
     float window[k_window]{};
     float tw_cos[k_window / 2]{};
     float tw_sin[k_window / 2]{};
-    uint16_t bit_rev[k_window]{};
+    std::uint16_t bit_rev[k_window]{};
     int bin_lo[spectrum_bands]{}; // FFT bins covered by each band, [lo, hi)
     int bin_hi[spectrum_bands]{};
     float smooth[spectrum_bands]{};
     float agc = 0.04f;
     float sample_rate = 0.0f;
-    size_t write = 0;
-    size_t since_hop = 0;
+    std::size_t write = 0;
+    std::size_t since_hop = 0;
     bool window_ready = false;
 
     void configure(float rate)
@@ -73,27 +73,27 @@ struct SpectrumAnalyzer
         }
         if (!window_ready)
         {
-            for (size_t i = 0; i < k_window; ++i)
+            for (std::size_t i = 0; i < k_window; ++i)
             {
                 window[i] = 0.5f - 0.5f * std::cos(6.2831853f * i / (k_window - 1));
             }
-            for (size_t i = 0; i < k_window / 2; ++i)
+            for (std::size_t i = 0; i < k_window / 2; ++i)
             {
                 const float a = -6.2831853f * static_cast<float>(i) / static_cast<float>(k_window);
                 tw_cos[i] = std::cos(a);
                 tw_sin[i] = std::sin(a);
             }
-            for (size_t i = 0; i < k_window; ++i)
+            for (std::size_t i = 0; i < k_window; ++i)
             {
-                size_t r = 0;
+                std::size_t r = 0;
                 for (int bit = 0; bit < log2_window; ++bit)
                 {
-                    if (i & (static_cast<size_t>(1) << bit))
+                    if (i & (static_cast<std::size_t>(1) << bit))
                     {
-                        r |= static_cast<size_t>(1) << (log2_window - 1 - bit);
+                        r |= static_cast<std::size_t>(1) << (log2_window - 1 - bit);
                     }
                 }
-                bit_rev[i] = static_cast<uint16_t>(r);
+                bit_rev[i] = static_cast<std::uint16_t>(r);
             }
             window_ready = true;
         }
@@ -124,24 +124,24 @@ struct SpectrumAnalyzer
 
     void fft(float* re, float* im) const
     {
-        for (size_t i = 0; i < k_window; ++i)
+        for (std::size_t i = 0; i < k_window; ++i)
         {
-            const size_t j = bit_rev[i];
+            const std::size_t j = bit_rev[i];
             if (j > i)
             {
                 std::swap(re[i], re[j]);
                 std::swap(im[i], im[j]);
             }
         }
-        for (size_t len = 2; len <= k_window; len <<= 1)
+        for (std::size_t len = 2; len <= k_window; len <<= 1)
         {
-            const size_t half = len >> 1, step = k_window / len;
-            for (size_t i = 0; i < k_window; i += len)
+            const std::size_t half = len >> 1, step = k_window / len;
+            for (std::size_t i = 0; i < k_window; i += len)
             {
-                for (size_t k = 0; k < half; ++k)
+                for (std::size_t k = 0; k < half; ++k)
                 {
                     const float wr = tw_cos[k * step], wi = tw_sin[k * step];
-                    const size_t a = i + k, b = a + half;
+                    const std::size_t a = i + k, b = a + half;
                     const float tr = re[b] * wr - im[b] * wi;
                     const float ti = re[b] * wi + im[b] * wr;
                     re[b] = re[a] - tr;
@@ -157,7 +157,7 @@ struct SpectrumAnalyzer
     {
         float re[k_window];
         float im[k_window];
-        for (size_t i = 0; i < k_window; ++i)
+        for (std::size_t i = 0; i < k_window; ++i)
         {
             re[i] = ring[(write + i) % k_window] * window[i];
             im[i] = 0.0f;
@@ -228,7 +228,7 @@ struct SpectrumAnalyzer
             float mono = 0.0f;
             if (is_float)
             {
-                const float* p = reinterpret_cast<const float*>(data) + static_cast<size_t>(f) * ch;
+                const float* p = reinterpret_cast<const float*>(data) + static_cast<std::size_t>(f) * ch;
                 for (UINT32 c = 0; c < ch; ++c)
                 {
                     mono += p[c];
@@ -236,7 +236,7 @@ struct SpectrumAnalyzer
             }
             else
             {
-                const int16_t* p = reinterpret_cast<const int16_t*>(data) + static_cast<size_t>(f) * ch;
+                const std::int16_t* p = reinterpret_cast<const std::int16_t*>(data) + static_cast<std::size_t>(f) * ch;
                 for (UINT32 c = 0; c < ch; ++c)
                 {
                     mono += p[c] / 32768.0f;
@@ -335,13 +335,13 @@ void push_audio_chunks(BYTE* data, UINT32 frames, WAVEFORMATEX* format)
     {
         const UINT32 chunk = std::min(chunk_frames, frames - frame);
         double sum = 0.0;
-        const size_t samples = static_cast<size_t>(chunk) * channels;
-        const size_t start = static_cast<size_t>(frame) * channels;
+        const std::size_t samples = static_cast<std::size_t>(chunk) * channels;
+        const std::size_t start = static_cast<std::size_t>(frame) * channels;
 
         if (is_float)
         {
             auto* f = reinterpret_cast<float*>(data);
-            for (size_t i = 0; i < samples; ++i)
+            for (std::size_t i = 0; i < samples; ++i)
             {
                 const double v = f[start + i];
                 sum += v * v;
@@ -349,8 +349,8 @@ void push_audio_chunks(BYTE* data, UINT32 frames, WAVEFORMATEX* format)
         }
         else
         {
-            auto* s = reinterpret_cast<int16_t*>(data);
-            for (size_t i = 0; i < samples; ++i)
+            auto* s = reinterpret_cast<std::int16_t*>(data);
+            for (std::size_t i = 0; i < samples; ++i)
             {
                 const double v = s[start + i] / 32768.0;
                 sum += v * v;

@@ -11,7 +11,7 @@ void start_focus_timer(int minutes, bool is_break);
 void toggle_timer_pause();
 void stop_focus_timer();
 void toggle_endpoint_mute();
-void seek_media_to_ticks(int64_t target_ticks);
+void seek_media_to_ticks(std::int64_t target_ticks);
 void send_media_transport_command(int cmd);
 void open_relevant_app();
 void dismiss_transient_state();

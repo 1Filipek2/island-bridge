@@ -17,8 +17,8 @@ bool is_foreground_fullscreen(HWND target_hwnd)
 
     wchar_t class_name[256] = {};
     GetClassNameW(fg, class_name, 256);
-    if (wcscmp(class_name, L"WorkerW") == 0 || wcscmp(class_name, L"Progman") == 0 ||
-        wcscmp(class_name, L"Shell_TrayWnd") == 0)
+    if (std::wcscmp(class_name, L"WorkerW") == 0 || std::wcscmp(class_name, L"Progman") == 0 ||
+        std::wcscmp(class_name, L"Shell_TrayWnd") == 0)
     {
         return false;
     }

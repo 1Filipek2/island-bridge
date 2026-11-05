@@ -139,7 +139,7 @@ std::wstring percent_encode_utf8(const std::wstring& text)
     // An already encoded "%XX" value is passed through untouched.
     auto looks_pre_encoded = [](const std::wstring& value)
     {
-        const size_t pos = value.find(L'%');
+        const std::size_t pos = value.find(L'%');
         if (pos == std::wstring::npos || pos + 2 >= value.size())
         {
             return false;
@@ -157,7 +157,7 @@ std::wstring percent_encode_utf8(const std::wstring& text)
         return std::wstring();
     }
 
-    std::string utf8(static_cast<size_t>(bytes - 1), '\0');
+    std::string utf8(static_cast<std::size_t>(bytes - 1), '\0');
     WideCharToMultiByte(CP_UTF8, 0, text.c_str(), -1, utf8.data(), bytes, nullptr, nullptr);
 
     static constexpr wchar_t hex_digits[] = L"0123456789ABCDEF";

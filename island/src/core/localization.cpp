@@ -5,7 +5,7 @@ namespace island
 std::wstring format_with_name(const wchar_t* format, const std::wstring& name)
 {
     std::wstring out = format;
-    const size_t pos = out.find(L"%s");
+    const std::size_t pos = out.find(L"%s");
     if (pos != std::wstring::npos)
     {
         out.replace(pos, 2, name);
@@ -108,7 +108,7 @@ const wchar_t* loc(const wchar_t* english)
     struct Row
     {
         const wchar_t* key;
-        const wchar_t* text[static_cast<size_t>(UiLanguage::Count)];
+        const wchar_t* text[static_cast<std::size_t>(UiLanguage::Count)];
     };
 
     // Columns: en, fr, es, de, pt, it, ru, tr, hi, zh, ja, ko
@@ -234,9 +234,9 @@ const wchar_t* loc(const wchar_t* english)
 
     for (const Row& row : k_rows)
     {
-        if (wcscmp(row.key, english) == 0)
+        if (std::wcscmp(row.key, english) == 0)
         {
-            const wchar_t* translated = row.text[static_cast<size_t>(lang_index)];
+            const wchar_t* translated = row.text[static_cast<std::size_t>(lang_index)];
             return translated ? translated : english;
         }
     }

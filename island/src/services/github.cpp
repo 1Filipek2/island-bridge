@@ -5,10 +5,26 @@
 #include "core/state.h"
 #include "core/util.h"
 
+#include <charconv>
+#include <string_view>
+
 namespace island
 {
 namespace
 {
+bool parse_cell(std::string_view text, int& row, int& column)
+{
+    const char* const end = text.data() + text.size();
+    const auto first = std::from_chars(text.data(), end, row);
+
+    if (first.ec != std::errc{} || first.ptr == end || *first.ptr != '-')
+    {
+        return false;
+    }
+
+    return std::from_chars(first.ptr + 1, end, column).ec == std::errc{};
+}
+
 // GitHub contributions tab: reads the public calendar, no token.
 struct GitHubDay
 {
@@ -19,16 +35,16 @@ struct GitHubDay
     int count = 0;
 };
 
-std::string html_attribute(const std::string& html, size_t tag_start, size_t tag_end, const char* name)
+std::string html_attribute(const std::string& html, std::size_t tag_start, std::size_t tag_end, const char* name)
 {
     const std::string needle = std::string(" ") + name + "=\"";
-    const size_t pos = html.find(needle, tag_start);
+    const std::size_t pos = html.find(needle, tag_start);
     if (pos == std::string::npos || pos >= tag_end)
     {
         return std::string();
     }
-    const size_t begin = pos + needle.size();
-    const size_t end = html.find('"', begin);
+    const std::size_t begin = pos + needle.size();
+    const std::size_t end = html.find('"', begin);
     if (end == std::string::npos || end > tag_end)
     {
         return std::string();
@@ -41,10 +57,10 @@ std::vector<GitHubDay> parse_git_hub_calendar(const std::string& html)
     static const std::string id_prefix = "contribution-day-component-";
     std::vector<GitHubDay> days;
 
-    size_t cursor = 0;
+    std::size_t cursor = 0;
     while ((cursor = html.find("<td", cursor)) != std::string::npos)
     {
-        const size_t tag_end = html.find('>', cursor);
+        const std::size_t tag_end = html.find('>', cursor);
         if (tag_end == std::string::npos)
         {
             break;
@@ -57,11 +73,11 @@ std::vector<GitHubDay> parse_git_hub_calendar(const std::string& html)
 
         int row = -1, column = -1;
         if (date.size() != 10 || level.empty() || id.rfind(id_prefix, 0) != 0 ||
-            sscanf(id.c_str() + id_prefix.size(), "%d-%d", &row, &column) != 2 || row < 0 || row > 6 || column < 0)
+            !parse_cell(std::string_view(id).substr(id_prefix.size()), row, column) || row < 0 || row > 6 || column < 0)
         {
             continue;
         }
-        days.push_back({date, row, column, atoi(level.c_str()), 0});
+        days.push_back({date, row, column, std::atoi(level.c_str()), 0});
     }
 
     // Counts only exist in the tooltips, which refer back to a cell by id.
@@ -69,16 +85,16 @@ std::vector<GitHubDay> parse_git_hub_calendar(const std::string& html)
     cursor = 0;
     while ((cursor = html.find("<tool-tip", cursor)) != std::string::npos)
     {
-        const size_t tag_end = html.find('>', cursor);
+        const std::size_t tag_end = html.find('>', cursor);
         if (tag_end == std::string::npos)
         {
             break;
         }
         const std::string target = html_attribute(html, cursor, tag_end, "for");
         int row = -1, column = -1;
-        if (target.rfind(id_prefix, 0) == 0 && sscanf(target.c_str() + id_prefix.size(), "%d-%d", &row, &column) == 2)
+        if (target.rfind(id_prefix, 0) == 0 && parse_cell(std::string_view(target).substr(id_prefix.size()), row, column))
         {
-            counts[{row, column}] = atoi(html.c_str() + tag_end + 1);
+            counts[{row, column}] = std::atoi(html.c_str() + tag_end + 1);
         }
         cursor = tag_end;
     }
@@ -154,7 +170,7 @@ DWORD WINAPI git_hub_thread_proc(void*)
     WaitForSingleObject(g_stop_event, 5000);
 
     static const DWORD backoff_ms[] = {60 * 1000, 5 * 60 * 1000, 15 * 60 * 1000, 30 * 60 * 1000};
-    size_t backoff_index = 0;
+    std::size_t backoff_index = 0;
 
     while (WaitForSingleObject(g_stop_event, 0) == WAIT_TIMEOUT)
     {

@@ -143,9 +143,9 @@ inline int theme_index_from_id(std::wstring_view id)
         {
             return false;
         }
-        for (size_t i = 0; i < a.size(); ++i)
+        for (std::size_t i = 0; i < a.size(); ++i)
         {
-            if (towlower(a[i]) != towlower(b[i]))
+            if (std::towlower(a[i]) != std::towlower(b[i]))
             {
                 return false;
             }
@@ -338,13 +338,13 @@ struct MediaSnapshot
     std::wstring source_badge;
     PixelsRef art;
     PixelsRef source_icon;
-    uint64_t art_generation = 0;
-    uint64_t source_icon_generation = 0;
+    std::uint64_t art_generation = 0;
+    std::uint64_t source_icon_generation = 0;
     double art_changed_at = 0.0;
     double title_changed_at = 0.0;
-    int64_t position_ticks = 0;
-    int64_t end_ticks = 0;
-    int64_t last_updated_ticks = 0;
+    std::int64_t position_ticks = 0;
+    std::int64_t end_ticks = 0;
+    std::int64_t last_updated_ticks = 0;
 };
 
 struct MediaSourceInfo
@@ -521,7 +521,7 @@ struct FileTrayItem
 {
     std::wstring path;
     std::wstring name;
-    uint64_t size_bytes = 0;
+    std::uint64_t size_bytes = 0;
     bool is_directory = false;
     bool is_text = false; // a pasted text snippet rather than a file reference
     std::wstring text;    // full snippet when is_text is set
@@ -530,7 +530,7 @@ struct FileTrayItem
 
 struct LyricsLine
 {
-    int64_t time_ms = -1; // -1 for unsynced (plain) lines
+    std::int64_t time_ms = -1; // -1 for unsynced (plain) lines
     std::wstring text;
 };
 
@@ -549,12 +549,12 @@ public:
         return !p_ || p_->empty();
     }
 
-    size_t size() const
+    std::size_t size() const
     {
         return p_ ? p_->size() : 0;
     }
 
-    const LyricsLine& operator[](size_t i) const
+    const LyricsLine& operator[](std::size_t i) const
     {
         return (*p_)[i];
     }
@@ -670,7 +670,7 @@ struct LookupUiState
 {
     bool open = false;
     std::wstring text;
-    size_t caret = 0;
+    std::size_t caret = 0;
     bool select_all = false;
     int selected = 0;
     double caret_reset_at = 0.0;
@@ -702,7 +702,7 @@ struct SharedState
     LookupSnapshot lookup;
     std::vector<LookupRecent> lookup_recent; // newest first, guarded by g_state_mutex
     std::array<float, 48> waveform{};
-    size_t waveform_write = 0;
+    std::size_t waveform_write = 0;
     std::array<float, spectrum_bands> bands{}; // smoothed 0..1 magnitude per band (low -> high)
     bool muted = false;
     std::vector<FileTrayItem> file_tray_items;

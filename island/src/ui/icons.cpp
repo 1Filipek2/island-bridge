@@ -39,18 +39,18 @@ bool icon_to_pixels(HICON icon, UINT size, BitmapPixels* out_pixels)
     HGDIOBJ old = SelectObject(dc, bitmap);
     RECT fill = {0, 0, static_cast<LONG>(size), static_cast<LONG>(size)};
     FillRect(dc, &fill, reinterpret_cast<HBRUSH>(GetStockObject(NULL_BRUSH)));
-    ZeroMemory(bits, static_cast<size_t>(size) * size * 4);
+    ZeroMemory(bits, static_cast<std::size_t>(size) * size * 4);
     DrawIconEx(dc, 0, 0, icon, size, size, 0, nullptr, DI_NORMAL);
 
     BitmapPixels pixels;
     pixels.width = size;
     pixels.height = size;
-    pixels.bgra.resize(static_cast<size_t>(size) * size * 4);
-    memcpy(pixels.bgra.data(), bits, pixels.bgra.size());
+    pixels.bgra.resize(static_cast<std::size_t>(size) * size * 4);
+    std::memcpy(pixels.bgra.data(), bits, pixels.bgra.size());
 
     // Old icons may have no alpha: then near-black counts as transparent.
     bool has_alpha = false;
-    for (size_t i = 3; i < pixels.bgra.size(); i += 4)
+    for (std::size_t i = 3; i < pixels.bgra.size(); i += 4)
     {
         if (pixels.bgra[i] != 0)
         {
@@ -60,7 +60,7 @@ bool icon_to_pixels(HICON icon, UINT size, BitmapPixels* out_pixels)
     }
     if (!has_alpha)
     {
-        for (size_t i = 0; i + 3 < pixels.bgra.size(); i += 4)
+        for (std::size_t i = 0; i + 3 < pixels.bgra.size(); i += 4)
         {
             const bool black = pixels.bgra[i] < 4 && pixels.bgra[i + 1] < 4 && pixels.bgra[i + 2] < 4;
             pixels.bgra[i + 3] = black ? 0 : 255;
@@ -69,14 +69,14 @@ bool icon_to_pixels(HICON icon, UINT size, BitmapPixels* out_pixels)
     else
     {
         // Convert to premultiplied alpha so D2D renders edges cleanly without dark fringing.
-        for (size_t i = 0; i + 3 < pixels.bgra.size(); i += 4)
+        for (std::size_t i = 0; i + 3 < pixels.bgra.size(); i += 4)
         {
-            const uint8_t a = pixels.bgra[i + 3];
+            const std::uint8_t a = pixels.bgra[i + 3];
             if (a < 255 && a > 0)
             {
-                pixels.bgra[i + 0] = static_cast<uint8_t>(pixels.bgra[i + 0] * a / 255);
-                pixels.bgra[i + 1] = static_cast<uint8_t>(pixels.bgra[i + 1] * a / 255);
-                pixels.bgra[i + 2] = static_cast<uint8_t>(pixels.bgra[i + 2] * a / 255);
+                pixels.bgra[i + 0] = static_cast<std::uint8_t>(pixels.bgra[i + 0] * a / 255);
+                pixels.bgra[i + 1] = static_cast<std::uint8_t>(pixels.bgra[i + 1] * a / 255);
+                pixels.bgra[i + 2] = static_cast<std::uint8_t>(pixels.bgra[i + 2] * a / 255);
             }
         }
     }
@@ -208,14 +208,14 @@ std::wstring to_lower_copy(std::wstring value)
     std::transform(value.begin(), value.end(), value.begin(),
                    [](wchar_t ch)
                    {
-                       return static_cast<wchar_t>(towlower(ch));
+                       return static_cast<wchar_t>(std::towlower(ch));
                    });
     return value;
 }
 
 std::wstring base_name_from_path(std::wstring path)
 {
-    const size_t slash = path.find_last_of(L"\\/");
+    const std::size_t slash = path.find_last_of(L"\\/");
     if (slash != std::wstring::npos)
     {
         path.erase(0, slash + 1);
@@ -225,7 +225,7 @@ std::wstring base_name_from_path(std::wstring path)
 
 std::wstring strip_extension(std::wstring value)
 {
-    const size_t dot = value.find_last_of(L'.');
+    const std::size_t dot = value.find_last_of(L'.');
     if (dot != std::wstring::npos)
     {
         value.resize(dot);
@@ -287,12 +287,12 @@ std::wstring friendly_media_source_name(std::wstring_view source)
     }
 
     std::wstring text(source);
-    const size_t bang = text.find(L'!');
+    const std::size_t bang = text.find(L'!');
     if (bang != std::wstring::npos && bang + 1 < text.size())
     {
         text.erase(0, bang + 1);
     }
-    const size_t dot = text.find(L'.');
+    const std::size_t dot = text.find(L'.');
     if (dot != std::wstring::npos)
     {
         text.resize(dot);
@@ -332,7 +332,7 @@ std::wstring media_source_badge(std::wstring_view source_name)
         return L"\u25b6";
     }
     std::wstring badge;
-    badge.push_back(static_cast<wchar_t>(towupper(source_name[0])));
+    badge.push_back(static_cast<wchar_t>(std::towupper(source_name[0])));
     return badge;
 }
 
@@ -442,12 +442,12 @@ struct IconCacheEntry
     DWORD pid = 0;
     std::wstring exe_path;
     PixelsRef pixels;
-    uint64_t last_used = 0;
+    std::uint64_t last_used = 0;
 };
 
 std::mutex g_icon_cache_mutex;
 std::unordered_map<DWORD, IconCacheEntry> g_icon_cache_by_pid;
-uint64_t g_icon_cache_clock = 0;
+std::uint64_t g_icon_cache_clock = 0;
 
 PixelsRef get_cached_process_icon_pixels(DWORD pid, UINT size)
 {
@@ -696,10 +696,10 @@ PixelsRef find_app_icon_by_name(const std::wstring& app_name, UINT size)
     return pixels;
 }
 
-std::vector<uint8_t> read_win_rt_stream_bytes(
+std::vector<std::uint8_t> read_win_rt_stream_bytes(
     const winrt::Windows::Storage::Streams::IRandomAccessStreamReference& reference)
 {
-    std::vector<uint8_t> bytes;
+    std::vector<std::uint8_t> bytes;
     if (!reference)
     {
         return bytes;
@@ -711,17 +711,17 @@ std::vector<uint8_t> read_win_rt_stream_bytes(
         return bytes;
     }
 
-    const uint64_t size64 = stream.Size();
+    const std::uint64_t size64 = stream.Size();
     if (size64 == 0 || size64 > 8 * 1024 * 1024)
     {
         return bytes;
     }
 
-    const uint32_t size = static_cast<uint32_t>(size64);
+    const std::uint32_t size = static_cast<std::uint32_t>(size64);
     winrt::Windows::Storage::Streams::DataReader reader(stream.GetInputStreamAt(0));
     reader.LoadAsync(size).get();
     bytes.resize(size);
-    reader.ReadBytes(winrt::array_view<uint8_t>(bytes.data(), bytes.data() + bytes.size()));
+    reader.ReadBytes(winrt::array_view<std::uint8_t>(bytes.data(), bytes.data() + bytes.size()));
     return bytes;
 }
 

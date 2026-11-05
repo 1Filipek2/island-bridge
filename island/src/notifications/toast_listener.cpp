@@ -64,7 +64,7 @@ DWORD WINAPI notification_thread_proc(void*)
     using winrt::Windows::UI::Notifications::Management::UserNotificationListener;
     using winrt::Windows::UI::Notifications::Management::UserNotificationListenerAccessStatus;
 
-    std::set<uint32_t> seen_ids;
+    std::set<std::uint32_t> seen_ids;
     bool first_poll = true;
     bool access_logged = false;
 
@@ -83,7 +83,7 @@ DWORD WINAPI notification_thread_proc(void*)
         st.LowPart = system_time.dwLowDateTime;
         st.HighPart = system_time.dwHighDateTime;
 
-        uint64_t ms_since_process_start = (st.QuadPart - ct.QuadPart) / 10000;
+        std::uint64_t ms_since_process_start = (st.QuadPart - ct.QuadPart) / 10000;
         if (ms_since_process_start < 30000)
         {
             DWORD wait_time = 30000 - (DWORD)ms_since_process_start;
@@ -134,9 +134,9 @@ DWORD WINAPI notification_thread_proc(void*)
                 try
                 {
                     auto notifications = listener.GetNotificationsAsync(NotificationKinds::Toast).get();
-                    std::set<uint32_t> current_ids;
+                    std::set<std::uint32_t> current_ids;
 
-                    for (uint32_t i = 0; i < notifications.Size(); ++i)
+                    for (std::uint32_t i = 0; i < notifications.Size(); ++i)
                     {
                         current_ids.insert(notifications.GetAt(i).Id());
                     }
@@ -151,12 +151,12 @@ DWORD WINAPI notification_thread_proc(void*)
                         continue;
                     }
 
-                    for (uint32_t i = 0; i < notifications.Size(); ++i)
+                    for (std::uint32_t i = 0; i < notifications.Size(); ++i)
                     {
                         try
                         {
                             auto user_notification = notifications.GetAt(i);
-                            const uint32_t id = user_notification.Id();
+                            const std::uint32_t id = user_notification.Id();
 
                             if (seen_ids.count(id))
                             {
@@ -203,7 +203,7 @@ DWORD WINAPI notification_thread_proc(void*)
                                 try
                                 {
                                     auto logo = display_info.GetLogo({32.0f, 32.0f});
-                                    std::vector<uint8_t> logo_bytes = read_win_rt_stream_bytes(logo);
+                                    std::vector<std::uint8_t> logo_bytes = read_win_rt_stream_bytes(logo);
                                     if (!logo_bytes.empty())
                                     {
                                         BitmapPixels decoded;
@@ -229,10 +229,10 @@ DWORD WINAPI notification_thread_proc(void*)
                             {
                                 auto text_elements = binding.GetTextElements();
                                 std::vector<std::wstring> texts;
-                                for (uint32_t t = 0; t < text_elements.Size(); ++t)
+                                for (std::uint32_t t = 0; t < text_elements.Size(); ++t)
                                 {
                                     std::wstring text = text_elements.GetAt(t).Text().c_str();
-                                    const size_t b = text.find_first_not_of(L" \t\r\n");
+                                    const std::size_t b = text.find_first_not_of(L" \t\r\n");
                                     text = b == std::wstring::npos
                                                ? std::wstring()
                                                : text.substr(b, text.find_last_not_of(L" \t\r\n") - b + 1);

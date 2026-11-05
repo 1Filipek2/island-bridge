@@ -96,10 +96,10 @@ void load_settings()
     next.size_scale = next.base_size_scale * dpi;
 
     std::wstring font_setting = get_string_setting_with_fallback(L"Themes.FontFamily", L"Appearance.FontFamily");
-    size_t first_char = font_setting.find_first_not_of(L" \t\r\n\"'");
+    std::size_t first_char = font_setting.find_first_not_of(L" \t\r\n\"'");
     if (first_char != std::wstring::npos)
     {
-        size_t last_char = font_setting.find_last_not_of(L" \t\r\n\"'");
+        std::size_t last_char = font_setting.find_last_not_of(L" \t\r\n\"'");
         next.font_family = font_setting.substr(first_char, last_char - first_char + 1);
     }
     else
@@ -283,7 +283,7 @@ void load_settings()
     next.hide_show_vk = 'D';
     if (hotkey_key_str.size() == 1)
     {
-        const wchar_t ch = towupper(hotkey_key_str[0]);
+        const wchar_t ch = std::towupper(hotkey_key_str[0]);
         if ((ch >= L'A' && ch <= L'Z') || (ch >= L'0' && ch <= L'9'))
         {
             next.hide_show_vk = static_cast<UINT>(ch);
@@ -319,7 +319,7 @@ void load_settings()
     next.lookup_vk = VK_SPACE;
     {
         std::wstring key_str = get_string_setting_copy(L"Shortcuts.LookupKey");
-        const size_t key_first = key_str.find_first_not_of(L" \t\r\n\"'");
+        const std::size_t key_first = key_str.find_first_not_of(L" \t\r\n\"'");
         if (key_first != std::wstring::npos)
         {
             key_str = key_str.substr(key_first, key_str.find_last_not_of(L" \t\r\n\"'") - key_first + 1);
@@ -330,7 +330,7 @@ void load_settings()
         }
         if (key_str.size() == 1)
         {
-            const wchar_t ch = towupper(key_str[0]);
+            const wchar_t ch = std::towupper(key_str[0]);
             if ((ch >= L'A' && ch <= L'Z') || (ch >= L'0' && ch <= L'9'))
             {
                 next.lookup_vk = static_cast<UINT>(ch);
@@ -412,21 +412,21 @@ void load_settings()
     next.media_expand_blocklist.clear();
     {
         const std::wstring raw = get_string_setting_copy(L"Modules.MediaExpandBlocklist");
-        size_t start = 0;
+        std::size_t start = 0;
         while (start <= raw.size())
         {
-            const size_t comma = raw.find(L',', start);
-            const size_t end = (comma == std::wstring::npos) ? raw.size() : comma;
+            const std::size_t comma = raw.find(L',', start);
+            const std::size_t end = (comma == std::wstring::npos) ? raw.size() : comma;
             std::wstring token = raw.substr(start, end - start);
-            const size_t a = token.find_first_not_of(L" \t\r\n");
+            const std::size_t a = token.find_first_not_of(L" \t\r\n");
             if (a != std::wstring::npos)
             {
-                const size_t b = token.find_last_not_of(L" \t\r\n");
+                const std::size_t b = token.find_last_not_of(L" \t\r\n");
                 std::wstring entry = token.substr(a, b - a + 1);
                 std::transform(entry.begin(), entry.end(), entry.begin(),
                                [](wchar_t c)
                                {
-                                   return static_cast<wchar_t>(towlower(c));
+                                   return static_cast<wchar_t>(std::towlower(c));
                                });
                 next.media_expand_blocklist.push_back(std::move(entry));
             }

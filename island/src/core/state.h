@@ -12,7 +12,7 @@ Settings get_settings_copy();
 
 inline std::mutex g_state_mutex;
 inline SharedState g_state;
-inline std::atomic<uint64_t> g_art_generation_counter = 0;
+inline std::atomic<std::uint64_t> g_art_generation_counter = 0;
 
 inline HWND g_hwnd = nullptr;
 inline HANDLE g_stop_event = nullptr;
@@ -92,7 +92,7 @@ inline std::atomic<double> g_last_lyrics_view_time = 0.0;
 
 inline std::mutex g_bluetooth_battery_cache_mutex;
 inline std::unordered_map<std::wstring, int> g_bluetooth_battery_cache;
-inline std::atomic<uint64_t> g_bluetooth_connect_generation = 0;
+inline std::atomic<std::uint64_t> g_bluetooth_connect_generation = 0;
 inline std::atomic<bool> g_is_dn_d_active = false;
 inline void* g_wnf_dnd_subscription = nullptr;
 

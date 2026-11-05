@@ -11,7 +11,7 @@ namespace
 std::wstring clean_active_app_name(const std::wstring& raw)
 {
     std::wstring name;
-    size_t hash_pos = raw.rfind(L'#');
+    std::size_t hash_pos = raw.rfind(L'#');
     if (hash_pos != std::wstring::npos)
     {
         name = raw.substr(hash_pos + 1);
@@ -22,7 +22,7 @@ std::wstring clean_active_app_name(const std::wstring& raw)
     }
     else
     {
-        size_t under_pos = raw.find(L'_');
+        std::size_t under_pos = raw.find(L'_');
         name = (under_pos != std::wstring::npos) ? raw.substr(0, under_pos) : raw;
         if (name.rfind(L"Microsoft.", 0) == 0)
         {
@@ -89,10 +89,10 @@ std::wstring clean_active_app_name(const std::wstring& raw)
     return name;
 }
 
-bool read_reg_qword(HKEY key, const wchar_t* name, uint64_t* out)
+bool read_reg_qword(HKEY key, const wchar_t* name, std::uint64_t* out)
 {
     DWORD type = 0;
-    uint64_t value = 0;
+    std::uint64_t value = 0;
     DWORD data_size = sizeof(value);
     if (RegQueryValueExW(key, name, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &data_size) != ERROR_SUCCESS)
     {
@@ -109,13 +109,13 @@ bool read_reg_qword(HKEY key, const wchar_t* name, uint64_t* out)
 // In use only when Windows recorded a start and no stop (never-used entries have both at zero).
 bool consent_store_entry_in_use(HKEY key)
 {
-    uint64_t stop_time = 0;
+    std::uint64_t stop_time = 0;
     if (!read_reg_qword(key, L"LastUsedTimeStop", &stop_time) || stop_time != 0)
     {
         return false;
     }
 
-    uint64_t start_time = 0;
+    std::uint64_t start_time = 0;
     if (read_reg_qword(key, L"LastUsedTimeStart", &start_time))
     {
         return start_time != 0;

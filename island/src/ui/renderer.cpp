@@ -752,7 +752,7 @@ private:
             HRESULT hr = dwrite_factory_->CreateTextFormat(family, nullptr, weight, style, stretch, size, L"", &out);
             if (FAILED(hr) || !out)
             {
-                if (fallback && wcscmp(family, fallback) != 0)
+                if (fallback && std::wcscmp(family, fallback) != 0)
                 {
                     hr = dwrite_factory_->CreateTextFormat(fallback, nullptr, weight, style, stretch, size, L"", &out);
                 }
@@ -1049,13 +1049,13 @@ private:
     struct LinearGradientSlot
     {
         ComPtr<ID2D1LinearGradientBrush> brush;
-        uint64_t key = 0;
+        std::uint64_t key = 0;
     };
 
     struct RadialGradientSlot
     {
         ComPtr<ID2D1RadialGradientBrush> brush;
-        uint64_t key = 0;
+        std::uint64_t key = 0;
     };
 
     struct ShapeKey
@@ -1073,27 +1073,27 @@ private:
     {
         ShapeKey key;
         ComPtr<ID2D1Geometry> geom;
-        uint64_t last_used = 0;
+        std::uint64_t last_used = 0;
     };
 
-    static constexpr size_t shape_cache_size = 32;
+    static constexpr std::size_t shape_cache_size = 32;
 
-    static uint32_t pack_color8(const D2D1_COLOR_F& c)
+    static std::uint32_t pack_color8(const D2D1_COLOR_F& c)
     {
         auto q = [](float v)
         {
-            return static_cast<uint32_t>(clamp(v, 0.0f, 1.0f) * 255.0f + 0.5f);
+            return static_cast<std::uint32_t>(clamp(v, 0.0f, 1.0f) * 255.0f + 0.5f);
         };
         return (q(c.a) << 24) | (q(c.r) << 16) | (q(c.g) << 8) | q(c.b);
     }
 
-    static uint64_t hash_stops(const D2D1_GRADIENT_STOP* s, UINT32 n)
+    static std::uint64_t hash_stops(const D2D1_GRADIENT_STOP* s, UINT32 n)
     {
-        uint64_t h = 1469598103934665603ull;
+        std::uint64_t h = 1469598103934665603ull;
         for (UINT32 i = 0; i < n; ++i)
         {
             h = (h ^ pack_color8(s[i].color)) * 1099511628211ull;
-            h = (h ^ static_cast<uint64_t>(s[i].position * 1000.0f + 0.5f)) * 1099511628211ull;
+            h = (h ^ static_cast<std::uint64_t>(s[i].position * 1000.0f + 0.5f)) * 1099511628211ull;
         }
         return h;
     }
@@ -1154,7 +1154,7 @@ private:
     ID2D1LinearGradientBrush* use_linear_gradient(LinearGradientSlot& slot, const D2D1_GRADIENT_STOP* stops,
                                                   UINT32 count, D2D1_POINT_2F start, D2D1_POINT_2F end)
     {
-        const uint64_t key = hash_stops(stops, count);
+        const std::uint64_t key = hash_stops(stops, count);
         if (!slot.brush || slot.key != key)
         {
             slot.brush.Reset();
@@ -1182,7 +1182,7 @@ private:
     ID2D1RadialGradientBrush* use_radial_gradient(RadialGradientSlot& slot, const D2D1_GRADIENT_STOP* stops,
                                                   UINT32 count, D2D1_POINT_2F center, float rx, float ry)
     {
-        const uint64_t key = hash_stops(stops, count);
+        const std::uint64_t key = hash_stops(stops, count);
         if (!slot.brush || slot.key != key)
         {
             slot.brush.Reset();
@@ -1947,7 +1947,7 @@ private:
         {
             small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
             small_text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
-            target_->DrawTextW(year_str, static_cast<UINT32>(wcslen(year_str)), small_text_format_.Get(),
+            target_->DrawTextW(year_str, static_cast<UINT32>(std::wcslen(year_str)), small_text_format_.Get(),
                                D2D1::RectF(hero.left, hero.top + 21.0f * scale, hero.right, hero.top + 36.0f * scale),
                                muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
             small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
@@ -1957,7 +1957,7 @@ private:
         wchar_t day_str[16] = {};
         swprintf_s(day_str, L"%d", local.wDay);
         text_brush_->SetOpacity(0.97f);
-        target_->DrawTextW(day_str, static_cast<UINT32>(wcslen(day_str)),
+        target_->DrawTextW(day_str, static_cast<UINT32>(std::wcslen(day_str)),
                            cal_day_large_format_ ? cal_day_large_format_.Get() : huge_text_format_.Get(),
                            D2D1::RectF(hero.left, hero.top + 34.0f * scale, hero.right, hero.bottom - 26.0f * scale),
                            text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
@@ -2453,7 +2453,7 @@ private:
         if (huge_text_format_)
         {
             huge_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
-            target_->DrawTextW(w_temp, static_cast<UINT32>(wcslen(w_temp)), huge_text_format_.Get(),
+            target_->DrawTextW(w_temp, static_cast<UINT32>(std::wcslen(w_temp)), huge_text_format_.Get(),
                                D2D1::RectF(hero_left + 52.0f * scale, reading_center_y - 32.0f * scale, hero_right,
                                            reading_center_y + 32.0f * scale),
                                text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
@@ -2463,7 +2463,7 @@ private:
         const float desc_top = rect.top + 120.0f * scale;
         const float desc_bottom = rect.top + 162.0f * scale;
 
-        const size_t desc_length = desc.length();
+        const std::size_t desc_length = desc.length();
         float desc_font_size = 13.5f;
         if (desc_length > 58)
         {
@@ -2576,7 +2576,7 @@ private:
                 small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
                 small_text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
                 muted_brush_->SetOpacity(0.62f);
-                target_->DrawTextW(m.label, static_cast<UINT32>(wcslen(m.label)), small_text_format_.Get(),
+                target_->DrawTextW(m.label, static_cast<UINT32>(std::wcslen(m.label)), small_text_format_.Get(),
                                    D2D1::RectF(text_left, card.top + 4.0f * scale, card.right - 8.0f * scale,
                                                card.top + 20.0f * scale),
                                    muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
@@ -2757,12 +2757,12 @@ private:
         {
             bold_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
             const wchar_t* title = loc(L"File Tray");
-            target_->DrawTextW(title, static_cast<UINT32>(wcslen(title)), bold_text_format_.Get(), header_rect,
+            target_->DrawTextW(title, static_cast<UINT32>(std::wcslen(title)), bold_text_format_.Get(), header_rect,
                                text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
             bold_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
         }
 
-        const size_t total = state.file_tray_items.size();
+        const std::size_t total = state.file_tray_items.size();
 
         const float clear_size = file_tray_layout::clear_btn_size * scale;
         const float clear_top = rect.top + file_tray_layout::clear_btn_top * scale;
@@ -2780,8 +2780,8 @@ private:
                 D2D1::RectF(header_rect.left, header_rect.top, paste_box.left - 8.0f * scale, header_rect.bottom);
             small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
             muted_brush_->SetOpacity(0.75f);
-            target_->DrawTextW(count_buf, static_cast<UINT32>(wcslen(count_buf)), small_text_format_.Get(), count_rect,
-                               muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
+            target_->DrawTextW(count_buf, static_cast<UINT32>(std::wcslen(count_buf)), small_text_format_.Get(),
+                               count_rect, muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
             small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
         }
 
@@ -2813,7 +2813,7 @@ private:
                 text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
                 const wchar_t* hint = loc(L"Drag files here");
                 muted_brush_->SetOpacity(0.80f);
-                target_->DrawTextW(hint, static_cast<UINT32>(wcslen(hint)), text_format_.Get(), drop_rect,
+                target_->DrawTextW(hint, static_cast<UINT32>(std::wcslen(hint)), text_format_.Get(), drop_rect,
                                    muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
                 text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
             }
@@ -2899,8 +2899,8 @@ private:
                     D2D1::RectF(row.right - remove_space - size_w, row.top, row.right - remove_space, row.bottom);
                 small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
                 muted_brush_->SetOpacity(0.70f);
-                target_->DrawTextW(size_buf, static_cast<UINT32>(wcslen(size_buf)), small_text_format_.Get(), size_rect,
-                                   muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
+                target_->DrawTextW(size_buf, static_cast<UINT32>(std::wcslen(size_buf)), small_text_format_.Get(),
+                                   size_rect, muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
                 small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
                 small_text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
             }
@@ -2914,8 +2914,8 @@ private:
                 D2D1::RectF(rect.left + pad_x, list_bottom - 12.0f * scale, rect.right - pad_x, list_bottom);
             small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
             muted_brush_->SetOpacity(0.65f);
-            target_->DrawTextW(more_buf, static_cast<UINT32>(wcslen(more_buf)), small_text_format_.Get(), more_rect,
-                               muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
+            target_->DrawTextW(more_buf, static_cast<UINT32>(std::wcslen(more_buf)), small_text_format_.Get(),
+                               more_rect, muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
             small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
         }
 
@@ -2923,7 +2923,7 @@ private:
         muted_brush_->SetOpacity(0.75f);
     }
 
-    std::size_t notification_center_slot(uint64_t generation)
+    std::size_t notification_center_slot(std::uint64_t generation)
     {
         for (std::size_t slot = 0; slot < notification_center_generations_.size(); ++slot)
         {
@@ -3026,8 +3026,8 @@ private:
                 D2D1::RectF(heading_right - 72.0f * scale, text_top, heading_right, text_bottom);
             small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
             muted_brush_->SetOpacity(0.75f);
-            target_->DrawTextW(range_buf, static_cast<UINT32>(wcslen(range_buf)), small_text_format_.Get(), range_rect,
-                               muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
+            target_->DrawTextW(range_buf, static_cast<UINT32>(std::wcslen(range_buf)), small_text_format_.Get(),
+                               range_rect, muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
             small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
             heading_right = range_rect.left;
         }
@@ -3131,7 +3131,7 @@ private:
         {
             bold_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
             const wchar_t* title = loc(L"Notifications");
-            target_->DrawTextW(title, static_cast<UINT32>(wcslen(title)), bold_text_format_.Get(), header_rect,
+            target_->DrawTextW(title, static_cast<UINT32>(std::wcslen(title)), bold_text_format_.Get(), header_rect,
                                text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
             bold_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
         }
@@ -3161,8 +3161,8 @@ private:
                 D2D1::RectF(header_rect.left, header_rect.top, clear_box.left - 8.0f * scale, header_rect.bottom);
             small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
             muted_brush_->SetOpacity(0.75f);
-            target_->DrawTextW(count_buf, static_cast<UINT32>(wcslen(count_buf)), small_text_format_.Get(), count_rect,
-                               muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
+            target_->DrawTextW(count_buf, static_cast<UINT32>(std::wcslen(count_buf)), small_text_format_.Get(),
+                               count_rect, muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
             small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
         }
 
@@ -3182,7 +3182,7 @@ private:
                 text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
                 const wchar_t* hint = loc(L"No notifications");
                 muted_brush_->SetOpacity(0.80f);
-                target_->DrawTextW(hint, static_cast<UINT32>(wcslen(hint)), text_format_.Get(), empty_rect,
+                target_->DrawTextW(hint, static_cast<UINT32>(std::wcslen(hint)), text_format_.Get(), empty_rect,
                                    muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
                 text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
                 text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
@@ -3300,7 +3300,7 @@ private:
             if (small_text_format_)
             {
                 small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
-                target_->DrawTextW(loading, static_cast<UINT32>(wcslen(loading)), small_text_format_.Get(),
+                target_->DrawTextW(loading, static_cast<UINT32>(std::wcslen(loading)), small_text_format_.Get(),
                                    D2D1::RectF(rect.left + pad_x, rect.top + 80.0f * scale, rect.right - pad_x,
                                                rect.top + 104.0f * scale),
                                    text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
@@ -3378,7 +3378,7 @@ private:
             for (const auto& stat : stats)
             {
                 small_text_format_->SetTextAlignment(stat.alignment);
-                target_->DrawTextW(stat.text, static_cast<UINT32>(wcslen(stat.text)), small_text_format_.Get(),
+                target_->DrawTextW(stat.text, static_cast<UINT32>(std::wcslen(stat.text)), small_text_format_.Get(),
                                    D2D1::RectF(grid_left, stats_top, grid_left + grid_width, stats_bottom),
                                    text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
             }
@@ -3400,7 +3400,7 @@ private:
         {
             bold_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
             target_->DrawTextW(
-                hw_title, static_cast<UINT32>(wcslen(hw_title)), bold_text_format_.Get(),
+                hw_title, static_cast<UINT32>(std::wcslen(hw_title)), bold_text_format_.Get(),
                 D2D1::RectF(rect.left + pad_x, rect.top + 16.0f * scale, rect.right - pad_x, rect.top + 32.0f * scale),
                 text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
             bold_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
@@ -3481,7 +3481,7 @@ private:
                 small_text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
                 muted_brush_->SetOpacity(0.60f);
                 target_->DrawTextW(
-                    m.label, static_cast<UINT32>(wcslen(m.label)), small_text_format_.Get(),
+                    m.label, static_cast<UINT32>(std::wcslen(m.label)), small_text_format_.Get(),
                     D2D1::RectF(text_left, card.top + 2.0f * scale, text_right, card.top + 15.0f * scale),
                     muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
                 small_text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
@@ -3493,7 +3493,7 @@ private:
                 text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
                 text_brush_->SetOpacity(0.95f);
                 const float value_bottom = has_bar ? card.top + 30.0f * scale : card.bottom - 4.0f * scale;
-                target_->DrawTextW(m.value, static_cast<UINT32>(wcslen(m.value)), text_format_.Get(),
+                target_->DrawTextW(m.value, static_cast<UINT32>(std::wcslen(m.value)), text_format_.Get(),
                                    D2D1::RectF(text_left, card.top + 15.0f * scale, text_right, value_bottom),
                                    text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
                 text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
@@ -3967,8 +3967,8 @@ private:
 
             text_brush_->SetOpacity(0.96f);
             const D2D1_RECT_F time_rect = D2D1::RectF(slot_x, rect.top, slot_x + idle_metrics.clock_width, rect.bottom);
-            target_->DrawTextW(time_buf, static_cast<UINT32>(wcslen(time_buf)), idle_fmt, time_rect, text_brush_.Get(),
-                               D2D1_DRAW_TEXT_OPTIONS_NONE);
+            target_->DrawTextW(time_buf, static_cast<UINT32>(std::wcslen(time_buf)), idle_fmt, time_rect,
+                               text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
             slot_x += idle_metrics.clock_width;
 
             if (idle_metrics.has_weather)
@@ -4002,7 +4002,7 @@ private:
 
                 const D2D1_RECT_F w_rect =
                     D2D1::RectF(slot_x, rect.top, slot_x + idle_metrics.weather_width, rect.bottom);
-                target_->DrawTextW(weather_label, static_cast<UINT32>(wcslen(weather_label)), idle_fmt, w_rect,
+                target_->DrawTextW(weather_label, static_cast<UINT32>(std::wcslen(weather_label)), idle_fmt, w_rect,
                                    text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
             }
             text_brush_->SetOpacity(1.0f);
@@ -4169,7 +4169,7 @@ private:
                 fps_fmt->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
                 text_brush_->SetOpacity(0.97f);
                 const float top = g_settings.show_metric_text ? fps_card.top + 16.0f * scale : card_top;
-                target_->DrawTextW(fps_value, static_cast<UINT32>(wcslen(fps_value)), fps_fmt,
+                target_->DrawTextW(fps_value, static_cast<UINT32>(std::wcslen(fps_value)), fps_fmt,
                                    D2D1::RectF(text_left, top, text_right, card_bottom - 3.0f * scale),
                                    text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
                 fps_fmt->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
@@ -4239,7 +4239,7 @@ private:
             small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
             small_text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
             muted_brush_->SetOpacity(0.58f);
-            target_->DrawTextW(label, static_cast<UINT32>(wcslen(label)), small_text_format_.Get(),
+            target_->DrawTextW(label, static_cast<UINT32>(std::wcslen(label)), small_text_format_.Get(),
                                D2D1::RectF(text_left, rect.top + 2.0f * scale, text_right, rect.top + 16.0f * scale),
                                muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
             small_text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
@@ -4261,7 +4261,7 @@ private:
             text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
             text_brush_->SetOpacity(0.95f);
             const float value_top = g_settings.show_metric_text ? rect.top + 17.0f * scale : rect.top + 4.0f * scale;
-            target_->DrawTextW(value, static_cast<UINT32>(wcslen(value)), text_format_.Get(),
+            target_->DrawTextW(value, static_cast<UINT32>(std::wcslen(value)), text_format_.Get(),
                                D2D1::RectF(text_left, value_top, text_right, rect.bottom - 8.0f * scale),
                                text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
             text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
@@ -5312,7 +5312,7 @@ private:
             }
             else if (state.media.playing)
             {
-                const size_t n = state.waveform.size();
+                const std::size_t n = state.waveform.size();
                 level = clamp(state.waveform[(state.waveform_write + n - 1) % n], 0.0f, 1.0f);
             }
             imm_glow_ += (level - imm_glow_) * (1.0f - std::exp(-dt / 0.12f));
@@ -5388,7 +5388,7 @@ private:
             {
                 pos_sec += lyrics_lookahead_sec();
             }
-            const int64_t pos_ms = std::max<int64_t>(0, static_cast<int64_t>(pos_sec * 1000.0));
+            const std::int64_t pos_ms = std::max<std::int64_t>(0, static_cast<std::int64_t>(pos_sec * 1000.0));
 
             int lo = 0;
             int hi = static_cast<int>(lines.size());
@@ -5523,8 +5523,8 @@ private:
                     muted_brush_->SetOpacity(alpha * (0.62f + 0.38f * (1.0f - focus)));
                     target_->DrawTextLayout(origin, l.layout.Get(), muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
 
-                    int64_t start_ms = lines[i].time_ms;
-                    int64_t end_ms = start_ms + 4000;
+                    std::int64_t start_ms = lines[i].time_ms;
+                    std::int64_t end_ms = start_ms + 4000;
                     if (i + 1 < static_cast<int>(lines.size()))
                     {
                         end_ms = lines[i + 1].time_ms;
@@ -5533,7 +5533,7 @@ private:
                     {
                         end_ms = state.media.end_ticks / 10000;
                     }
-                    const int64_t span = end_ms - start_ms;
+                    const std::int64_t span = end_ms - start_ms;
                     const float p =
                         span > 0 ? clamp(static_cast<float>(pos_ms - start_ms) / static_cast<float>(span), 0.0f, 1.0f)
                                  : 1.0f;
@@ -5716,7 +5716,7 @@ private:
             {
                 pos_sec += lyrics_lookahead_sec();
             }
-            const int64_t pos_ms = std::max<int64_t>(0, static_cast<int64_t>(pos_sec * 1000.0));
+            const std::int64_t pos_ms = std::max<std::int64_t>(0, static_cast<std::int64_t>(pos_sec * 1000.0));
 
             int lo = 0;
             int hi = static_cast<int>(lines.size());
@@ -5873,7 +5873,7 @@ private:
                                    state.lyrics.matched_artist == state.media.artist;
 
         int idx = -1; // -1 = before the first line, or no usable lyrics
-        int64_t pos_ms = 0;
+        std::int64_t pos_ms = 0;
         if (lyrics_usable)
         {
             double pos_sec = state.media.position_ticks / 10000000.0;
@@ -5885,7 +5885,7 @@ private:
             {
                 pos_sec += lyrics_lookahead_sec();
             }
-            pos_ms = std::max<int64_t>(0, static_cast<int64_t>(pos_sec * 1000.0));
+            pos_ms = std::max<std::int64_t>(0, static_cast<std::int64_t>(pos_sec * 1000.0));
 
             // Binary search for the last line whose timestamp has passed.
             int lo = 0;
@@ -5990,8 +5990,8 @@ private:
                 }
                 else if (show_idx >= 0)
                 {
-                    const int64_t start_ms = lines[show_idx].time_ms;
-                    int64_t end_ms = start_ms + 4000;
+                    const std::int64_t start_ms = lines[show_idx].time_ms;
+                    std::int64_t end_ms = start_ms + 4000;
                     if (show_idx + 1 < static_cast<int>(lines.size()))
                     {
                         end_ms = lines[show_idx + 1].time_ms;
@@ -6000,7 +6000,7 @@ private:
                     {
                         end_ms = state.media.end_ticks / 10000;
                     }
-                    const int64_t span = end_ms - start_ms;
+                    const std::int64_t span = end_ms - start_ms;
                     const float prog =
                         span > 0 ? clamp(static_cast<float>(pos_ms - start_ms) / static_cast<float>(span), 0.0f, 1.0f)
                                  : 1.0f;
@@ -6373,7 +6373,7 @@ private:
                 if (bold_text_format_)
                 {
                     muted_brush_->SetOpacity(0.55f + 0.45f * lit);
-                    target_->DrawTextW(more, static_cast<UINT32>(wcslen(more)), bold_text_format_.Get(), slot_rect,
+                    target_->DrawTextW(more, static_cast<UINT32>(std::wcslen(more)), bold_text_format_.Get(), slot_rect,
                                        muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
                     muted_brush_->SetOpacity(0.75f);
                 }
@@ -7047,23 +7047,23 @@ private:
     // Longest common subsequence of identical visible glyphs; ties prefer the shortest travel.
     static void match_title_glyphs(std::vector<TitleGlyph>& a, std::vector<TitleGlyph>& b)
     {
-        const size_t n = a.size(), m = b.size();
+        const std::size_t n = a.size(), m = b.size();
         std::vector<int> dp((n + 1) * (m + 1), 0);
-        auto at = [&](size_t i, size_t j) -> int&
+        auto at = [&](std::size_t i, std::size_t j) -> int&
         {
             return dp[i * (m + 1) + j];
         };
-        auto same = [&](size_t i, size_t j)
+        auto same = [&](std::size_t i, std::size_t j)
         {
             return a[i].eligible && b[j].eligible && a[i].ch0 == b[j].ch0 && a[i].ch1 == b[j].ch1;
         };
-        auto pair_score = [&](size_t i, size_t j)
+        auto pair_score = [&](std::size_t i, std::size_t j)
         {
             return 1000 - static_cast<int>(std::min(std::fabs(a[i].sx - b[j].sx), 900.0f));
         };
-        for (size_t i = 1; i <= n; ++i)
+        for (std::size_t i = 1; i <= n; ++i)
         {
-            for (size_t j = 1; j <= m; ++j)
+            for (std::size_t j = 1; j <= m; ++j)
             {
                 int best = std::max(at(i - 1, j), at(i, j - 1));
                 if (same(i - 1, j - 1))
@@ -7073,7 +7073,7 @@ private:
                 at(i, j) = best;
             }
         }
-        size_t i = n, j = m;
+        std::size_t i = n, j = m;
         while (i > 0 && j > 0)
         {
             if (same(i - 1, j - 1) && at(i, j) == at(i - 1, j - 1) + pair_score(i - 1, j - 1))
@@ -7228,7 +7228,7 @@ private:
             {
                 continue;
             }
-            const TitleGlyph& n = title_new_[static_cast<size_t>(g.match)];
+            const TitleGlyph& n = title_new_[static_cast<std::size_t>(g.match)];
             const float e = skip_ease_in_out((time - 0.04f) / 0.55f);
             const float target_x = n.x - new_offset;
             const float x = g.sx + (target_x - g.sx) * e;
@@ -7364,7 +7364,7 @@ private:
         if (thumb_x - bar_left > 1.5f)
         {
             std::vector<D2D1_POINT_2F> pts;
-            pts.reserve(static_cast<size_t>((thumb_x - bar_left) / 1.25f) + 3);
+            pts.reserve(static_cast<std::size_t>((thumb_x - bar_left) / 1.25f) + 3);
             for (float x = bar_left;; x += 1.25f)
             {
                 const float xx = std::min(x, thumb_x);
@@ -7488,7 +7488,7 @@ private:
     }
 
     // Album art flip. Keyed on a pixel hash: the decoder issues new generations for identical images.
-    uint64_t art_content_hash(const MediaSnapshot& media)
+    std::uint64_t art_content_hash(const MediaSnapshot& media)
     {
         if (!media.art)
         {
@@ -7498,11 +7498,11 @@ private:
         {
             return art_hash_value_;
         }
-        uint64_t h = 1469598103934665603ull;
-        h = (h ^ static_cast<uint64_t>(media.art->width)) * 1099511628211ull;
-        h = (h ^ static_cast<uint64_t>(media.art->height)) * 1099511628211ull;
-        const std::vector<uint8_t>& v = media.art->bgra;
-        for (size_t i = 0; i < v.size(); i += 61)
+        std::uint64_t h = 1469598103934665603ull;
+        h = (h ^ static_cast<std::uint64_t>(media.art->width)) * 1099511628211ull;
+        h = (h ^ static_cast<std::uint64_t>(media.art->height)) * 1099511628211ull;
+        const std::vector<std::uint8_t>& v = media.art->bgra;
+        for (std::size_t i = 0; i < v.size(); i += 61)
         {
             h = (h ^ v[i]) * 1099511628211ull;
         }
@@ -7556,7 +7556,7 @@ private:
         const bool recently_drawn = art_flip_last_drawn_ >= 0.0 && (now - art_flip_last_drawn_) < 0.25;
         art_flip_last_drawn_ = now;
 
-        const uint64_t hash = art_content_hash(media);
+        const std::uint64_t hash = art_content_hash(media);
         if (!art_flip_init_ || !recently_drawn)
         {
             art_flip_init_ = true;
@@ -7754,7 +7754,7 @@ private:
         const bool recently_drawn = pill_art_last_drawn_ >= 0.0 && (now - pill_art_last_drawn_) < 0.25;
         pill_art_last_drawn_ = now;
 
-        const uint64_t hash = art_content_hash(media);
+        const std::uint64_t hash = art_content_hash(media);
         if (!pill_art_init_ || !recently_drawn || !pill_cover_anim_)
         {
             pill_art_init_ = true;
@@ -7899,7 +7899,7 @@ private:
         float sum = 0.0f;
         for (int i = a; i < b; ++i)
         {
-            sum += state.bands[static_cast<size_t>(i)];
+            sum += state.bands[static_cast<std::size_t>(i)];
         }
         return sum / static_cast<float>(b - a);
     }
@@ -7913,7 +7913,7 @@ private:
         dt = clamp(dt, 0.001f, 0.05f);
         spec_last_drawn_ = now;
 
-        const size_t key =
+        const std::size_t key =
             std::hash<std::wstring>{}(state.media.title) * 31u + std::hash<std::wstring>{}(state.media.artist);
         if (!spec_init_ || !recently_drawn)
         {
@@ -8198,9 +8198,9 @@ private:
         for (int c = 0; c < cols; ++c)
         {
             const int slot = dir >= 0.0f ? c : cols - 1 - c; // order the scan reaches this column
-            const size_t wf_size = state.waveform.size();
-            const size_t wf_offset = static_cast<size_t>(cols - c) * 3;
-            const size_t wf_src = (state.waveform_write + wf_size * 2 - wf_offset) % wf_size;
+            const std::size_t wf_size = state.waveform.size();
+            const std::size_t wf_offset = static_cast<std::size_t>(cols - c) * 3;
+            const std::size_t wf_src = (state.waveform_write + wf_size * 2 - wf_offset) % wf_size;
             float v = clamp(state.waveform[wf_src], 0.03f, 1.0f);
 
             float& pk = spec_peak_[c];
@@ -8293,8 +8293,8 @@ private:
             icon_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
             icon_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
 
-            target_->DrawTextW(glyph, static_cast<UINT32>(wcslen(glyph)), icon_format_.Get(), badge, text_brush_.Get(),
-                               D2D1_DRAW_TEXT_OPTIONS_CLIP);
+            target_->DrawTextW(glyph, static_cast<UINT32>(std::wcslen(glyph)), icon_format_.Get(), badge,
+                               text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
 
             icon_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
             icon_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
@@ -8307,7 +8307,7 @@ private:
                            muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
 
         D2D1_RECT_F value_rect = D2D1::RectF(rect.right - 58, cy - 13.0f, rect.right - 14, cy + 3.0f);
-        target_->DrawTextW(value, static_cast<UINT32>(wcslen(value)), small_text_format_.Get(), value_rect,
+        target_->DrawTextW(value, static_cast<UINT32>(std::wcslen(value)), small_text_format_.Get(), value_rect,
                            text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
         text_brush_->SetOpacity(0.90f);
 
@@ -8403,7 +8403,7 @@ private:
     }
 
     void draw_bitmap_pixels(const BitmapPixels& pixels, D2D1_RECT_F rect, ComPtr<ID2D1Bitmap>& cache,
-                            uint64_t& cached_generation, float opacity = 1.0f)
+                            std::uint64_t& cached_generation, float opacity = 1.0f)
     {
         if (pixels.bgra.empty())
         {
@@ -8426,7 +8426,7 @@ private:
     }
 
     void draw_rounded_bitmap_pixels(const BitmapPixels& pixels, D2D1_RECT_F badge, float corner_radius,
-                                    ComPtr<ID2D1Bitmap>& cache, uint64_t& cached_generation, float opacity = 1.0f)
+                                    ComPtr<ID2D1Bitmap>& cache, std::uint64_t& cached_generation, float opacity = 1.0f)
     {
         if (pixels.bgra.empty())
         {
@@ -8457,7 +8457,8 @@ private:
 
     // Like draw_rounded_bitmap_pixels, but cover-fit (center crop) instead of stretching.
     void draw_cover_fit_bitmap_pixels(const BitmapPixels& pixels, D2D1_RECT_F badge, float corner_radius,
-                                      ComPtr<ID2D1Bitmap>& cache, uint64_t& cached_generation, float opacity = 1.0f)
+                                      ComPtr<ID2D1Bitmap>& cache, std::uint64_t& cached_generation,
+                                      float opacity = 1.0f)
     {
         if (pixels.bgra.empty() || !pixels.width || !pixels.height)
         {
@@ -8512,7 +8513,7 @@ private:
     }
 
     void draw_circular_bitmap_pixels(const BitmapPixels& pixels, D2D1_POINT_2F center, float radius,
-                                     ComPtr<ID2D1Bitmap>& cache, uint64_t& cached_generation, float opacity = 1.0f)
+                                     ComPtr<ID2D1Bitmap>& cache, std::uint64_t& cached_generation, float opacity = 1.0f)
     {
         if (pixels.bgra.empty())
         {
@@ -8744,7 +8745,7 @@ private:
             {
                 icon_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
                 icon_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
-                target_->DrawTextW(glyph, static_cast<UINT32>(wcslen(glyph)), icon_format_.Get(), badge,
+                target_->DrawTextW(glyph, static_cast<UINT32>(std::wcslen(glyph)), icon_format_.Get(), badge,
                                    text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
                 icon_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
                 icon_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
@@ -8835,7 +8836,7 @@ private:
             {
                 icon_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
                 icon_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
-                target_->DrawTextW(glyph, static_cast<UINT32>(wcslen(glyph)), icon_format_.Get(), badge,
+                target_->DrawTextW(glyph, static_cast<UINT32>(std::wcslen(glyph)), icon_format_.Get(), badge,
                                    text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
                 icon_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
                 icon_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
@@ -8887,8 +8888,8 @@ private:
             icon_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
             icon_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
 
-            target_->DrawTextW(glyph, static_cast<UINT32>(wcslen(glyph)), icon_format_.Get(), badge, text_brush_.Get(),
-                               D2D1_DRAW_TEXT_OPTIONS_CLIP);
+            target_->DrawTextW(glyph, static_cast<UINT32>(std::wcslen(glyph)), icon_format_.Get(), badge,
+                               text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
 
             icon_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
             icon_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
@@ -8912,7 +8913,7 @@ private:
             swprintf_s(value, L"%d%%", state.volume.percent);
         }
         D2D1_RECT_F value_rect = D2D1::RectF(rect.right - 58, cy - 13.0f, rect.right - 14, cy + 3.0f);
-        target_->DrawTextW(value, static_cast<UINT32>(wcslen(value)), small_text_format_.Get(), value_rect,
+        target_->DrawTextW(value, static_cast<UINT32>(std::wcslen(value)), small_text_format_.Get(), value_rect,
                            text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
         text_brush_->SetOpacity(0.90f);
 
@@ -9026,8 +9027,8 @@ private:
         swprintf_s(value, L"%d:%02d", rem / 60, rem % 60);
         D2D1_RECT_F value_rect = D2D1::RectF(tx, cy - 1.0f, rect.right - 14.0f, cy + 16.0f);
         text_brush_->SetOpacity(0.95f);
-        target_->DrawTextW(value, static_cast<UINT32>(wcslen(value)), text_format_.Get(), value_rect, text_brush_.Get(),
-                           D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        target_->DrawTextW(value, static_cast<UINT32>(std::wcslen(value)), text_format_.Get(), value_rect,
+                           text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
         text_brush_->SetOpacity(0.90f);
         muted_brush_->SetOpacity(0.58f);
     }
@@ -9066,8 +9067,8 @@ private:
         }
 
         text_brush_->SetOpacity(0.95f);
-        target_->DrawTextW(glyph, static_cast<UINT32>(wcslen(glyph)), clock_format_.Get(), badge, text_brush_.Get(),
-                           D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        target_->DrawTextW(glyph, static_cast<UINT32>(std::wcslen(glyph)), clock_format_.Get(), badge,
+                           text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
 
         ComPtr<ID2D1SolidColorBrush> led_brush;
         D2D1_COLOR_F led_color =
@@ -9124,8 +9125,8 @@ private:
         {
             icon_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
             icon_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
-            target_->DrawTextW(glyph, static_cast<UINT32>(wcslen(glyph)), icon_format_.Get(), badge, text_brush_.Get(),
-                               D2D1_DRAW_TEXT_OPTIONS_CLIP);
+            target_->DrawTextW(glyph, static_cast<UINT32>(std::wcslen(glyph)), icon_format_.Get(), badge,
+                               text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
             icon_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
             icon_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
         }
@@ -9191,8 +9192,8 @@ private:
         {
             icon_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
             icon_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
-            target_->DrawTextW(glyph, static_cast<UINT32>(wcslen(glyph)), icon_format_.Get(), badge, text_brush_.Get(),
-                               D2D1_DRAW_TEXT_OPTIONS_CLIP);
+            target_->DrawTextW(glyph, static_cast<UINT32>(std::wcslen(glyph)), icon_format_.Get(), badge,
+                               text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
             icon_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
             icon_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
         }
@@ -9268,8 +9269,8 @@ private:
         {
             icon_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
             icon_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
-            target_->DrawTextW(glyph, static_cast<UINT32>(wcslen(glyph)), icon_format_.Get(), badge, text_brush_.Get(),
-                               D2D1_DRAW_TEXT_OPTIONS_CLIP);
+            target_->DrawTextW(glyph, static_cast<UINT32>(std::wcslen(glyph)), icon_format_.Get(), badge,
+                               text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
             icon_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
             icon_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
         }
@@ -9365,8 +9366,8 @@ private:
             if (small_text_format_)
             {
                 small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
-                target_->DrawTextW(pct_buf, static_cast<UINT32>(wcslen(pct_buf)), small_text_format_.Get(), pct_rect,
-                                   text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
+                target_->DrawTextW(pct_buf, static_cast<UINT32>(std::wcslen(pct_buf)), small_text_format_.Get(),
+                                   pct_rect, text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
                 small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
             }
         }
@@ -9503,7 +9504,7 @@ private:
         }
         const float one_line = line_count > 0 ? height / static_cast<float>(line_count) : 0.0f;
 
-        size_t keep = text.size();
+        std::size_t keep = text.size();
         {
             ComPtr<IDWriteTextLayout> layout;
             if (SUCCEEDED(dwrite_factory_->CreateTextLayout(text.c_str(), static_cast<UINT32>(text.size()), fmt, width,
@@ -9515,7 +9516,7 @@ private:
                 std::vector<DWRITE_LINE_METRICS> lines(n);
                 if (n > 0 && SUCCEEDED(layout->GetLineMetrics(lines.data(), n, &n)))
                 {
-                    size_t total = 0;
+                    std::size_t total = 0;
                     for (UINT32 i = 0; i < n && i < static_cast<UINT32>(max_lines); ++i)
                     {
                         total += lines[i].length;
@@ -9528,7 +9529,7 @@ private:
         std::wstring cut = text.substr(0, keep);
         for (int attempt = 0; attempt < 60 && !cut.empty(); ++attempt)
         {
-            while (!cut.empty() && (iswspace(cut.back()) || cut.back() == L',' || cut.back() == L';'))
+            while (!cut.empty() && (std::iswspace(cut.back()) || cut.back() == L',' || cut.back() == L';'))
             {
                 cut.pop_back();
             }
@@ -9803,13 +9804,13 @@ private:
             small_text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
             muted_brush_->SetOpacity(0.55f);
             const wchar_t* title = loc(L"Recent");
-            target_->DrawTextW(title, static_cast<UINT32>(wcslen(title)), small_text_format_.Get(), band,
+            target_->DrawTextW(title, static_cast<UINT32>(std::wcslen(title)), small_text_format_.Get(), band,
                                muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
             if (lookup_has_recent_rows(rows))
             {
                 small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
                 const wchar_t* clear = loc(L"Clear");
-                target_->DrawTextW(clear, static_cast<UINT32>(wcslen(clear)), small_text_format_.Get(), band,
+                target_->DrawTextW(clear, static_cast<UINT32>(std::wcslen(clear)), small_text_format_.Get(), band,
                                    muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
                 small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
             }
@@ -9817,7 +9818,7 @@ private:
             y += lookup_layout::section_h;
         }
 
-        for (size_t i = 0; i < rows.size(); ++i)
+        for (std::size_t i = 0; i < rows.size(); ++i)
         {
             const LookupRow& row = rows[i];
             const D2D1_RECT_F rr = D2D1::RectF(left, y, right, y + lookup_layout::k_row_h);
@@ -10105,8 +10106,8 @@ private:
 
         D2D1_RECT_F value_rect = D2D1::RectF(tx, cy - 1.0f, rect.right - 14.0f, cy + 16.0f);
         text_brush_->SetOpacity(0.95f);
-        target_->DrawTextW(value, static_cast<UINT32>(wcslen(value)), text_format_.Get(), value_rect, text_brush_.Get(),
-                           D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        target_->DrawTextW(value, static_cast<UINT32>(std::wcslen(value)), text_format_.Get(), value_rect,
+                           text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
         text_brush_->SetOpacity(0.90f);
     }
 
@@ -10115,7 +10116,7 @@ private:
         wchar_t buffer[64] = {};
         swprintf_s(buffer, L"Progress %d%%", state.progress.percent);
         IDWriteTextFormat* fmt = idle_text_format_ ? idle_text_format_.Get() : text_format_.Get();
-        target_->DrawTextW(buffer, static_cast<UINT32>(wcslen(buffer)), fmt, rect, text_brush_.Get(),
+        target_->DrawTextW(buffer, static_cast<UINT32>(std::wcslen(buffer)), fmt, rect, text_brush_.Get(),
                            D2D1_DRAW_TEXT_OPTIONS_CLIP);
     }
 
@@ -10211,7 +10212,7 @@ private:
     ComPtr<ID2D1Bitmap> media_source_icon_bitmap_;
     ComPtr<ID2D1Bitmap> clipboard_icon_bitmap_;
     ComPtr<ID2D1Bitmap> clipboard_image_bitmap_;
-    uint64_t art_generation_ = 0;
+    std::uint64_t art_generation_ = 0;
     SYSTEMTIME calendar_cached_date_{};
     std::wstring calendar_cached_month_name_;
     std::wstring calendar_cached_weekday_name_;
@@ -10220,14 +10221,14 @@ private:
     int calendar_cached_first_day_setting_ = -2;           // -2 forces the first fill
     ComPtr<IDWriteTextFormat> weather_desc_format_;
     float weather_desc_format_size_ = -1.0f;
-    uint64_t notification_icon_generation_ = 0;
-    uint64_t media_source_icon_generation_ = 0;
-    uint64_t clipboard_icon_generation_ = 0;
-    uint64_t clipboard_image_generation_ = 0;
+    std::uint64_t notification_icon_generation_ = 0;
+    std::uint64_t media_source_icon_generation_ = 0;
+    std::uint64_t clipboard_icon_generation_ = 0;
+    std::uint64_t clipboard_image_generation_ = 0;
     ComPtr<ID2D1Bitmap> file_tray_icon_bitmap_;
-    uint64_t file_tray_icon_generation_ = 0;
+    std::uint64_t file_tray_icon_generation_ = 0;
     std::array<ComPtr<ID2D1Bitmap>, notification_center::max_apps> notification_center_bitmaps_;
-    std::array<uint64_t, notification_center::max_apps> notification_center_generations_{};
+    std::array<std::uint64_t, notification_center::max_apps> notification_center_generations_{};
     std::size_t notification_center_next_slot_ = 0;
 
     // Lyrics state
@@ -10308,9 +10309,9 @@ private:
     ComPtr<ID2D1Bitmap> art_flip_old_;
     double art_flip_start_ = -1.0;
     double art_flip_last_drawn_ = -1.0;
-    uint64_t art_flip_hash_ = 0;
-    uint64_t art_hash_gen_ = 0;
-    uint64_t art_hash_value_ = 0;
+    std::uint64_t art_flip_hash_ = 0;
+    std::uint64_t art_hash_gen_ = 0;
+    std::uint64_t art_hash_value_ = 0;
     bool art_flip_init_ = false;
     ComPtr<ID2D1Bitmap> pill_art_old_;
     ComPtr<ID2D1Bitmap> pill_art_last_;
@@ -10326,7 +10327,7 @@ private:
     double art_morph_last_ = -1.0;
     float art_badge_alpha_ = 1.0f;
     double pill_title_pending_at_ = -1.0;
-    uint64_t pill_art_hash_ = 0;
+    std::uint64_t pill_art_hash_ = 0;
     std::wstring pill_title_;
     float pill_art_dir_ = 1.0f;   // +1 clockwise (next), -1 counter-clockwise (previous)
     bool pill_art_pulse_ = false; // same cover, new track
@@ -10338,7 +10339,7 @@ private:
     bool spec_init_ = false;
     double spec_last_drawn_ = -1.0;
     double spec_start_ = -1.0;
-    size_t spec_key_ = 0;
+    std::size_t spec_key_ = 0;
     float spec_t_ = -1.0f;
     float spec_dir_ = 1.0f;
     float spec_phase_ = 0.0f;
@@ -10369,7 +10370,7 @@ private:
     float dock_hover_[media_layout::dock_max_slots] = {};
     float dock_press_[media_layout::dock_max_slots] = {};
     ComPtr<ID2D1Bitmap> dock_icon_bitmap_[media_layout::dock_max_slots];
-    uint64_t dock_icon_gen_[media_layout::dock_max_slots] = {};
+    std::uint64_t dock_icon_gen_[media_layout::dock_max_slots] = {};
     MarqueeLayoutCache marquee_source_cache_;
 
     // Tab transition state
@@ -10386,16 +10387,16 @@ private:
 
     // Cached resources (see "Cached Direct2D resources")
     std::vector<ComPtr<ID2D1SolidColorBrush>> brush_pool_;
-    size_t brush_pool_used_ = 0;
+    std::size_t brush_pool_used_ = 0;
     std::vector<ComPtr<ID2D1Layer>> layer_pool_;
-    size_t layer_pool_used_ = 0;
+    std::size_t layer_pool_used_ = 0;
     ComPtr<ID2D1SolidColorBrush> raised_brush_;
     ComPtr<ID2D1SolidColorBrush> raised_strong_brush_;
     LinearGradientSlot depth_grad_;
     LinearGradientSlot track_grad_;
     RadialGradientSlot bloom_grad_;
     ShapeEntry shape_cache_[shape_cache_size];
-    uint64_t shape_clock_ = 0;
+    std::uint64_t shape_clock_ = 0;
 };
 
 Activity activity_for_kind(IslandKind kind, const Settings& settings, const SharedState& state)
@@ -11414,10 +11415,10 @@ DWORD WINAPI render_thread_proc(void*)
             needs_render = true;
         }
 
-        static uint64_t prev_art_gen = 0;
-        static uint64_t prev_src_icon_gen = 0;
-        static uint64_t prev_notif_icon_gen = 0;
-        static uint64_t prev_clip_icon_gen = 0;
+        static std::uint64_t prev_art_gen = 0;
+        static std::uint64_t prev_src_icon_gen = 0;
+        static std::uint64_t prev_notif_icon_gen = 0;
+        static std::uint64_t prev_clip_icon_gen = 0;
         static int prev_cpu = -1;
         static int prev_ram = -1;
         static int prev_disk = -1;

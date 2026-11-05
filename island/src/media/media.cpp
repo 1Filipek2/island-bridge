@@ -92,7 +92,7 @@ std::wstring media_source_display_name(const std::wstring& aumid)
         name = strip_extension(base_name_from_path(aumid));
         if (!name.empty())
         {
-            name[0] = static_cast<wchar_t>(towupper(name[0]));
+            name[0] = static_cast<wchar_t>(std::towupper(name[0]));
         }
     }
     return name.empty() ? std::wstring(L"Media") : name;
@@ -101,10 +101,10 @@ std::wstring media_source_display_name(const std::wstring& aumid)
 struct MediaSourceTracker
 {
     std::unordered_map<std::wstring, bool> was_playing;     // playing state at the previous poll
-    std::unordered_map<std::wstring, uint64_t> started_seq; // when each source last STARTED playing (higher = newer)
-    uint64_t seq_counter = 0;
+    std::unordered_map<std::wstring, std::uint64_t> started_seq; // when each source last STARTED playing (higher = newer)
+    std::uint64_t seq_counter = 0;
     std::wstring dock_override;          // temporary dock pick; empty = none
-    uint64_t dock_override_base_seq = 0; // any start newer than this ends the dock pick
+    std::uint64_t dock_override_base_seq = 0; // any start newer than this ends the dock pick
     unsigned dock_override_rev_seen = 0;
     std::vector<std::wstring> order; // first seen = first in the dock
     std::unordered_map<std::wstring, PixelsRef> icons;
@@ -284,7 +284,7 @@ std::wstring choose_media_source_aumid(MediaSourceTracker& tracker, const std::w
     {
         return std::find(tracker.order.begin(), tracker.order.end(), id) != tracker.order.end();
     };
-    auto seq_of = [&](const std::wstring& id) -> uint64_t
+    auto seq_of = [&](const std::wstring& id) -> std::uint64_t
     {
         auto it = tracker.started_seq.find(id);
         return it == tracker.started_seq.end() ? 0 : it->second;
@@ -329,12 +329,12 @@ std::wstring choose_media_source_aumid(MediaSourceTracker& tracker, const std::w
 
     std::wstring best;
     bool best_playing = false;
-    uint64_t best_seq = 0;
+    std::uint64_t best_seq = 0;
     for (const std::wstring& id : tracker.order)
     {
         const auto pit = tracker.was_playing.find(id);
         const bool playing = pit != tracker.was_playing.end() && pit->second;
-        const uint64_t seq = seq_of(id);
+        const std::uint64_t seq = seq_of(id);
         if (best.empty() || (playing && !best_playing) || (playing == best_playing && seq > best_seq))
         {
             best = id;
@@ -360,7 +360,7 @@ DWORD WINAPI media_thread_proc(void*)
 
     Manager manager{nullptr};
     bool logged_unavailable = false;
-    int64_t pending_seek_baseline = -1; // guards against bogus "went backwards" readings
+    std::int64_t pending_seek_baseline = -1; // guards against bogus "went backwards" readings
     MediaSourceTracker source_tracker;
     ULONGLONG pending_seek_baseline_tick_count = 0;
 
@@ -398,9 +398,9 @@ DWORD WINAPI media_thread_proc(void*)
 
                     if (timeline)
                     {
-                        const int64_t raw_pos = timeline.Position().count();
-                        int64_t np = raw_pos;
-                        int64_t ne = timeline.EndTime().count();
+                        const std::int64_t raw_pos = timeline.Position().count();
+                        std::int64_t np = raw_pos;
+                        std::int64_t ne = timeline.EndTime().count();
                         bool np_p = (playback.PlaybackStatus() == PlaybackStatus::Playing);
                         if (np_p)
                         {
@@ -408,7 +408,7 @@ DWORD WINAPI media_thread_proc(void*)
                             try
                             {
                                 const auto last_updated = timeline.LastUpdatedTime();
-                                const int64_t age_ticks = (winrt::clock::now() - last_updated).count();
+                                const std::int64_t age_ticks = (winrt::clock::now() - last_updated).count();
                                 if (age_ticks > 0 && age_ticks < 10 * 10000000LL)
                                 {
                                     np = raw_pos + age_ticks;
@@ -422,15 +422,15 @@ DWORD WINAPI media_thread_proc(void*)
                         std::lock_guard lock(g_state_mutex);
                         // Some sources (Spotify desktop) refresh LastUpdatedTime without moving Position(); wait for a second
                         // poll before treating it as a seek.
-                        constexpr int64_t jitter_tolerance_ticks = 15000000LL; // 1.5s
-                        constexpr int64_t confirm_tolerance_ticks = 5000000LL; // 0.5s
+                        constexpr std::int64_t jitter_tolerance_ticks = 15000000LL; // 1.5s
+                        constexpr std::int64_t confirm_tolerance_ticks = 5000000LL; // 0.5s
                         const bool same_track_playing = np_p && g_state.media.playing && ne == g_state.media.end_ticks;
 
                         if (same_track_playing)
                         {
-                            const int64_t predicted_now =
+                            const std::int64_t predicted_now =
                                 g_state.media.position_ticks +
-                                (static_cast<int64_t>(GetTickCount64()) - g_state.media.last_updated_ticks) * 10000;
+                                (static_cast<std::int64_t>(GetTickCount64()) - g_state.media.last_updated_ticks) * 10000;
 
                             if (np < predicted_now - jitter_tolerance_ticks)
                             {
@@ -438,12 +438,12 @@ DWORD WINAPI media_thread_proc(void*)
                                 bool confirmed = false;
                                 if (pending_seek_baseline >= 0)
                                 {
-                                    const int64_t expected_if_real_seek =
+                                    const std::int64_t expected_if_real_seek =
                                         pending_seek_baseline +
-                                        (static_cast<int64_t>(now_ticks64) -
-                                         static_cast<int64_t>(pending_seek_baseline_tick_count)) *
+                                        (static_cast<std::int64_t>(now_ticks64) -
+                                         static_cast<std::int64_t>(pending_seek_baseline_tick_count)) *
                                             10000;
-                                    const int64_t diff = np - expected_if_real_seek;
+                                    const std::int64_t diff = np - expected_if_real_seek;
                                     if ((diff < 0 ? -diff : diff) < confirm_tolerance_ticks)
                                     {
                                         confirmed = true;
@@ -540,13 +540,13 @@ DWORD WINAPI media_thread_proc(void*)
                     std::wstring prev_source_app_user_model_id;
                     bool has_prev_icon = false;
                     PixelsRef prev_icon;
-                    uint64_t prev_icon_generation = 0;
+                    std::uint64_t prev_icon_generation = 0;
                     std::wstring prev_badge;
 
                     std::wstring prev_title;
                     std::wstring prev_artist;
                     PixelsRef prev_art;
-                    uint64_t prev_art_generation = 0;
+                    std::uint64_t prev_art_generation = 0;
                     double prev_art_changed_at = 0.0;
                     double prev_title_changed_at = 0.0;
 
@@ -611,7 +611,7 @@ DWORD WINAPI media_thread_proc(void*)
                     }
                     else if (auto thumbnail = properties.Thumbnail())
                     {
-                        std::vector<uint8_t> bytes = read_win_rt_stream_bytes(thumbnail);
+                        std::vector<std::uint8_t> bytes = read_win_rt_stream_bytes(thumbnail);
                         if (!bytes.empty())
                         {
                             BitmapPixels decoded;
