@@ -69,10 +69,14 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Build the island
+        shell: cmd
+        run: call island\build.cmd Release
+
       - name: Build and run the parser tests and fuzzing
         shell: cmd
         run: |
           for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSROOT=%%i"
           call "%VSROOT%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
           set MOD_TEST_COMPILER=msvc
-          "%ProgramFiles%\Git\bin\bash.exe" mod/test.sh
+          "%ProgramFiles%\Git\bin\bash.exe" island/test.sh
