@@ -9230,7 +9230,8 @@ Activity ActivityForKind(IslandKind kind, const Settings& settings, const Shared
 
     switch (kind) {
         case IslandKind::Media:
-            activity.width = 150.0f;
+            activity.width = MediaPillLayout::kBaseWidth +
+                (state.system.micActive || state.system.cameraActive ? MediaPillLayout::kPrivacyExtraWidth : 0.0f);
             activity.height = 44.0f;
             break;
         case IslandKind::Progress:
@@ -9922,7 +9923,9 @@ DWORD WINAPI RenderThreadProc(void*) {
                     // Collapsed but carrying lyrics: wider pill, same height.
                     primary.width = (kCollapsedLyricsWidth + clockSection) * g_settings.sizeScale;
                 } else if (g_settings.mediaPillClock) {
-                    primary.width = (MediaPillLayout::kBaseWidth + clockSection) * g_settings.sizeScale;
+                    const float privacyExtra = snapshot.system.micActive || snapshot.system.cameraActive
+                        ? MediaPillLayout::kPrivacyExtraWidth : 0.0f;
+                    primary.width = (MediaPillLayout::kBaseWidth + privacyExtra + clockSection) * g_settings.sizeScale;
                 }
             }
         }

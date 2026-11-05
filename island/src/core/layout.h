@@ -190,7 +190,8 @@ namespace island
 namespace MediaPillLayout
 {
 
-    constexpr float kBaseWidth = 150.0f;    // same as ActivityForKind's Media width
+    constexpr float kBaseWidth = 100.0f;
+    constexpr float kPrivacyExtraWidth = 22.0f;
     constexpr float kClockPadLeft = 14.0f;  // left edge -> clock text
     constexpr float kSlotGap = 9.0f;        // clock text -> divider
     constexpr float kDividerWidth = 1.0f;
