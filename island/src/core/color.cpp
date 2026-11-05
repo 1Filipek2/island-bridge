@@ -3,7 +3,6 @@
 
 namespace island
 {
-
 bool equals_no_case(std::wstring_view a, std::wstring_view b)
 {
     if (a.size() != b.size())
@@ -24,8 +23,6 @@ bool equals_no_case(std::wstring_view a, std::wstring_view b)
 
 D2D1_COLOR_F color_from_hex(std::wstring text, D2D1_COLOR_F fallback)
 {
-    // Trim surrounding whitespace: a stray space used to make the whole value
-    // fail to parse and silently fall back to the default color.
     const size_t first_char = text.find_first_not_of(L" \t\r\n");
     if (first_char == std::wstring::npos)
     {
@@ -38,9 +35,7 @@ D2D1_COLOR_F color_from_hex(std::wstring text, D2D1_COLOR_F fallback)
         text.erase(text.begin());
     }
 
-    // Accepted forms: RGB, RGBA, RRGGBB, RRGGBBAA. The alpha-bearing forms are
-    // how a translucent island background is specified independently of the
-    // global pill transparency slider.
+    // Accepted forms: RGB, RGBA, RRGGBB, RRGGBBAA.
     const size_t digits = text.size();
     if (digits != 3 && digits != 4 && digits != 6 && digits != 8)
     {
@@ -67,7 +62,6 @@ D2D1_COLOR_F color_from_hex(std::wstring text, D2D1_COLOR_F fallback)
     int r = 0, g = 0, b = 0, a = 255;
     if (digits == 3 || digits == 4)
     {
-        // Shorthand, each digit doubled so 'f' means 0xff.
         r = nibble(text[0]) * 17;
         g = nibble(text[1]) * 17;
         b = nibble(text[2]) * 17;
@@ -92,7 +86,6 @@ D2D1_COLOR_F color_from_hex(std::wstring text, D2D1_COLOR_F fallback)
 
 namespace
 {
-
 static float hue_to_rgb(float p, float q, float t)
 {
     if (t < 0.0f)
@@ -200,13 +193,7 @@ double relative_luminance(D2D1_COLOR_F c)
     return 0.2126 * to_linear(c.r) + 0.7152 * to_linear(c.g) + 0.0722 * to_linear(c.b);
 }
 
-// Nudges an accent until it clears 3:1 against the surface it will sit on.
-//
-// This used to only ever *lighten*, which silently assumed a dark island. On a
-// light background lightening reduces contrast, so the loop would run all the
-// way to l = 0.95 and hand back a near-white accent that vanished into the
-// surface. The step direction is now chosen from the background's luminance,
-// which is what lets a light theme (Porcelain) keep a readable accent.
+// Moves the accent away from the background (lighter on dark, darker on light) until it reaches 3:1 contrast.
 D2D1_COLOR_F ensure_contrast_against_background(D2D1_COLOR_F candidate, D2D1_COLOR_F bg_color)
 {
     float h = 0.0f, s = 0.0f, l = 0.0f;
@@ -220,7 +207,6 @@ D2D1_COLOR_F ensure_contrast_against_background(D2D1_COLOR_F candidate, D2D1_COL
     const double bg_lum = relative_luminance(bg_color);
     const bool on_dark = bg_lum < 0.45;
 
-    // Clamp toward the half that can actually move away from the background.
     l = on_dark ? std::min(l, 0.85f) : std::max(l, 0.15f);
 
     const float step = on_dark ? 0.02f : -0.02f;
@@ -234,7 +220,6 @@ D2D1_COLOR_F ensure_contrast_against_background(D2D1_COLOR_F candidate, D2D1_COL
     };
 
     double contrast = contrast_of(candidate);
-    // Bounded by `limit` in both directions, so this terminates either way.
     while (contrast < 3.0 && (on_dark ? (l < limit) : (l > limit)))
     {
         l += step;

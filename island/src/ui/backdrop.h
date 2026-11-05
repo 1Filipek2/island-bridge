@@ -5,7 +5,6 @@
 
 namespace island
 {
-
 void enable_blur_behind(HWND hwnd);
 
 }
@@ -14,7 +13,6 @@ namespace island
 {
 namespace backdrop
 {
-
 bool clip_ui_active_cached();
 
 }
@@ -24,8 +22,7 @@ namespace island
 {
 namespace dwm_backdrop
 {
-
-constexpr int max_pills = 2; // split / combined layouts still use one silhouette each
+constexpr int max_pills = 2;
 bool available();
 void hide_all();
 void destroy_all();
@@ -38,7 +35,6 @@ void sync(HWND island, POINT origin, const D2D1_RECT_F* rects, const float* radi
 
 namespace island
 {
-
 void apply_backdrop_material(HWND);
 void apply_hide_show_hotkey();
 

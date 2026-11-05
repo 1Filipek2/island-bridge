@@ -5,7 +5,6 @@
 
 namespace island
 {
-
 bool is_foreground_fullscreen(HWND target_hwnd);
 
 struct MonitorEnumData
@@ -55,7 +54,6 @@ inline HMONITOR get_anchor_monitor()
     return get_anchor_monitor_for(g_settings.target_monitor);
 }
 
-// Returns the DPI scale factor for a given monitor (1.0 = 96 DPI = 100%)
 inline float get_monitor_dpi_scale(HMONITOR monitor)
 {
     if (!monitor)

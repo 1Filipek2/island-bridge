@@ -5,7 +5,6 @@ namespace island
 {
 namespace
 {
-
 bool icon_to_pixels(HICON icon, UINT size, BitmapPixels* out_pixels)
 {
     if (!icon || !out_pixels || !size)
@@ -37,12 +36,9 @@ bool icon_to_pixels(HICON icon, UINT size, BitmapPixels* out_pixels)
         return false;
     }
 
-    // Fill with transparent black (alpha=0) so icon edges don't bleed dark fringe.
     HGDIOBJ old = SelectObject(dc, bitmap);
     RECT fill = {0, 0, static_cast<LONG>(size), static_cast<LONG>(size)};
-    // Use NULL_BRUSH (transparent) then manually zero-fill the BGRA buffer after copy.
     FillRect(dc, &fill, reinterpret_cast<HBRUSH>(GetStockObject(NULL_BRUSH)));
-    // Zero out the bits so background is fully transparent before drawing icon.
     ZeroMemory(bits, static_cast<size_t>(size) * size * 4);
     DrawIconEx(dc, 0, 0, icon, size, size, 0, nullptr, DI_NORMAL);
 
@@ -52,8 +48,7 @@ bool icon_to_pixels(HICON icon, UINT size, BitmapPixels* out_pixels)
     pixels.bgra.resize(static_cast<size_t>(size) * size * 4);
     memcpy(pixels.bgra.data(), bits, pixels.bgra.size());
 
-    // Older icons can have no alpha in the color bitmap. Treat black pixels as
-    // transparent only when the icon did not write any alpha at all.
+    // Old icons may have no alpha: then near-black counts as transparent.
     bool has_alpha = false;
     for (size_t i = 3; i < pixels.bgra.size(); i += 4)
     {
@@ -65,7 +60,6 @@ bool icon_to_pixels(HICON icon, UINT size, BitmapPixels* out_pixels)
     }
     if (!has_alpha)
     {
-        // No alpha channel: treat near-black as transparent, rest as opaque.
         for (size_t i = 0; i + 3 < pixels.bgra.size(); i += 4)
         {
             const bool black = pixels.bgra[i] < 4 && pixels.bgra[i + 1] < 4 && pixels.bgra[i + 2] < 4;
@@ -130,7 +124,6 @@ bool process_image_name_for_pid(DWORD pid, std::wstring* image_name)
 
 namespace
 {
-
 HICON copy_window_icon(HWND hwnd, WPARAM icon_type)
 {
     DWORD_PTR result = 0;
@@ -145,7 +138,6 @@ HICON get_process_icon(DWORD pid)
     {
         HICON h_icon = nullptr;
         UINT icon_id = 0;
-        // Try to fetch a high-res 64x64 icon first to avoid pixelated icons
         using PrivateExtractIconsWT = UINT(WINAPI*)(LPCWSTR, int, int, int, HICON*, UINT*, UINT, UINT);
         static auto p_private_extract_icons_w = reinterpret_cast<PrivateExtractIconsWT>(
             GetProcAddress(GetModuleHandleW(L"user32.dll"), "PrivateExtractIconsW"));
@@ -346,7 +338,6 @@ std::wstring media_source_badge(std::wstring_view source_name)
 
 namespace
 {
-
 bool window_looks_like_media_source(HWND hwnd, const std::wstring& source_lower)
 {
     if (!IsWindowVisible(hwnd) || hwnd == g_hwnd)
@@ -376,21 +367,11 @@ bool window_looks_like_media_source(HWND hwnd, const std::wstring& source_lower)
 
 }
 
-// #62: short-form video feeds change "track" every few seconds, which turned
-// auto-expand into a constant popup. A blocklist entry is matched loosely
-// against the friendly source name, the raw AUMID and the title, so a single
-// entry like "tiktok" catches both the desktop app and a browser tab. The
-// collapsed pill still updates -- only the expansion is suppressed.
-//
-// Reads the blocklist under g_settingsMutex rather than taking a Settings
-// reference: the caller is the render loop, and walking a std::vector<std::wstring>
-// that LoadSettings() may be reassigning is a use-after-free, not just a stale
-// read. The haystack is built outside the lock because that part allocates.
+// Blocklist entries match the source name, the AUMID and the title loosely; only auto-expand is
+// suppressed. Read under g_settings_mutex because load_settings can replace the vector.
 bool media_expand_blocked(const MediaSnapshot& media)
 {
     {
-        // Fast path for the overwhelmingly common empty-blocklist case: one
-        // uncontended lock, no allocation, no string work.
         std::lock_guard lock(g_settings_mutex);
         if (g_settings.media_expand_blocklist.empty())
         {
@@ -422,7 +403,6 @@ bool is_browser_media_source(std::wstring_view source)
 
 namespace
 {
-
 std::wstring site_badge_from_title(std::wstring_view title)
 {
     const std::wstring lower = to_lower_copy(std::wstring(title));
@@ -551,7 +531,6 @@ bool is_ignorable_foreground_window(HWND hwnd, const std::wstring& title)
 
 namespace
 {
-
 BOOL CALLBACK find_media_source_window_proc(HWND hwnd, LPARAM l_param)
 {
     auto* data = reinterpret_cast<std::pair<const std::wstring*, HWND*>*>(l_param);
@@ -585,8 +564,6 @@ PixelsRef find_media_source_icon(const std::wstring& source_app_user_model_id)
     PixelsRef pixels;
     if (is_browser_media_source(source_app_user_model_id))
     {
-        // Continue searching for the browser window anyway to retrieve
-        // the browser's app icon or the PWA's app icon.
     }
 
     const std::wstring source_lower = to_lower_copy(source_app_user_model_id);
@@ -602,7 +579,6 @@ PixelsRef find_media_source_icon(const std::wstring& source_app_user_model_id)
 
 namespace
 {
-
 struct FindAppIconData
 {
     const std::wstring* target_name;
@@ -623,17 +599,17 @@ BOOL CALLBACK find_app_icon_window_proc(HWND hwnd, LPARAM l_param)
         return TRUE;
     }
 
-    // 1. Fast path: Check window title first (lightweight check without opening process handles)
+    // 1. Window title first (cheap)
     wchar_t title[128] = {};
     GetWindowTextW(hwnd, title, ARRAYSIZE(title));
     std::wstring title_lower = to_lower_copy(title);
     if (!title_lower.empty() && title_lower.find(*d->target_name) != std::wstring::npos)
     {
         d->best_hwnd = hwnd;
-        return FALSE; // Found via title, stop enumeration
+        return FALSE;
     }
 
-    // 2. Slow path fallback: Check process executable name
+    // 2. Then the process executable name
     DWORD pid = 0;
     GetWindowThreadProcessId(hwnd, &pid);
     if (!pid)
@@ -672,7 +648,7 @@ BOOL CALLBACK find_app_icon_window_proc(HWND hwnd, LPARAM l_param)
             d->target_name->find(base_no_exe) != std::wstring::npos)
         {
             d->best_hwnd = hwnd;
-            return FALSE; // Found via process name, stop enumeration
+            return FALSE;
         }
     }
 

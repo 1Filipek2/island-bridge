@@ -5,7 +5,6 @@
 
 namespace island
 {
-
 void enable_blur_behind(HWND hwnd)
 {
     DWM_BLURBEHIND blur = {};
@@ -18,8 +17,6 @@ namespace backdrop
 {
 namespace
 {
-
-// True while the foreground window belongs to the Snipping Tool / screen clip UI.
 bool screen_clip_ui_active()
 {
     HWND fg = GetForegroundWindow();
@@ -56,9 +53,7 @@ bool screen_clip_ui_active()
 
 namespace backdrop
 {
-
-// While the Snipping Tool overlay is foreground the island must not raise or
-// show itself. Cached for 100 ms since this is checked every frame.
+// The island must not raise itself over the Snipping Tool overlay. Cached for 100 ms (checked per frame).
 bool clip_ui_active_cached()
 {
     static std::atomic<ULONGLONG> last_check{0};
@@ -78,7 +73,6 @@ namespace dwm_backdrop
 {
 namespace
 {
-
 struct AccentPolicy
 {
     int accent_state;
@@ -121,7 +115,6 @@ bool g_resolved = false;
 bool g_supported = false; // API present and Windows 10 1803 or newer
 bool g_class_registered = false;
 
-// Last Sync signature so idle presents that redraw content skip SetWindowPos work.
 struct SyncFingerprint
 {
     HWND island = nullptr;
@@ -162,7 +155,7 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param)
         case WM_MOUSEACTIVATE:
             return MA_NOACTIVATE;
         case WM_NCHITTEST:
-            return HTTRANSPARENT; // belt-and-braces with WS_EX_TRANSPARENT
+            return HTTRANSPARENT;
         case WM_ERASEBKGND:
             return 1; // accent owns the pixels; avoid GDI flash on show/resize
     }
@@ -189,8 +182,6 @@ void resolve()
 
 namespace dwm_backdrop
 {
-
-// False only on Windows too old for the accent; the island then keeps its solid fill.
 bool available()
 {
     resolve();
@@ -203,7 +194,6 @@ namespace dwm_backdrop
 {
 namespace
 {
-
 DWORD color_to_accent_abgr(const D2D1_COLOR_F& tint, float tint_alpha)
 {
     auto to8 = [](float v)
@@ -282,12 +272,8 @@ HWND create_backdrop_window(HWND owner)
         }
         g_class_registered = true;
     }
-    // No WS_EX_LAYERED (it would kill the accent); WS_EX_TRANSPARENT passes the mouse.
-    // Unowned (hWndParent = nullptr): In Win32, an owned popup window is strictly forced
-    // above its owner in the z-order upon owner activation. If owned by the island, calling
-    // SetForegroundWindow(island) for the right-click context menu (or Quick Lookup) would
-    // bring the backdrop window in front of the island, completely covering the island's
-    // content (text, icons, album art) with blur/acrylic. Unowned popups stay behind the island.
+    // No WS_EX_LAYERED (it kills the accent). Unowned on purpose: an owned popup is forced above its owner
+    // on activation and would cover the island with blur.
     DWORD ex_style = WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT;
     if (g_settings.always_on_top)
     {
@@ -306,11 +292,10 @@ void hide_slot(Slot& s)
 {
     if (s.hwnd && s.visible)
     {
-        clear_accent(s); // drop GPU blur work while hidden
+        clear_accent(s);
         ShowWindow(s.hwnd, SW_HIDE);
     }
     s.visible = false;
-    // Force a fresh accent apply on the next show — DWM can drop it while hidden.
     s.accent_state = -1;
 }
 
@@ -319,7 +304,6 @@ void hide_slot(Slot& s)
 
 namespace dwm_backdrop
 {
-
 void hide_all()
 {
     for (Slot& s : g_slots)
@@ -353,8 +337,6 @@ namespace dwm_backdrop
 {
 namespace
 {
-
-// Clips the window to the pill; `lift` raises the top so a notch pill gets a flat top.
 void update_region(Slot& s, int w, int h, int radius, int lift)
 {
     if (s.radius == radius && s.lift == lift && s.w == w && s.h == h)
@@ -377,8 +359,7 @@ void ensure_top_most(Slot& s, bool want_top_most)
     {
         return;
     }
-    // Style-bit edits alone do not move a window between the topmost bands;
-    // SetWindowPos with HWND_TOPMOST / HWND_NOTOPMOST is required.
+    // Only SetWindowPos with HWND_TOPMOST / HWND_NOTOPMOST moves a window between the topmost bands.
     SetWindowPos(s.hwnd, want_top_most ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
     s.top_most = want_top_most;
@@ -389,9 +370,6 @@ void ensure_top_most(Slot& s, bool want_top_most)
 
 namespace dwm_backdrop
 {
-
-// Keeps all active backdrop windows placed immediately behind the island window in the z-order.
-// Called around context menu popups and foreground activation so the blur never covers the island.
 void ensure_behind(HWND island)
 {
     if (!island)
@@ -415,9 +393,7 @@ namespace dwm_backdrop
 {
 namespace
 {
-
-// Places one backdrop window below `prev`. Only moves it when something changed:
-// per-frame SetWindowPos lags on some Windows 10 builds.
+// Moves the window only when something changed: per-frame SetWindowPos lags on some Windows 10 builds.
 void place_slot(Slot& s, HWND prev, int x, int y, int w, int h, int radius, int lift, bool want_top_most)
 {
     ensure_top_most(s, want_top_most);
@@ -449,9 +425,6 @@ void place_slot(Slot& s, HWND prev, int x, int y, int w, int h, int radius, int 
 
 namespace dwm_backdrop
 {
-
-// Called after every presented frame with the island's screen origin and its pills
-// (client px, including hover scale) with corner radii.
 void sync(HWND island, POINT origin, const D2D1_RECT_F* rects, const float* radii, int count, bool notch,
           BackdropMaterial material, const D2D1_COLOR_F& tint, float tint_alpha)
 {
@@ -471,7 +444,6 @@ void sync(HWND island, POINT origin, const D2D1_RECT_F* rects, const float* radi
         color = color_to_accent_abgr(tint, tint_alpha);
     }
 
-    // Precompute geometry once so we can early-out when nothing moved.
     struct Geom
     {
         int x, y, w, h, radius, lift;
@@ -481,7 +453,6 @@ void sync(HWND island, POINT origin, const D2D1_RECT_F* rects, const float* radi
     for (int i = 0; i < count; ++i)
     {
         const D2D1_RECT_F& r = rects[i];
-        // Inset 1px so the region's hard edge stays hidden behind the island contour.
         constexpr int inset = 1;
         const int x = static_cast<int>(std::lround(origin.x + r.left)) + inset;
         const int y = static_cast<int>(std::lround(origin.y + r.top)) + (notch ? 0 : inset);
@@ -506,7 +477,6 @@ void sync(HWND island, POINT origin, const D2D1_RECT_F* rects, const float* radi
                      g_last_sync.state == state && g_last_sync.notch == notch;
     if (unchanged && count > 0 && g_slots[0].hwnd && g_slots[0].visible)
     {
-        // If another always-on-top window slipped between the island and its backdrop, restack.
         if (GetWindow(island, GW_HWNDNEXT) != g_slots[0].hwnd)
         {
             unchanged = false;
@@ -536,7 +506,6 @@ void sync(HWND island, POINT origin, const D2D1_RECT_F* rects, const float* radi
     }
     if (unchanged)
     {
-        // Accent can still need a refresh after a settings tick that didn't move geometry.
         for (int i = 0; i < count; ++i)
         {
             if (geom[i].valid && g_slots[i].hwnd)
@@ -602,8 +571,6 @@ void sync(HWND island, POINT origin, const D2D1_RECT_F* rects, const float* radi
 
 }
 
-// The backdrop picks up a material or tint change on the next frame; turning it
-// off hides the DWM windows immediately so the blur does not linger a frame.
 void apply_backdrop_material(HWND)
 {
     if (g_settings.backdrop_material == BackdropMaterial::None)
@@ -613,12 +580,8 @@ void apply_backdrop_material(HWND)
     g_layout_dirty = true;
 }
 
-// Always unregisters before registering so a settings change never leaks the
-// previous hotkey. Safe to call before the overlay window exists (no-ops).
 void apply_hide_show_hotkey()
 {
-    // Quick Lookup shares this entry point so both hotkeys are registered,
-    // re-registered and released in the same places (render thread only).
     apply_lookup_hotkey();
     if (!g_hwnd)
     {

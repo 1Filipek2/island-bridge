@@ -2,8 +2,6 @@
 
 namespace island
 {
-
-// Returns true if the currently active foreground window is in full screen mode
 bool is_foreground_fullscreen(HWND target_hwnd)
 {
     HWND fg = GetForegroundWindow();

@@ -3,7 +3,6 @@
 
 namespace island
 {
-
 double now_seconds()
 {
     using Clock = std::chrono::steady_clock;
@@ -23,16 +22,11 @@ int clamp_int(int v, int lo, int hi)
 
 namespace
 {
-
-// ── Lyrics sync offset ───────────────────────────────────────────────────────
-// Convention: positive offset = lyrics appear EARLIER, negative = LATER.
-// Draw code only reads the atomics, so nothing here takes a lock or polls anything.
-constexpr double lyrics_base_lookahead_sec = 0.49; // built-in baseline; the user offset is added on top
+// Lyrics sync offset: positive shows lyrics earlier, negative later.
+constexpr double lyrics_base_lookahead_sec = 0.49;
 
 }
 
-// Effective offset = Mod Settings value + right-click nudge, clamped. Called from
-// LoadSettings() and from the right-click menu.
 void publish_lyrics_offsets(int setting_ms, int setting_bt_ms)
 {
     g_lyrics_effective_offset_ms.store(
@@ -43,7 +37,6 @@ void publish_lyrics_offsets(int setting_ms, int setting_bt_ms)
                                           std::memory_order_relaxed);
 }
 
-// Seconds added to the reported playback position for every lyric surface.
 double lyrics_lookahead_sec()
 {
     const int offset_ms = g_default_output_is_bluetooth.load(std::memory_order_relaxed)
@@ -52,7 +45,6 @@ double lyrics_lookahead_sec()
     return lyrics_base_lookahead_sec + static_cast<double>(offset_ms) / 1000.0;
 }
 
-// Smoothstep easing (ease in / ease out). Used by the Lyrics tab.
 float smooth_step01(float t)
 {
     t = clamp(t, 0.0f, 1.0f);

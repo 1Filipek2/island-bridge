@@ -8,21 +8,10 @@ namespace island
 {
 namespace
 {
-
 HHOOK g_keyboard_hook = nullptr;
 
-// Deliberately does nothing but forward the event.
-//
-// This used to write g_state.capsLock here, under g_stateMutex, before posting.
-// Two problems with that. It recorded the pill even when the Caps Lock module was
-// switched off, because the setting is only checked once the message reaches the
-// window thread -- so the pill still appeared for its full 2.5s. And a
-// WH_KEYBOARD_LL callback runs inline on the input path, blocking every keystroke
-// system-wide until it returns, so taking a lock that the render, weather or
-// media threads also hold risked stalling typing on the whole desktop.
-//
-// The WM_APP_CAPSLOCK handler writes exactly the same fields on the window
-// thread, after checking the setting. Nothing is lost by only posting.
+// Only forwards the event: a WH_KEYBOARD_LL callback blocks every keystroke on the desktop until it
+// returns, so the window thread does the work (and checks the setting).
 LRESULT CALLBACK low_level_keyboard_proc(int n_code, WPARAM w_param, LPARAM l_param)
 {
     if (n_code == HC_ACTION)
@@ -45,10 +34,7 @@ LRESULT CALLBACK low_level_keyboard_proc(int n_code, WPARAM w_param, LPARAM l_pa
     return CallNextHookEx(g_keyboard_hook, n_code, w_param, l_param);
 }
 
-// A system-wide WH_KEYBOARD_LL puts this process on the path of every keystroke
-// on the desktop, so it is only installed while it has something to report. The
-// hook exists solely to notice Caps Lock and Num Lock for the indicator pill;
-// with that module off it was still running for nothing.
+// The system-wide keyboard hook is installed only while the Caps Lock module is on.
 static bool caps_lock_hook_wanted()
 {
     return g_settings.caps_lock;
@@ -56,7 +42,6 @@ static bool caps_lock_hook_wanted()
 
 }
 
-// Wakes the keyboard thread so it re-evaluates whether the hook is needed.
 void notify_keyboard_thread_setting_changed()
 {
     if (g_keyboard_thread_id != 0)
@@ -67,9 +52,6 @@ void notify_keyboard_thread_setting_changed()
 
 DWORD WINAPI keyboard_thread_proc(void*)
 {
-    // Bounded by the stop event rather than an open-ended Sleep loop, so an early
-    // unload cannot leave this spinning while waiting for a window that is never
-    // going to appear.
     while (!g_hwnd && WaitForSingleObject(g_stop_event, 10) == WAIT_TIMEOUT)
     {
     }
@@ -88,8 +70,7 @@ DWORD WINAPI keyboard_thread_proc(void*)
             g_keyboard_hook = nullptr;
         }
 
-        // A low-level hook is delivered through the installing thread's message
-        // queue, so this has to keep pumping while the hook is up.
+        // A low-level hook is delivered through this thread's message queue, so keep pumping.
         MSG msg;
         while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
         {
@@ -106,10 +87,6 @@ DWORD WINAPI keyboard_thread_proc(void*)
             break;
         }
 
-        // Blocks until the stop event fires, a message arrives, or the timeout.
-        // LoadSettings posts a WM_NULL when the module is toggled so the hook is
-        // reconciled at once; the timeout is only a backstop. A timed wait, not a
-        // spin, so an idle keyboard thread costs nothing.
         MsgWaitForMultipleObjects(1, &g_stop_event, FALSE, 1000, QS_ALLINPUT);
     }
 
@@ -123,10 +100,8 @@ DWORD WINAPI keyboard_thread_proc(void*)
 
 namespace
 {
-
-// --- Low-level mouse hook: wakes the parked render thread when the cursor
-// approaches where the (currently OS-hidden) island sits, so hover-to-unhide
-// keeps working without polling GetCursorPos every frame.
+// Low-level mouse hook: wakes the parked render thread when the cursor nears the hidden island, so
+// hover-to-unhide needs no polling.
 HHOOK g_mouse_hook = nullptr;
 std::atomic<int64_t> g_last_mouse_wake_check_ms = 0;
 
@@ -138,7 +113,7 @@ LRESULT CALLBACK low_level_mouse_proc(int n_code, WPARAM w_param, LPARAM l_param
         const int64_t now_ms = static_cast<int64_t>(GetTickCount64());
         const int64_t last = g_last_mouse_wake_check_ms.load(std::memory_order_relaxed);
         if (now_ms - last >= 60)
-        { // ~16Hz check rate for responsive unhide
+        {
             g_last_mouse_wake_check_ms.store(now_ms, std::memory_order_relaxed);
             auto* info = reinterpret_cast<MSLLHOOKSTRUCT*>(l_param);
             HWND hwnd = g_hwnd;
@@ -153,14 +128,7 @@ LRESULT CALLBACK low_level_mouse_proc(int n_code, WPARAM w_param, LPARAM l_param
     return CallNextHookEx(g_mouse_hook, n_code, w_param, l_param);
 }
 
-// A system-wide WH_MOUSE_LL routes every mouse event on the desktop through this
-// thread, so it is only installed while it can actually do something: the hook's
-// whole job is to notice a hover over a *parked* island.
-//
-// Gating on the settings instead was not enough. UnhideOnHover and
-// AutoHideFullscreen both default to true, so every user on defaults still got
-// the hook from startup -- the exact case the gate was added to avoid. Tying it
-// to the parked state means it exists only while the island is actually hidden.
+// The system-wide mouse hook exists only while the island is parked (hidden).
 static bool mouse_wake_hook_wanted()
 {
     return g_settings.unhide_on_hover && g_auto_hidden_parked.load(std::memory_order_relaxed);
@@ -188,8 +156,7 @@ DWORD WINAPI mouse_thread_proc(void*)
             g_mouse_hook = nullptr;
         }
 
-        // A low-level hook is delivered through the installing thread's message
-        // queue, so this has to keep pumping while the hook is up.
+        // A low-level hook is delivered through this thread's message queue, so keep pumping.
         MSG msg;
         while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
         {
@@ -206,11 +173,6 @@ DWORD WINAPI mouse_thread_proc(void*)
             break;
         }
 
-        // Blocks until the stop event fires, a message arrives, or the timeout.
-        // The render thread posts a WM_NULL when it parks or unparks, so the hook
-        // is reconciled immediately rather than up to a tick later; the timeout
-        // is only a backstop in case a transition is ever missed. This is a timed
-        // wait, not a spin, so an idle mouse thread costs nothing.
         MsgWaitForMultipleObjects(1, &g_stop_event, FALSE, 1000, QS_ALLINPUT);
     }
 

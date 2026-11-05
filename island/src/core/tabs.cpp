@@ -3,17 +3,10 @@
 
 namespace island
 {
-
-// ── Dashboard tab loop ───────────────────────────────────────────────────────
-// Single source of truth for how many tabs are in the mouse-wheel scroll loop.
-// The first tab's meaning depends on context -- the media view when something is
-// playing, the clock when idle -- but the *count* is identical, which is why the
-// renderer, the scroll handler and the hit tests can all share this. That
-// arithmetic used to be copy-pasted in seven places, which is exactly how they
-// drifted out of sync.
+// Tab loop: the first tab is media or the Clock, the count is the same either way.
 int active_tab_count(const Settings& settings)
 {
-    int count = 2; // primary (media or clock) + calendar
+    int count = 2;
     if (settings.weather)
     {
         ++count;
@@ -44,11 +37,7 @@ int normalized_tab_index(const Settings& settings)
     return ((raw % total) + total) % total;
 }
 
-// Tab order is always: primary, weather?, calendar, github?, hardware?, file tray?
-// The expensive GPU / network counters are only sampled while the hardware card
-// is actually on screen, so that check needs the card's real index rather than
-// assuming it is the last tab -- which stopped being true once the File Tray
-// was added after it.
+// Tab order: primary, notification center?, weather?, calendar, github?, hardware?, file tray?
 int hardware_monitor_tab_index(const Settings& settings)
 {
     if (!settings.hardware_monitor_module)
@@ -78,9 +67,7 @@ int notification_center_tab_index(const Settings& settings)
     return 1;
 }
 
-// Moves the dashboard one tab (+1 = next, -1 = previous). Clamped at both ends:
-// pushing past the first or last tab is ignored completely (no wrap, no bounce),
-// so a free-spinning wheel or touchpad inertia can never make the edge tabs twitch.
+// Clamped at both ends (no wrap), so wheel inertia cannot make the edge tabs twitch.
 void step_idle_tab(int direction)
 {
     const Settings settings = get_settings_copy();

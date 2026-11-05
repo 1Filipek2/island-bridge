@@ -10,7 +10,6 @@ namespace island
 {
 namespace
 {
-
 DWORD WINAPI notification_thread_proc(void*);
 
 }
@@ -19,7 +18,6 @@ namespace toast_listener
 {
 namespace
 {
-
 std::atomic<bool> enabled = false;
 
 bool should_run()
@@ -32,7 +30,6 @@ bool should_run()
 
 namespace toast_listener
 {
-
 void sync_thread()
 {
     enabled = host::int_setting(L"Modules.WindowsToastListener") != 0;
@@ -58,7 +55,6 @@ void sync_thread()
 
 namespace
 {
-
 DWORD WINAPI notification_thread_proc(void*)
 {
     winrt::init_apartment(winrt::apartment_type::multi_threaded);
@@ -72,10 +68,8 @@ DWORD WINAPI notification_thread_proc(void*)
     bool first_poll = true;
     bool access_logged = false;
 
-    // The Windows Notification Service (WNS) and UWP subsystem take time to initialize on boot.
-    // If this runs too early, instantiating UserNotificationListener::Current()
-    // can permanently bind to an uninitialized COM proxy, permanently breaking notifications for the process.
-    // To prevent this, we enforce a strict 30-second delay from process creation before touching the API.
+    // UserNotificationListener can bind to an uninitialized COM proxy if touched too early after boot,
+    // so it waits until the process is 30 s old.
     FILETIME creation_time, exit_time, kernel_time, user_time;
     if (GetProcessTimes(GetCurrentProcess(), &creation_time, &exit_time, &kernel_time, &user_time))
     {
@@ -112,9 +106,6 @@ DWORD WINAPI notification_thread_proc(void*)
                 {
                     if (access == UserNotificationListenerAccessStatus::Denied)
                     {
-                        // Actionable: this is a Windows privacy switch, not a
-                        // mod setting, and it is the usual reason the module
-                        // stays silent when everything else is configured.
                         host::log(L"Notification listener permission DENIED by Windows. "
                                   L"Enable Settings > Privacy & security > Notifications > "
                                   L"\"Let apps access your notifications\", then restart the mod. "
@@ -172,7 +163,6 @@ DWORD WINAPI notification_thread_proc(void*)
                                 continue;
                             }
 
-                            // Immediately mark as seen so we don't process it again
                             seen_ids.insert(id);
 
                             if (g_settings.notification_respect_dn_d && g_is_dn_d_active.load())
@@ -201,7 +191,6 @@ DWORD WINAPI notification_thread_proc(void*)
                                 host::log(L"Notifications: app info failed (unknown)");
                             }
 
-                            // Filter out noisy background console/script engines like PowerShell that fire system toasts unexpectedly
                             const std::wstring lower_app = to_lower_copy(snapshot.app);
                             if (lower_app.find(L"powershell") != std::wstring::npos ||
                                 lower_app.find(L"pwsh") != std::wstring::npos ||
@@ -257,9 +246,6 @@ DWORD WINAPI notification_thread_proc(void*)
                                     texts.push_back(std::move(text));
                                 }
 
-                                // Fork: Phone Link (iPhone) toasts are laid out as
-                                // [phone app, sender/subject, message...]. Show the
-                                // phone's app as the source instead of "Phone Link".
                                 bool is_phone_link = lower_app.find(L"phone link") != std::wstring::npos;
                                 try
                                 {
@@ -308,7 +294,6 @@ DWORD WINAPI notification_thread_proc(void*)
                                 snapshot.title += L"...";
                             }
 
-                            // Start the 4 s display window only now; icon lookup above can take a while.
                             snapshot.expires_at = now_seconds() + 4.0;
                             {
                                 std::lock_guard lock(g_state_mutex);
@@ -333,7 +318,7 @@ DWORD WINAPI notification_thread_proc(void*)
                 {
                     const HRESULT hr = ex.to_abi();
                     if (hr == static_cast<HRESULT>(0x80004001) || hr == static_cast<HRESULT>(0x80040154))
-                    { // E_NOTIMPL or REGDB_E_CLASSNOTREG
+                    {
                         if (!access_logged)
                         {
                             host::log(L"Notification listener UWP subsystem not fully ready (0x%08X). Retrying in "

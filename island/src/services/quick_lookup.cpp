@@ -13,7 +13,6 @@
 
 namespace island
 {
-
 std::wstring lookup_typed_query(const LookupUiState& ui)
 {
     const size_t a = ui.text.find_first_not_of(L" \t");
@@ -64,7 +63,7 @@ std::vector<LookupRow> build_lookup_rows(const std::vector<LookupRecent>& recent
         const std::wstring q = to_lower_copy(r.query);
         if (q == needle)
         {
-            continue; // the Typed row already covers it
+            continue;
         }
         if (q.find(needle) == std::wstring::npos && to_lower_copy(r.title).find(needle) == std::wstring::npos)
         {
@@ -77,7 +76,6 @@ std::vector<LookupRow> build_lookup_rows(const std::vector<LookupRecent>& recent
 
 namespace
 {
-
 inline bool lookup_field_hit_test(const MediaContentPoint& pt)
 {
     return pt.valid && pt.x >= lookup_layout::k_pad_x && pt.x <= pt.width - lookup_layout::k_pad_x &&
@@ -119,34 +117,17 @@ int lookup_row_at_content_point(const MediaContentPoint& pt, int row_count, bool
     return index;
 }
 
-// ── Quick Lookup ─────────────────────────────────────────────────────────────
-// Press the Quick Lookup hotkey to look up whatever text is on the clipboard.
-
-// ── Quick Lookup ─────────────────────────────────────────────────────────────
-// Press the Quick Lookup hotkey to look up whatever text is on the clipboard.
-//
-//   hotkey (render thread) -> StartQuickLookup()
-//        1. read + normalise the clipboard text
-//        2. in-memory cache hit?  -> publish the result at once
-//        3. otherwise publish a "Looking up..." card and spawn ONE worker thread
-//   worker thread          -> LookupText() -> publish the result if still wanted
-//
-// Privacy: nothing is looked up when the clipboard changes. Text is only sent over
-// the network when the hotkey is pressed, only if it is a short word or phrase, and
-// it is never written to the log or to disk.
-//
-// Adding a source later = write one function with the signature
-//     Outcome LookupXxx(const std::wstring& query, Result* out)
-// and add one line to LookupText().
+// Quick lookup: hotkey (render thread) -> start_quick_lookup -> cache hit, or a "Looking up..." card
+// and one worker thread -> lookup_text -> publish if still wanted.
+// Privacy: text is sent only when the user submits it, only short words or phrases, never logged.
 
 // Wikimedia asks API clients to send a descriptive User-Agent with contact info.
 constexpr wchar_t lookup_user_agent[] =
     L"DynamicIslandForWindows"
     L"/" ISLAND_VERSION L" (https://github.com/devcode90/Dynamic-Island-for-Windows) QuickLookup";
 
-// Bumped for every new request AND when the card is dismissed. A worker only
-// publishes if its id is still current, so a slow reply can never resurrect a card
-// the user already closed. Only changed or compared while holding g_stateMutex.
+// Bumped for every request and on dismiss; a worker publishes only if its id is still current.
+// Changed or compared only under g_state_mutex.
 std::atomic<uint64_t> g_lookup_request_seq{0};
 bool g_lookup_hotkey_registered = false;
 
@@ -156,12 +137,11 @@ namespace quick_lookup
 {
 namespace
 {
-
 constexpr double result_seconds = panel_idle_seconds;
 constexpr double message_seconds = panel_idle_seconds;
 constexpr size_t recent_capacity = 12;
 constexpr double loading_timeout_seconds = 30.0; // upper bound for "Looking up..."
-constexpr size_t k_max_body_chars = 360;         // pre-cap on a definition
+constexpr size_t k_max_body_chars = 360;
 constexpr size_t max_extract_sentences = 3;
 constexpr size_t max_extract_chars = 320;
 constexpr size_t cache_capacity = 40;
@@ -175,8 +155,7 @@ struct Result
     std::wstring source;
 };
 
-// Failed means "could not get a real answer" (timeout, 429, 5xx, no network).
-// Only Found and NotFound are cached, so a flaky connection is never remembered.
+// Failed = no real answer (timeout, 429, 5xx, offline); only Found and NotFound are cached.
 enum class Outcome
 {
     Found,
@@ -189,10 +168,7 @@ enum class Outcome
 
 namespace quick_lookup
 {
-
-// ---- text helpers -------------------------------------------------------------
-// Collapses runs of whitespace (including newlines and NBSP) into single spaces.
-// Stops once the result is longer than maxChars, so a huge clipboard stays cheap.
+// Text helpers
 std::wstring collapse_whitespace(const std::wstring& in, size_t max_chars)
 {
     std::wstring out;
@@ -224,7 +200,6 @@ namespace quick_lookup
 {
 namespace
 {
-
 bool is_edge_punct(wchar_t c)
 {
     return c != 0 && wcschr(L".,;:!?\"'()[]{}<>\u201c\u201d\u2018\u2019\u00ab\u00bb", c) != nullptr;
@@ -235,9 +210,6 @@ bool is_edge_punct(wchar_t c)
 
 namespace quick_lookup
 {
-
-// Clipboard text -> lookup query. Too-long text is returned still too long (one
-// char over the limit) so the caller can reject it instead of silently truncating.
 std::wstring normalize_query(const std::wstring& raw)
 {
     std::wstring text = collapse_whitespace(raw, max_query_chars);
@@ -245,7 +217,6 @@ std::wstring normalize_query(const std::wstring& raw)
     {
         return text;
     }
-    // "hello," / (hello) / “hello” -> hello
     while (!text.empty() && (is_edge_punct(text.front()) || text.front() == L' '))
     {
         text.erase(text.begin());
@@ -263,8 +234,6 @@ namespace quick_lookup
 {
 namespace
 {
-
-// Cuts to maxChars on a word boundary and appends an ellipsis.
 std::wstring clip_to_chars(std::wstring text, size_t max_chars)
 {
     if (text.size() <= max_chars)
@@ -316,9 +285,8 @@ bool is_sentence_closer(wchar_t c)
     return c == L'"' || c == L'\'' || c == L')' || c == L'\u201d' || c == L'\u2019';
 }
 
-// A '.', '!' or '?' ends a sentence only when whitespace and then a capital, digit
-// or opening quote follow, and (for '.') the word before it isn't an initial or a
-// common abbreviation. Good enough for encyclopedia text, not a full tokenizer.
+// '.', '!' or '?' ends a sentence only before whitespace and a capital, digit or quote, and not after
+// an initial or a common abbreviation.
 bool is_sentence_end(const std::wstring& t, size_t i)
 {
     const wchar_t c = t[i];
@@ -379,8 +347,6 @@ bool is_sentence_end(const std::wstring& t, size_t i)
     return true;
 }
 
-// First `maxSentences` sentences, but stops early rather than exceed maxChars
-// (the first sentence is always kept, clipped if it alone is too long).
 std::wstring first_sentences(const std::wstring& text, size_t max_sentences, size_t max_chars)
 {
     size_t sentences = 0;
@@ -406,7 +372,7 @@ std::wstring first_sentences(const std::wstring& text, size_t max_sentences, siz
     }
     if (accepted_end == 0)
     {
-        accepted_end = text.size(); // no sentence boundary found: use it all, clipped
+        accepted_end = text.size();
     }
     std::wstring out = text.substr(0, accepted_end);
     while (!out.empty() && iswspace(out.back()))
@@ -416,8 +382,7 @@ std::wstring first_sentences(const std::wstring& text, size_t max_sentences, siz
     return clip_to_chars(out, max_chars);
 }
 
-// ---- JSON helper (same string-find style as the lyrics code) --------------------
-// Returns the balanced {...} object that starts at `open`, string- and escape-aware.
+// JSON helper
 std::string balanced_object_at(const std::string& json, size_t open)
 {
     int depth = 0;
@@ -461,7 +426,7 @@ std::string balanced_object_at(const std::string& json, size_t open)
     return std::string();
 }
 
-// ---- in-memory cache (session only, MRU at the back) ----------------------------
+// In-memory cache (session only, MRU at the back)
 struct CacheEntry
 {
     std::wstring key;
@@ -516,10 +481,7 @@ void cache_store(const std::wstring& key, bool found, const Result& result)
     }
 }
 
-// ---- source 1: dictionary (single words) ----------------------------------------
-// https://api.dictionaryapi.dev/api/v2/entries/en/<word>
-// Shape: [{"word":..,"phonetic":..,"phonetics":[{"text":..}],
-//          "meanings":[{"partOfSpeech":..,"definitions":[{"definition":..,"example":..}]}]}]
+// Source 1: dictionaryapi.dev (single words)
 Outcome lookup_dictionary(const std::wstring& word, Result* out)
 {
     const std::wstring path = L"/api/v2/entries/en/" + ascii_to_wide(url_encode_component(to_lower_copy(word)));
@@ -545,10 +507,9 @@ Outcome lookup_dictionary(const std::wstring& word, Result* out)
     if (!extract_json_string_field(entry, "phonetic", &phonetic_raw) || phonetic_raw.empty())
     {
         phonetic_raw.clear();
-        extract_json_string_field(entry, "text", &phonetic_raw); // first phonetics[].text
+        extract_json_string_field(entry, "text", &phonetic_raw);
     }
 
-    // First meaning's part of speech, then the first definition object after it.
     const size_t meanings_pos = entry.find("\"meanings\":[");
     if (meanings_pos == std::string::npos)
     {
@@ -566,8 +527,7 @@ Outcome lookup_dictionary(const std::wstring& word, Result* out)
         return Outcome::NotFound;
     }
 
-    // Bound the search to this one definition object so a later definition's
-    // "example" is never attributed to the first one.
+    // Bound to this definition object, so a later "example" is never attributed to it.
     const size_t def_open = entry.rfind('{', def_key);
     const std::string def_object =
         def_open != std::string::npos ? balanced_object_at(entry, def_open) : entry.substr(def_key);
@@ -608,10 +568,8 @@ Outcome lookup_dictionary(const std::wstring& word, Result* out)
     return Outcome::Found;
 }
 
-// ---- source 2: Wikipedia summary (phrases, or words the dictionary lacks) ---------
-// https://en.wikipedia.org/api/rest_v1/page/summary/<title>
-// Titles are case-sensitive after the first letter, so a miss is retried once in
-// Title Case ("machine learning" -> "Machine Learning").
+// Source 2: Wikipedia summary. Titles are case-sensitive after the first letter, so a miss is retried
+// in Title Case.
 Outcome lookup_wikipedia(const std::wstring& query, Result* out)
 {
     const std::wstring candidates[2] = {query, title_case(query)};
@@ -634,7 +592,7 @@ Outcome lookup_wikipedia(const std::wstring& query, Result* out)
         }
         if (res.status != 200)
         {
-            continue; // 404: try the next spelling
+            continue;
         }
 
         std::string extract_raw, title_raw, desc_raw;
@@ -666,14 +624,8 @@ Outcome lookup_wikipedia(const std::wstring& query, Result* out)
     return outcome;
 }
 
-// ---- source 3: Wiktionary (primary dictionary) --------------------------------------
-// https://en.wiktionary.org/api/rest_v1/page/definition/<word>
-// Shape: {"en":[{"partOfSpeech":"Noun","language":"English","definitions":[
-//          {"definition":"<html>","parsedExamples":[{"example":"<html>"}]}, ...]}, ...],
-//         "fr":[...], ...}
-// Definitions come back as HTML, so tags are stripped and entities decoded.
+// Source 3: Wiktionary (primary dictionary). Definitions are HTML: tags stripped, entities decoded.
 
-// Removes <tags>, decodes common HTML entities, collapses whitespace.
 std::wstring strip_html(const std::wstring& in)
 {
     std::wstring no_tags;
@@ -755,13 +707,12 @@ std::wstring strip_html(const std::wstring& in)
     return collapse_whitespace(decoded);
 }
 
-// Reads the "en" section of a Wiktionary definition response.
 bool parse_wiktionary_english(const std::string& body, const std::wstring& title, Result* out)
 {
     const size_t en_key = body.find("\"en\":[");
     if (en_key == std::string::npos)
     {
-        return false; // the word exists, but only in other languages
+        return false;
     }
 
     auto skip_separators = [](const std::string& s, size_t p)
@@ -777,7 +728,7 @@ bool parse_wiktionary_english(const std::string& body, const std::wstring& title
     std::vector<std::wstring> definitions;
     std::wstring example;
 
-    size_t p = en_key + 6; // just past  "en":[
+    size_t p = en_key + 6;
     while (p < body.size())
     {
         p = skip_separators(body, p);
@@ -801,7 +752,6 @@ bool parse_wiktionary_english(const std::string& body, const std::wstring& title
             parts_of_speech.push_back(pos);
         }
 
-        // Definitions are taken from the first part of speech only.
         if (!definitions.empty())
         {
             continue;
@@ -811,7 +761,7 @@ bool parse_wiktionary_english(const std::string& body, const std::wstring& title
         {
             continue;
         }
-        size_t q = defs_key + 15; // just past  "definitions":[
+        size_t q = defs_key + 15;
         while (q < block.size() && definitions.size() < 3)
         {
             q = skip_separators(block, q);
@@ -838,7 +788,6 @@ bool parse_wiktionary_english(const std::string& body, const std::wstring& title
             }
             definitions.push_back(text);
 
-            // Only the first definition's example is shown.
             if (definitions.size() == 1)
             {
                 std::string ex_raw;
@@ -890,7 +839,6 @@ bool parse_wiktionary_english(const std::string& body, const std::wstring& title
     return true;
 }
 
-// Titles are case-sensitive, so lowercase is tried first, then the text as typed.
 Outcome lookup_wiktionary(const std::wstring& word, Result* out)
 {
     const std::wstring lower = to_lower_copy(word);
@@ -906,11 +854,11 @@ Outcome lookup_wiktionary(const std::wstring& word, Result* out)
         const HttpResult res = http_get_ex(L"en.wiktionary.org", path.c_str(), true, lookup_user_agent);
         if (!res.is_definitive())
         {
-            return Outcome::Failed; // timeout / 429 / 5xx: never cached as "not found"
+            return Outcome::Failed;
         }
         if (res.status != 200)
         {
-            continue; // 404: try the next spelling
+            continue;
         }
         if (parse_wiktionary_english(res.body, candidates[i], out))
         {
@@ -920,10 +868,8 @@ Outcome lookup_wiktionary(const std::wstring& word, Result* out)
     return Outcome::NotFound;
 }
 
-// ---- router -----------------------------------------------------------------------
-// Single words:  Wiktionary -> dictionaryapi.dev (backup) -> Wikipedia
-// Phrases:       Wikipedia  -> Wiktionary (idioms like "kick the bucket")
-// To add a source: write LookupXxx() above and add one attempt() line below.
+// Router. Single words: Wiktionary -> dictionaryapi.dev -> Wikipedia.
+// Phrases: Wikipedia -> Wiktionary (idioms).
 Outcome lookup_text(const std::wstring& query, Result* out)
 {
     const bool single_word = query.find(L' ') == std::wstring::npos;
@@ -973,7 +919,7 @@ Outcome lookup_text(const std::wstring& query, Result* out)
     return any_failed ? Outcome::Failed : Outcome::NotFound;
 }
 
-// ---- publishing ---------------------------------------------------------------------
+// Publishing
 void fill_snapshot(LookupSnapshot& lk, const std::wstring& query, bool found, const Result* r, double now)
 {
     lk = LookupSnapshot{};
@@ -996,7 +942,7 @@ void fill_snapshot(LookupSnapshot& lk, const std::wstring& query, bool found, co
     }
 }
 
-// Moves `query` to the front of the recent list. Caller must hold g_stateMutex.
+// Moves `query` to the front of the recent list. Caller holds g_state_mutex.
 void push_recent_locked(SharedState& st, const std::wstring& query, const Result& r)
 {
     LookupRecent entry;
@@ -1027,8 +973,6 @@ void push_recent_locked(SharedState& st, const std::wstring& query, const Result
     }
 }
 
-// Worker thread -> island. Dropped if the request was superseded or dismissed, or
-// if its "Looking up..." card has already timed out.
 void apply_result(uint64_t id, const std::wstring& query, bool found, const Result& r)
 {
     if (!g_running.load())
@@ -1049,7 +993,7 @@ void apply_result(uint64_t id, const std::wstring& query, bool found, const Resu
             push_recent_locked(g_state, query, r);
         }
     }
-    g_layout_dirty = true; // repaint; the springs resize the island to the new card
+    g_layout_dirty = true;
 }
 
 }
@@ -1057,7 +1001,6 @@ void apply_result(uint64_t id, const std::wstring& query, bool found, const Resu
 
 namespace
 {
-
 uint64_t publish_new_lookup(const LookupSnapshot& snap, bool nudge = true)
 {
     uint64_t id;
@@ -1069,16 +1012,13 @@ uint64_t publish_new_lookup(const LookupSnapshot& snap, bool nudge = true)
     g_layout_dirty = true;
     if (nudge)
     {
-        trigger_nudge(); // typing and searching stay quiet; only opening the panel bounces
+        trigger_nudge();
     }
     return id;
 }
 
-// ── Quick Lookup panel: session + input ──────────────────────────────────────
-// All of this runs on the render thread. g_state.lookup is the only part worker
-// threads also touch, so it only changes under g_stateMutex.
+// Panel session and input: render thread only; g_state.lookup changes only under g_state_mutex.
 
-// Keeps the panel alive while the user is interacting with it.
 void touch_lookup_panel()
 {
     std::lock_guard lock(g_state_mutex);
@@ -1109,8 +1049,7 @@ void force_foreground(HWND hwnd)
     SetFocus(hwnd);
 }
 
-// The island is WS_EX_NOACTIVATE so it never steals focus. While the search box is
-// open it has to be able to receive keys, so the flag is dropped for the session.
+// The island is WS_EX_NOACTIVATE; the flag is dropped while the search box needs keys.
 void begin_lookup_session(HWND hwnd)
 {
     HWND previous = GetForegroundWindow();
@@ -1153,7 +1092,7 @@ void close_lookup_panel(HWND hwnd)
     {
         std::lock_guard lock(g_state_mutex);
         g_state.lookup.active = false;
-        ++g_lookup_request_seq; // a reply still in flight is now ignored
+        ++g_lookup_request_seq;
     }
     g_layout_dirty = true;
     end_lookup_session(hwnd);
@@ -1161,8 +1100,6 @@ void close_lookup_panel(HWND hwnd)
 
 namespace
 {
-
-// Runs a lookup and shows the outcome in the panel.
 void submit_lookup(const std::wstring& raw_text)
 {
     const std::wstring query = quick_lookup::normalize_query(raw_text);
@@ -1192,7 +1129,7 @@ void submit_lookup(const std::wstring& raw_text)
         if (cached_found)
         {
             std::lock_guard lock(g_state_mutex);
-            quick_lookup::push_recent_locked(g_state, query, cached); // bump it to the top
+            quick_lookup::push_recent_locked(g_state, query, cached);
         }
         publish_new_lookup(snap, false);
         return;
@@ -1241,8 +1178,6 @@ void submit_lookup_selection()
     }
 }
 
-// Call after any change to the text. Editing leaves the result view and goes back
-// to the list, and drops any reply still in flight.
 void lookup_ui_edited()
 {
     LookupUiState& ui = g_lookup_ui;
@@ -1278,7 +1213,7 @@ void insert_into_lookup_field(const std::wstring& raw)
     s.reserve(raw.size());
     for (wchar_t c : raw)
     {
-        s.push_back((c < 0x20 || c == 0x7F) ? L' ' : c); // single-line field
+        s.push_back((c < 0x20 || c == 0x7F) ? L' ' : c);
     }
     if (s.empty())
     {
@@ -1363,7 +1298,6 @@ size_t lookup_next_word(const std::wstring& t, size_t i)
 
 }
 
-// Called on the render thread when the hotkey fires.
 void start_quick_lookup(HWND hwnd)
 {
     bool enabled = false;
@@ -1371,20 +1305,17 @@ void start_quick_lookup(HWND hwnd)
         std::lock_guard lock(g_settings_mutex);
         enabled = g_settings.quick_lookup;
     }
-    // A manually hidden island has nothing to show the panel on.
     if (!enabled || g_manually_hidden.load())
     {
         return;
     }
 
-    // Hotkey again = close.
     if (g_lookup_ui.open)
     {
         close_lookup_panel(hwnd);
         return;
     }
 
-    // Clipboard text is only offered as a suggestion row; nothing is sent anywhere yet.
     std::wstring clip = quick_lookup::normalize_query(read_clipboard_text(hwnd));
     if (clip.size() > quick_lookup::max_query_chars)
     {
@@ -1406,7 +1337,6 @@ void start_quick_lookup(HWND hwnd)
     begin_lookup_session(hwnd);
 }
 
-// WM_KEYDOWN. Printable characters arrive separately through WM_CHAR.
 bool handle_lookup_key_down(HWND hwnd, WPARAM vk)
 {
     LookupUiState& ui = g_lookup_ui;
@@ -1533,14 +1463,12 @@ bool handle_lookup_char(wchar_t ch)
     }
     if (ch < 0x20 || ch == 0x7F)
     {
-        return true; // control keys are handled in WM_KEYDOWN
+        return true;
     }
     insert_into_lookup_field(std::wstring(1, ch));
     return true;
 }
 
-// Returns true when the click belonged to the panel (so it must not fall through
-// to "open the media app" and friends).
 bool handle_lookup_click(int x, int y)
 {
     LookupUiState& ui = g_lookup_ui;
@@ -1625,8 +1553,7 @@ LPCWSTR lookup_cursor_at(int x, int y)
     return lookup_field_hit_test(pt) ? IDC_IBEAM : IDC_ARROW;
 }
 
-// Registers (or releases) the Quick Lookup hotkey. Render thread only, because
-// RegisterHotKey must run on the thread that owns the window.
+// render thread only: RegisterHotKey must run on the thread that owns the window.
 void apply_lookup_hotkey()
 {
     HWND hwnd = g_hwnd;

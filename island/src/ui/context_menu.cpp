@@ -16,8 +16,7 @@ namespace island
 {
 namespace
 {
-
-// ── Media source menu (right-click submenu and the dock's "+N" list) ─────────
+// Media source menu (context submenu and the dock's "+N" list)
 static constexpr UINT media_source_menu_id_base = 100; // 100 = Auto, 101.. = sources
 
 // Shape style submenu: +0 = iPhone pill, +1 = Windows 11 flyout, +2 = macOS notch.
@@ -26,16 +25,14 @@ static constexpr UINT shape_menu_id_base = 50;
 // Lyrics sync submenu: +0 header (disabled), +1..+3 earlier 10/50/250, +4..+6 later 10/50/250, +7 reset.
 static constexpr UINT lyrics_sync_menu_id_base = 60;
 
-// Right-click nudge for the profile that is active right now (Bluetooth or speakers).
-// Stored separately from the Mod Settings value; effective offset = setting + nudge.
-// Deliberately does not call LoadSettings(), which also resets the pinned state.
+// Nudge for the active profile (Bluetooth or speakers), stored apart from the setting.
+// Does not call load_settings, which would reset the pinned state.
 void adjust_lyrics_nudge(int delta_ms)
 {
     const bool bt = g_default_output_is_bluetooth.load(std::memory_order_relaxed);
     const wchar_t* key = bt ? L"LyricsNudgeBtMs" : L"LyricsNudgeMs";
     const Settings s = get_settings_copy();
     const int setting = bt ? s.lyrics_offset_bt_ms : s.lyrics_offset_ms;
-    // Clamp the nudge so setting + nudge stays in range; repeated presses never pile up invisibly.
     const int nudge = clamp_int(host::int_value(key, 0) + delta_ms, -lyrics_offset_limit_ms - setting,
                                 lyrics_offset_limit_ms - setting);
     host::set_int_value(key, nudge);
@@ -123,7 +120,6 @@ void show_media_source_popup(HWND hwnd, POINT screen_point)
 
 namespace
 {
-
 void open_island_bridge_window()
 {
     wchar_t path[MAX_PATH] = {};
@@ -195,8 +191,6 @@ void show_context_menu(HWND hwnd, POINT screen_point)
     AppendMenuW(menu, MF_STRING, 2, L"Pin expanded");
     AppendMenuW(menu, MF_STRING, 3, g_game_overlay_pinned.load() ? L"Hide game overlay" : L"Show game overlay");
     {
-        // g_settings already reflects any right-click override, so it is the
-        // source of truth for which style is active.
         const int current_shape = g_settings.notch_style ? 2 : (g_settings.w11_style ? 1 : 0);
         HMENU shape_menu = CreatePopupMenu();
         AppendMenuW(shape_menu, MF_STRING, shape_menu_id_base, L"iPhone Pill");
@@ -227,7 +221,6 @@ void show_context_menu(HWND hwnd, POINT screen_point)
             std::lock_guard lock(g_settings_mutex);
             cache_on = g_settings.lyrics_cache && g_settings.lyrics_cache_max_mb > 0;
         }
-        // Counters are maintained by the lyrics thread; nothing is scanned here.
         std::wstring cache_label = L"Clear lyrics cache";
         if (g_lyrics_cache_counts_valid.load(std::memory_order_relaxed))
         {
@@ -248,7 +241,6 @@ void show_context_menu(HWND hwnd, POINT screen_point)
         AppendMenuW(menu, MF_STRING | (cache_on ? 0 : (MF_GRAYED | MF_DISABLED)), 43, cache_label.c_str());
 
         {
-            // Shows and adjusts whichever profile is active right now.
             const bool bt = g_default_output_is_bluetooth.load(std::memory_order_relaxed);
             const int effective = bt ? g_lyrics_effective_offset_bt_ms.load(std::memory_order_relaxed)
                                      : g_lyrics_effective_offset_ms.load(std::memory_order_relaxed);
@@ -319,8 +311,7 @@ void show_context_menu(HWND hwnd, POINT screen_point)
             AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(weather_menu), L"Weather city");
         }
     }
-    // Color theme presets. Built from kThemePalettes and nested in a submenu:
-    // nine palettes listed flat would dominate the root menu.
+    // Color themes in a submenu (built from theme_palettes).
     const int active_theme = host::int_value(theme_value_name, static_cast<int>(g_settings.theme_preset));
     HMENU theme_menu = CreatePopupMenu();
     for (int i = 0; i < custom_theme_index; ++i)
@@ -344,8 +335,6 @@ void show_context_menu(HWND hwnd, POINT screen_point)
     dwm_backdrop::ensure_behind(hwnd);
     g_layout_dirty = true;
 
-    // Theme ids are a contiguous range rather than individual cases, so adding a
-    // palette to kThemePalettes needs no change here.
     if (cmd >= theme_menu_id_base && cmd <= theme_menu_id_base + static_cast<UINT>(custom_theme_index))
     {
         host::set_int_value(theme_value_name, static_cast<int>(cmd - theme_menu_id_base));
@@ -438,9 +427,8 @@ void show_context_menu(HWND hwnd, POINT screen_point)
             const bool want_notch = (cmd == shape_menu_id_base + 2);
             if (want_notch && is_bottom_position(g_settings.position))
             {
-                break; // a bottom-anchored island can't be a top-edge notch
+                break;
             }
-            // Both overrides are written every time, so exactly one style is active.
             host::set_int_value(L"W11StyleOverride", want_w11 ? 1 : 0);
             host::set_int_value(L"NotchStyleOverride", want_notch ? 1 : 0);
             load_settings();
@@ -493,9 +481,6 @@ void show_context_menu(HWND hwnd, POINT screen_point)
             break;
         case 40:
         {
-            // Only reachable while visible (a hidden window can't be
-            // right-clicked), so in practice this toggles hidden -> the
-            // hotkey is the only way back. That's intentional; see readme.
             const bool now_hidden = !g_manually_hidden.load();
             g_manually_hidden = now_hidden;
             host::set_int_value(L"ManuallyHidden", now_hidden ? 1 : 0);
@@ -521,8 +506,7 @@ void show_context_menu(HWND hwnd, POINT screen_point)
             reset_lyrics_nudge();
             break;
         case 43:
-            // Only sets a flag: the lyrics thread does the deletion (never the render thread)
-            // and resets the counters. Lyrics currently on screen are left alone.
+            // Only sets a flag: the lyrics thread deletes the files.
             g_lyrics_cache_clear_requested.store(true);
             break;
         case 42:
@@ -530,8 +514,6 @@ void show_context_menu(HWND hwnd, POINT screen_point)
             break;
         case 41:
         {
-            // Clear the File Tray. Only the island's references are dropped --
-            // nothing on disk is touched.
             {
                 std::lock_guard lock(g_state_mutex);
                 g_state.file_tray_items.clear();

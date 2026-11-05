@@ -8,8 +8,6 @@ namespace island
 {
 namespace
 {
-
-// ---- Privacy indicator helpers ----
 std::wstring clean_active_app_name(const std::wstring& raw)
 {
     std::wstring name;
@@ -91,10 +89,6 @@ std::wstring clean_active_app_name(const std::wstring& raw)
     return name;
 }
 
-// Reads a REG_QWORD, returning false when the value is absent or is not a
-// well-formed 64-bit quantity. The previous code read straight into a uint64_t
-// without checking the type or size, so a shorter value could leave the high
-// bytes untouched and fake a zero timestamp.
 bool read_reg_qword(HKEY key, const wchar_t* name, uint64_t* out)
 {
     DWORD type = 0;
@@ -112,11 +106,7 @@ bool read_reg_qword(HKEY key, const wchar_t* name, uint64_t* out)
     return true;
 }
 
-// A ConsentStore entry counts as in-use only when Windows has recorded a start
-// and has not yet recorded a stop. Testing LastUsedTimeStop == 0 on its own
-// also matched entries that had never been used at all (both timestamps zero),
-// which is what left the microphone dot lit permanently for some users even
-// though Windows' own privacy indicator showed nothing in use.
+// In use only when Windows recorded a start and no stop (never-used entries have both at zero).
 bool consent_store_entry_in_use(HKEY key)
 {
     uint64_t stop_time = 0;
@@ -131,10 +121,6 @@ bool consent_store_entry_in_use(HKEY key)
         return start_time != 0;
     }
 
-    // Stop says "not stopped" but there is no readable start timestamp. This is
-    // the shape of a never-used entry, so it is reported as not in use, but log
-    // it once: if some Windows build stores these differently it would otherwise
-    // be an indicator that silently stops working with nothing to explain it.
     static std::atomic<bool> logged_missing_start{false};
     if (!logged_missing_start.exchange(true))
     {

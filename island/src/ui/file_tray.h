@@ -8,8 +8,7 @@ namespace island
 {
 namespace file_tray_store
 {
-
-inline std::mutex g_io_mutex; // serialises the load/save file access
+inline std::mutex g_io_mutex;
 bool resolve_paths(std::wstring* dir, std::wstring* file);
 std::string escape(const std::wstring& value);
 std::wstring unescape(const std::string& value);
@@ -19,7 +18,6 @@ std::wstring unescape(const std::string& value);
 
 namespace island
 {
-
 void save_file_tray();
 void load_file_tray();
 bool tray_module_enabled();
@@ -29,8 +27,7 @@ void copy_text_to_clipboard(HWND hwnd, const std::wstring& text);
 void paste_into_file_tray(HWND hwnd);
 DWORD pick_tray_drop_effect(DWORD allowed);
 
-// Receives drags while they are still hovering, which is what lets the island
-// expand onto the File Tray *before* the drop.
+// Receives drags while they hover, so the island can expand onto the File Tray before the drop.
 class TrayDropTarget final : public IDropTarget
 {
 public:
@@ -97,7 +94,7 @@ public:
     {
         if (accept_ && tab_ >= 0)
         {
-            g_idle_tab = tab_; // stay on the tray while the island expands
+            g_idle_tab = tab_;
         }
         if (effect)
         {

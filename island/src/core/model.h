@@ -6,9 +6,6 @@
 
 namespace island
 {
-
-// The conversion and hit-test helpers live further down, just after Clamp().
-
 enum class IslandKind
 {
     Idle,
@@ -48,8 +45,6 @@ enum class Position
     BottomRight,
 };
 
-// Anything anchored to the bottom edge shares the same vertical placement and
-// cannot use the top-edge macOS notch shape.
 constexpr bool is_bottom_position(Position position)
 {
     return position == Position::BottomCenter || position == Position::BottomLeft || position == Position::BottomRight;
@@ -91,18 +86,11 @@ constexpr int spectrum_bands = 24; // log-spaced bands from SpectrumAnalyzer, st
 enum class CalendarAccentMode
 {
     Red,
-    Accent, // persisted as "red", from when it was a hardcoded red
+    Accent,
     System,
 };
 
-// Curated palettes. These replace the original four (OLED Black, Fluent,
-// Midnight Blue, Deep Purple), which were built for a material that painted a
-// glass highlight along every edge. With the edge lighting gone, a palette has
-// to carry the whole look on flat fills, so each of these is tuned for
-// separation by value alone -- and one is light, which the old set had none of.
-//
-// Order is load-bearing: it is persisted as an integer index, so append new
-// entries at the end rather than inserting. Custom must stay last.
+// Persisted as an integer index: append new presets at the end, Custom stays last.
 enum class ThemePreset
 {
     Obsidian,
@@ -116,13 +104,7 @@ enum class ThemePreset
     Custom,
 };
 
-// One table drives the settings dropdown, the right-click menu labels and the
-// resolved colors. It used to be three separate lists, which is how the menu
-// ended up carrying special cases for palette indexes that no longer matched.
-//
-// Secondary text is held at roughly 4.5:1 against its own background in every
-// row, because no edge highlight is left to help muted labels separate from the
-// surface behind them.
+// One table drives the settings values, the menu labels and the resolved colors.
 struct ThemePalette
 {
     const wchar_t* id;    // value stored in Themes.ThemePreset
@@ -144,23 +126,15 @@ static constexpr ThemePalette theme_palettes[] = {
     {L"porcelain", L"Porcelain (Light)", L"#F5F6F8", L"#14161A", L"#5B6270", L"#D8DBE1"},
 };
 
-// Custom sits one past the last real palette. Derived, so adding a palette
-// cannot leave a stale literal behind.
 static constexpr int custom_theme_index = static_cast<int>(ARRAYSIZE(theme_palettes));
 
-// Persisted under a new key. Retiring the original palettes renumbered these
-// integers, and reusing "ColorTheme" would have silently reinterpreted a saved
-// 4 (previously Custom) as the palette that now sits at index 4.
+// New key: the palette indexes changed, so the old "ColorTheme" value must not be reinterpreted.
 static constexpr const wchar_t* theme_value_name = L"ColorThemeV2";
 static constexpr const wchar_t* legacy_theme_value_name = L"ColorTheme";
 
-// Base menu command id for the theme submenu; entries occupy
-// [kThemeMenuIdBase, kThemeMenuIdBase + kCustomThemeIndex].
 static constexpr UINT theme_menu_id_base = 20;
 
-// Maps a preset id to its palette index, accepting the retired ids too: a
-// user's stored setting keeps its old string after the option disappears from
-// the dropdown, so each legacy id is pointed at the new palette closest to it.
+// Retired preset ids map to the closest current palette.
 inline int theme_index_from_id(std::wstring_view id)
 {
     auto iequals = [](std::wstring_view a, std::wstring_view b)
@@ -210,7 +184,6 @@ inline int theme_index_from_id(std::wstring_view id)
     return -1;
 }
 
-// Real Windows blur / acrylic painted behind the island (#59).
 enum class BackdropMaterial
 {
     None,
@@ -231,8 +204,8 @@ struct Settings
     int target_monitor = 0;
     int offset_x = 0;
     int offset_y = 0;
-    bool separate_expanded_offset_y = false; // #83
-    int offset_y_expanded = 0;               // #83
+    bool separate_expanded_offset_y = false;
+    int offset_y_expanded = 0;
     float size_scale = 1.0f;
     float base_size_scale = 1.0f;
     std::wstring font_family;
@@ -258,29 +231,19 @@ struct Settings
     bool privacy_dots_mic = true;
     bool privacy_dots_cam = true;
     bool privacy_dots_pulse = true;
-    // Modules.CapsLock -- fixes windhawk-mods#4352, which asked for a way to turn
-    // the Caps Lock / Num Lock indicator off.
-    //
-    // Enforced in three places, because any one of them alone leaks:
-    //   ChooseActivities        - the pill is never selected for display
-    //   WM_APP_CAPSLOCK handler - no state is recorded, no nudge is triggered
-    //   CapsLockHookWanted      - WH_KEYBOARD_LL is not installed at all
-    // The activity gate is the one that actually hides the pill; the others stop
-    // the work leading up to it.
     bool caps_lock = true;
     bool timer_enabled = true;
     bool hide_show_hotkey_enabled = true;
     UINT hide_show_modifiers = MOD_CONTROL | MOD_ALT | MOD_NOREPEAT;
     UINT hide_show_vk = 'D';
 
-    // Quick Lookup: hotkey-triggered dictionary / Wikipedia card.
     bool quick_lookup = false;
     UINT lookup_modifiers = MOD_CONTROL | MOD_ALT | MOD_NOREPEAT;
     UINT lookup_vk = VK_SPACE;
     bool bluetooth_indicator = true;
     bool bluetooth_show_battery = true;
-    D2D1_COLOR_F privacy_dots_mic_hex = D2D1::ColorF(1.0f, 0.584f, 0.0f, 1.0f);     // #FF9500
-    D2D1_COLOR_F privacy_dots_cam_hex = D2D1::ColorF(0.133f, 0.776f, 0.239f, 1.0f); // #10B981
+    D2D1_COLOR_F privacy_dots_mic_hex = D2D1::ColorF(1.0f, 0.584f, 0.0f, 1.0f);
+    D2D1_COLOR_F privacy_dots_cam_hex = D2D1::ColorF(0.133f, 0.776f, 0.239f, 1.0f);
     float tint_opacity = 0.72f;
     float pill_opacity = 0.96f;
     bool game_overlay = false;
@@ -292,10 +255,10 @@ struct Settings
     bool karaoke_lyrics = true;
     bool karaoke_letter_glow = true;
     bool lyrics_neighbor_lines_visible = false;
-    int lyrics_offset_ms = 0;      // Modules.LyricsOffsetMs, speakers / wired, ms
-    int lyrics_offset_bt_ms = 0;   // Modules.LyricsOffsetBluetoothMs, Bluetooth output, ms
+    int lyrics_offset_ms = 0;
+    int lyrics_offset_bt_ms = 0;
     bool collapsed_lyrics = false; // lyrics inside the collapsed media pill (right-click toggle)
-    bool lyrics_cache = true;      // Modules.LyricsCache
+    bool lyrics_cache = true;
     int lyrics_cache_max_mb = 25;  // Modules.LyricsCacheMaxMB; 0 = disk cache off
     bool media_tab_lyrics = false; // lyrics side panel in the expanded media tab
     int auto_hide_idle_seconds = 0;
@@ -307,55 +270,54 @@ struct Settings
     bool auto_dpi_scale = true;
     bool w11_style = false;
     bool notch_style = false;
-    // Color customization
     ThemePreset theme_preset = ThemePreset::Obsidian;
-    D2D1_COLOR_F pill_bg_color = D2D1::ColorF(0.031f, 0.031f, 0.039f, 1.0f);        // #08080A
-    D2D1_COLOR_F text_primary_color = D2D1::ColorF(1.0f, 1.0f, 1.0f, 1.0f);         // #FFFFFF
-    D2D1_COLOR_F text_secondary_color = D2D1::ColorF(0.608f, 0.608f, 0.647f, 1.0f); // #9B9BA5
+    D2D1_COLOR_F pill_bg_color = D2D1::ColorF(0.031f, 0.031f, 0.039f, 1.0f);
+    D2D1_COLOR_F text_primary_color = D2D1::ColorF(1.0f, 1.0f, 1.0f, 1.0f);
+    D2D1_COLOR_F text_secondary_color = D2D1::ColorF(0.608f, 0.608f, 0.647f, 1.0f);
     ContourBorderMode contour_border_mode = ContourBorderMode::Default;
     bool contour_border_enabled = true;
-    D2D1_COLOR_F contour_border_color = D2D1::ColorF(0.200f, 0.200f, 0.220f, 1.0f); // #333338
+    D2D1_COLOR_F contour_border_color = D2D1::ColorF(0.200f, 0.200f, 0.220f, 1.0f);
     bool clock_accent_glow = true;
     bool privacy_dots_enabled = true;
     bool privacy_dot_pulsing = true;
-    D2D1_COLOR_F mic_dot_color = D2D1::ColorF(1.0f, 0.584f, 0.0f, 1.0f);     // #FF9500
-    D2D1_COLOR_F cam_dot_color = D2D1::ColorF(0.204f, 0.780f, 0.349f, 1.0f); // #34C759
+    D2D1_COLOR_F mic_dot_color = D2D1::ColorF(1.0f, 0.584f, 0.0f, 1.0f);
+    D2D1_COLOR_F cam_dot_color = D2D1::ColorF(0.204f, 0.780f, 0.349f, 1.0f);
     bool hardware_monitor_module = true;
     bool github_module = true;
     bool do_not_disturb_indicator = true;
     bool notification_respect_dn_d = true;
 
-    // ── Premium material / redesign ──────────────────────────────────────────
-    bool material_depth = true;                                  // downward depth shading + accent bloom
-    bool drop_shadow = true;                                     // soft shadow under the island
-    float accent_bloom = 1.0f;                                   // 0..2 multiplier on the accent wash
-    float text_scale = 1.0f;                                     // independent typography scale (#41)
-    BackdropMaterial backdrop_material = BackdropMaterial::None; // #59
-    float backdrop_tint = 0.55f;                                 // acrylic tint strength, 0..1
-    float backdrop_fill_alpha = 0.45f;                           // how opaque the pill's own fill stays
+    // Material
+    bool material_depth = true; // downward depth shading + accent bloom
+    bool drop_shadow = true;    // soft shadow under the island
+    float accent_bloom = 1.0f;  // 0..2 multiplier on the accent wash
+    float text_scale = 1.0f;
+    BackdropMaterial backdrop_material = BackdropMaterial::None;
+    float backdrop_tint = 0.55f;
+    float backdrop_fill_alpha = 0.45f; // how opaque the pill's own fill stays
 
-    // ── Clock / date presentation (#61) ──────────────────────────────────────
+    // Clock and date
     bool show_seconds = false;
     bool use24_hour_clock = false; // false = follow system locale
     bool clock_follow_system = true;
     std::wstring date_format;      // empty = locale default
-    bool media_pill_clock = false; // show the clock inside the collapsed media pill
+    bool media_pill_clock = false; // show the Clock inside the collapsed media pill
     bool date_first = false;
     int first_day_of_week = -1; // 0 = Sunday .. 6 = Saturday, -1 = follow Windows
 
-    // ── Localization (#35) ───────────────────────────────────────────────────
+    // Localization
     std::wstring language = L"auto";
 
-    // ── File tray (#33) ──────────────────────────────────────────────────────
+    // File tray
     bool file_tray_module = false;
     int file_tray_max_items = 10;
-    bool file_tray_persist = true; // Modules.FileTrayPersist
+    bool file_tray_persist = true;
     bool notification_center_module = true;
 
-    // ── Media auto-expand exclusions (#62) ───────────────────────────────────
+    // Media auto-expand exclusions
     std::vector<std::wstring> media_expand_blocklist;
 
-    // ── Game overlay options (#25) ───────────────────────────────────────────
+    // Game overlay
     bool game_overlay_show_fps = true;
     bool game_overlay_show_cpu = true;
     bool game_overlay_show_gpu = true;
@@ -385,7 +347,6 @@ struct MediaSnapshot
     int64_t last_updated_ticks = 0;
 };
 
-// One SMTC media session the dock can switch to.
 struct MediaSourceInfo
 {
     std::wstring aumid;
@@ -460,11 +421,11 @@ struct CapsLockSnapshot
 
 struct TimerSnapshot
 {
-    bool active = false;   // a session exists (running or paused)
+    bool active = false;
     bool running = false;  // currently counting down
     bool is_break = false; // work vs break session
     int total_seconds = 0;
-    double ends_at = 0.0; // NowSeconds() at completion, while running
+    double ends_at = 0.0; // now_seconds() at completion, while running
     double remaining_at_pause = 0.0;
     bool just_finished = false;
     double finished_expires_at = 0.0;
@@ -480,7 +441,7 @@ struct DeviceSnapshot
 {
     bool active = false;
     DeviceEventType event_type = DeviceEventType::Connected;
-    std::wstring device_name; // e.g. "USB Drive" or "Bluetooth Device"
+    std::wstring device_name;
     bool is_bluetooth_like = false;
     double expires_at = 0.0;
 };
@@ -488,7 +449,7 @@ struct DeviceSnapshot
 struct BluetoothDeviceSnapshot
 {
     bool active = false;
-    bool connected = true; // true = just connected, false = just disconnected
+    bool connected = true;
     std::wstring device_name;
     int battery_percent = -1; // -1 = unknown/unavailable
     BluetoothDeviceCategory category = BluetoothDeviceCategory::Generic;
@@ -509,8 +470,8 @@ struct SystemSnapshot
     float net_up_mbps = 0.0f;
     float net_down_mbps = 0.0f;
     bool charging = false;
-    bool mic_active = false;    // orange dot: microphone in use
-    bool camera_active = false; // green dot: camera in use
+    bool mic_active = false;
+    bool camera_active = false;
     std::wstring foreground_title;
     std::wstring mic_app;
     std::wstring camera_app;
@@ -556,8 +517,6 @@ struct DoNotDisturbSnapshot
     double expires_at = 0.0;
 };
 
-// One file parked on the island's shelf (#33). Kept deliberately small: the
-// tray holds references, never copies of the files themselves.
 struct FileTrayItem
 {
     std::wstring path;
@@ -565,7 +524,7 @@ struct FileTrayItem
     uint64_t size_bytes = 0;
     bool is_directory = false;
     bool is_text = false; // a pasted text snippet rather than a file reference
-    std::wstring text;    // full snippet when isText is set
+    std::wstring text;    // full snippet when is_text is set
     PixelsRef icon;
 };
 
@@ -575,8 +534,6 @@ struct LyricsLine
     std::wstring text;
 };
 
-// Immutable, shared lyric lines. Same read API as the vector it replaces, so
-// the drawing code (empty / size / operator[]) is unchanged.
 class LyricsLines
 {
 public:
@@ -623,37 +580,35 @@ struct LyricsSnapshot
     LyricsLines lines;
 };
 
-// ── Quick Lookup state ───────────────────────────────────────────────────────
+// Quick lookup
 enum class LookupStatus
 {
     Search,   // panel open: search box + recent list
     Loading,  // request running
     Found,    // title / subtitle / body (/ example) are filled in
     NoResult, // nothing found, or the network failed
-    NoText,   // legacy, no longer produced
+    NoText,   // not produced
 };
 
 struct LookupSnapshot
 {
     bool active = false;
     LookupStatus status = LookupStatus::Loading;
-    std::wstring query;    // the normalised text being looked up
-    std::wstring title;    // headword / article title
+    std::wstring query; // the normalised text being looked up
+    std::wstring title;
     std::wstring subtitle; // "phonetic · part of speech", or the Wikipedia short description
-    std::wstring body;     // definition / first sentences of the extract
-    std::wstring example;  // dictionary example sentence, if any
-    std::wstring source;   // "Dictionary" / "Wikipedia"
+    std::wstring body;
+    std::wstring example;
+    std::wstring source; // "Dictionary" / "Wikipedia"
     double expires_at = 0.0;
 };
 
-// Shared by Renderer::MeasureLookupCard / DrawLookup and ActivityForKind so the
-// size the island animates to and the layout painted inside it cannot drift.
-// One finished lookup, kept in memory only (never written to disk).
+// One finished lookup, kept in memory only.
 struct LookupRecent
 {
-    std::wstring query;  // what was searched (normalised)
-    std::wstring title;  // headword / article title that came back
-    std::wstring detail; // one-line definition preview
+    std::wstring query;
+    std::wstring title;
+    std::wstring detail;
     std::wstring source;
 };
 
@@ -663,7 +618,6 @@ namespace island
 {
 namespace lookup_layout
 {
-
 constexpr float k_width = 380.0f;
 constexpr float k_pad_x = 16.0f;
 constexpr float pad_top = 12.0f;
@@ -678,15 +632,14 @@ constexpr float k_max_height = 300.0f;
 constexpr int max_body_lines = 4;
 constexpr int max_example_lines = 2;
 
-// Search panel
 constexpr float field_top = pad_top;
 constexpr float field_h = 36.0f;
 constexpr float field_gap = 10.0f;
-constexpr float below_field = field_top + field_h + field_gap; // where content under the box starts
-constexpr float section_h = 18.0f;                             // "Recent ... Clear" header band
+constexpr float below_field = field_top + field_h + field_gap;
+constexpr float section_h = 18.0f;
 constexpr float k_row_h = 32.0f;
 constexpr float k_row_gap = 3.0f;
-constexpr float status_h = 30.0f; // one-line states under the box
+constexpr float status_h = 30.0f;
 constexpr int max_rows = 4;
 constexpr double caret_period = 1.0;
 constexpr double caret_on = 0.55;
@@ -712,19 +665,17 @@ constexpr float status_height()
 
 namespace island
 {
-
-// Input state of the search box. Render thread only (the window procedure and the
-// render loop share that thread), so it needs no lock.
+// Search box input state. render thread only, so no lock.
 struct LookupUiState
 {
     bool open = false;
     std::wstring text;
     size_t caret = 0;
     bool select_all = false;
-    int selected = 0;               // highlighted row
-    double caret_reset_at = 0.0;    // blink restarts on every edit
-    std::wstring clipboard_query;   // clipboard suggestion captured when the panel opened
-    HWND prev_foreground = nullptr; // window to hand focus back to
+    int selected = 0;
+    double caret_reset_at = 0.0;
+    std::wstring clipboard_query;
+    HWND prev_foreground = nullptr;
 };
 
 inline LookupUiState g_lookup_ui;
@@ -749,7 +700,7 @@ struct SharedState
     GitHubSnapshot github;
     LyricsSnapshot lyrics;
     LookupSnapshot lookup;
-    std::vector<LookupRecent> lookup_recent; // newest first, guarded by g_stateMutex
+    std::vector<LookupRecent> lookup_recent; // newest first, guarded by g_state_mutex
     std::array<float, 48> waveform{};
     size_t waveform_write = 0;
     std::array<float, spectrum_bands> bands{}; // smoothed 0..1 magnitude per band (low -> high)

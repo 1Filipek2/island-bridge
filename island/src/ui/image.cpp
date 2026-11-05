@@ -5,7 +5,6 @@
 
 namespace island
 {
-
 bool decode_image_bytes_to_pixels(const std::vector<uint8_t>& bytes, BitmapPixels* out_pixels)
 {
     if (!out_pixels || bytes.empty())
@@ -91,7 +90,7 @@ bool decode_image_bytes_to_pixels(const std::vector<uint8_t>& bytes, BitmapPixel
         uint32_t r = 0;
         uint32_t g = 0;
         uint32_t b = 0;
-        uint32_t sat_sum = 0; // accumulated saturation for vibrancy-weighted winner
+        uint32_t sat_sum = 0;
     };
 
     std::array<Bucket, 16 * 16 * 16> buckets{};
@@ -110,9 +109,6 @@ bool decode_image_bytes_to_pixels(const std::vector<uint8_t>& bytes, BitmapPixel
         const int minc = std::min({red, green, blue});
         const int luminance = (54 * red + 183 * green + 19 * blue) / 256;
         const int saturation = maxc - minc;
-        // Reject near-black, near-white, and near-gray pixels.
-        // Raise luminance floor slightly (36 instead of 28) so very dark-but-colorful
-        // pixels don't swamp vibrancy scoring on dark-mood album art.
         if (luminance < 36 || luminance > 220 || saturation < 28)
         {
             continue;
@@ -120,7 +116,7 @@ bool decode_image_bytes_to_pixels(const std::vector<uint8_t>& bytes, BitmapPixel
 
         const size_t bucket_index = ((red >> 4) << 8) | ((green >> 4) << 4) | (blue >> 4);
         Bucket& bucket = buckets[bucket_index];
-        const uint32_t weight = 1 + static_cast<uint32_t>(saturation / 32); // stronger vibrancy weight
+        const uint32_t weight = 1 + static_cast<uint32_t>(saturation / 32);
         bucket.count += weight;
         bucket.r += red * weight;
         bucket.g += green * weight;
@@ -128,11 +124,8 @@ bool decode_image_bytes_to_pixels(const std::vector<uint8_t>& bytes, BitmapPixel
         bucket.sat_sum += static_cast<uint32_t>(saturation) * weight;
     }
 
-    // --- Vibrancy-weighted winner selection ---
-    // Raw frequency alone lets large muted regions (e.g. a beige background)
-    // beat a smaller vivid color that's visually "the" accent.
-    // Strategy: collect the top 3 by count, then pick whichever has the
-    // highest average saturation — cheap, no extra image pass required.
+    // Vibrancy-weighted winner: of the top 3 buckets by count, the most saturated wins, so a large muted
+    // area does not beat a smaller vivid accent.
     struct Candidate
     {
         const Bucket* b = nullptr;
@@ -161,7 +154,6 @@ bool decode_image_bytes_to_pixels(const std::vector<uint8_t>& bytes, BitmapPixel
         }
     }
 
-    // Among those top-3, pick the one with the highest avg saturation.
     const Bucket* best = nullptr;
     size_t best_idx = 0;
     float best_vibrancy = -1.0f;
@@ -182,16 +174,13 @@ bool decode_image_bytes_to_pixels(const std::vector<uint8_t>& bytes, BitmapPixel
 
     if (best && best->count > 0)
     {
-        // --- Neighbor-bucket merging ---
-        // A color straddling a bucket boundary splits its votes across up to 8
-        // adjacent cells. Pool the winning bucket with all 26 face/edge/corner
-        // neighbors before averaging so the final RGB is stable and representative.
+        // Pool the winning bucket with its 26 neighbours so a color on a bucket boundary stays stable.
         uint64_t pool_count = 0;
         double pool_r = 0, pool_g = 0, pool_b = 0;
 
-        const int bi = static_cast<int>((best_idx >> 8) & 0xF); // red index
-        const int gi = static_cast<int>((best_idx >> 4) & 0xF); // green index
-        const int bli = static_cast<int>(best_idx & 0xF);       // blue index
+        const int bi = static_cast<int>((best_idx >> 8) & 0xF);
+        const int gi = static_cast<int>((best_idx >> 4) & 0xF);
+        const int bli = static_cast<int>(best_idx & 0xF);
 
         for (int dr = -1; dr <= 1; ++dr)
         {
@@ -229,18 +218,13 @@ bool decode_image_bytes_to_pixels(const std::vector<uint8_t>& bytes, BitmapPixel
             D2D1_COLOR_F bg_color = g_settings.pill_bg_color;
             if (bg_color.a <= 0.0f)
             {
-                bg_color = D2D1::ColorF(0.031f, 0.031f, 0.039f, 1.0f); // Obsidian default #08080A
+                bg_color = D2D1::ColorF(0.031f, 0.031f, 0.039f, 1.0f);
             }
 
             pixels.sampled_accent =
                 ensure_contrast_against_background(D2D1::ColorF(raw_r, raw_g, raw_b, 1.0f), bg_color);
         }
-        // If poolCount is somehow 0 (all neighbors empty and center also cleared),
-        // the existing sampledAccent default (#4cc9f0) is kept unchanged — explicit
-        // fallback for fully-grayscale/near-black-and-white album art.
     }
-    // else: no qualifying colorful pixel found (B&W / fully-filtered image)
-    // — leave sampledAccent at the BitmapPixels default (#4cc9f0).
 
     pixels.generation = ++g_art_generation_counter;
     *out_pixels = std::move(pixels);

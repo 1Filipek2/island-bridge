@@ -9,12 +9,8 @@ namespace island
 {
 namespace
 {
-
 BluetoothDeviceCategory classify_bluetooth_device(const winrt::Windows::Devices::Enumeration::DeviceInformation& info)
 {
-    // 1) Name-based heuristic first — cheap, synchronous, and correct for
-    //    the overwhelming majority of consumer devices, which advertise a
-    //    descriptive friendly name.
     std::wstring name = to_lower_copy(std::wstring(info.Name().c_str()));
 
     if (name.find(L"headphone") != std::wstring::npos || name.find(L"headset") != std::wstring::npos ||
@@ -42,7 +38,6 @@ BluetoothDeviceCategory classify_bluetooth_device(const winrt::Windows::Devices:
         return BluetoothDeviceCategory::Phone;
     }
 
-    // 2) Fall back to the classic Bluetooth Class-of-Device major-class bits.
     try
     {
         using winrt::Windows::Devices::Bluetooth::BluetoothDevice;
@@ -65,17 +60,11 @@ BluetoothDeviceCategory classify_bluetooth_device(const winrt::Windows::Devices:
     }
     catch (...)
     {
-        // Not every device id resolves to a classic BluetoothDevice — BLE-only
-        // peripherals in particular will throw here. Fall through.
     }
 
     return BluetoothDeviceCategory::Generic;
 }
 
-// Reads the standard GATT Battery Service (0x180F) / Battery Level
-// characteristic (0x2A19). Only works for devices that expose battery this
-// way — mostly BLE and BLE-dual-mode devices. Classic-only devices will
-// fail the GetGattServicesForUuidAsync call and we just report -1 (unknown).
 int try_read_bluetooth_battery_percent_ble(winrt::hstring const& device_id)
 {
     using namespace winrt::Windows::Devices::Bluetooth;
@@ -129,12 +118,8 @@ int try_read_bluetooth_battery_percent_ble(winrt::hstring const& device_id)
     }
 }
 
-// Windows' own Settings > Bluetooth & devices page shows a battery percentage
-// for most classic (non-BLE) headphones/earbuds/speakers using an
-// undocumented per-devnode property exposed by the Microsoft Bluetooth
-// classic driver stack — not GATT. This is the same property those battery
-// tray-icon utilities read. Query it via SetupAPI on the Bluetooth-class
-// devnode whose instance ID embeds the device's Bluetooth address.
+// Classic (non-BLE) headphones expose battery through an undocumented devnode property of the
+// Microsoft Bluetooth stack (what Settings shows); read it via SetupAPI.
 static const GUID guid_dev_class_bluetooth = {
     0xe0cbf06c, 0xcd8b, 0x4647, {0xbb, 0x8a, 0x26, 0x3b, 0x43, 0xf0, 0xf9, 0x74}};
 
@@ -154,10 +139,6 @@ int try_read_classic_bluetooth_battery_percent(uint64_t address)
     const std::wstring addr_lower = to_lower_copy(addr_hex);
     host::log(L"BT battery: searching devnodes for address %s", addr_lower.c_str());
 
-    // Enumerate everything the Bluetooth bus driver (BTHENUM) exposes,
-    // regardless of which device setup class it landed in. This is broader
-    // than filtering by GUID_DEVCLASS_BLUETOOTH and matches what battery
-    // tray utilities do.
     HDEVINFO device_info_set = SetupDiGetClassDevsExW(nullptr, L"BTHENUM", nullptr, DIGCF_ALLCLASSES | DIGCF_PRESENT,
                                                       nullptr, nullptr, nullptr);
 
@@ -226,10 +207,7 @@ int try_read_bluetooth_battery_percent(winrt::hstring const& device_id)
 {
     int result = -1;
 
-    // Try the classic per-devnode battery property first — this is what
-    // Settings > Bluetooth & devices reads, and it's what covers most
-    // headsets/earbuds/speakers that pair over classic Bluetooth (BR/EDR)
-    // rather than BLE.
+    // Classic devnode property first (covers most BR/EDR headsets), then BLE GATT.
     try
     {
         using winrt::Windows::Devices::Bluetooth::BluetoothDevice;
@@ -241,19 +219,15 @@ int try_read_bluetooth_battery_percent(winrt::hstring const& device_id)
     }
     catch (...)
     {
-        // Not resolvable as a classic BluetoothDevice (BLE-only peripheral) — fall through.
     }
 
     if (result < 0)
     {
-        // Fall back to BLE GATT Battery Service for BLE / dual-mode devices.
         result = try_read_bluetooth_battery_percent_ble(device_id);
     }
 
     if (result >= 0)
     {
-        // Remember this reading so a later disconnect (when the device can
-        // no longer be queried) can still show the last known level.
         std::lock_guard lock(g_bluetooth_battery_cache_mutex);
         g_bluetooth_battery_cache[std::wstring(device_id.c_str())] = result;
     }
@@ -261,8 +235,6 @@ int try_read_bluetooth_battery_percent(winrt::hstring const& device_id)
     return result;
 }
 
-// Returns the last battery percent we successfully read for this device
-// while it was connected, or -1 if we never learned one.
 int get_last_known_bluetooth_battery_percent(const std::wstring& device_id)
 {
     std::lock_guard lock(g_bluetooth_battery_cache_mutex);
@@ -270,17 +242,14 @@ int get_last_known_bluetooth_battery_percent(const std::wstring& device_id)
     return it != g_bluetooth_battery_cache.end() ? it->second : -1;
 }
 
-// Small per-device cache so a Removed event (which only carries an Id, not
-// a full DeviceInformation) can still show a name/icon on disconnect.
 struct BluetoothTrackedDevice
 {
     std::wstring name;
     BluetoothDeviceCategory category;
 };
 
-// Fork: only devices whose name contains one of the semicolon-separated
-// entries of Modules.BluetoothAllowList (case-insensitive) get a card.
-// An empty list shows every device.
+// Only devices matching Modules.BluetoothAllowList (semicolon list, case-insensitive) get a card;
+// an empty list allows all.
 bool is_bluetooth_card_allowed(const std::wstring& device_name)
 {
     const std::wstring list = to_lower_copy(get_string_setting_copy(L"Modules.BluetoothAllowList"));
@@ -321,7 +290,6 @@ void handle_bluetooth_connected(const winrt::Windows::Devices::Enumeration::Devi
         return;
     }
 
-    // Re-read the default output once (event-driven, no polling).
     g_volume_endpoint_stale = true;
     if (HWND recheck_hwnd = g_hwnd)
     {
@@ -341,8 +309,6 @@ void handle_bluetooth_connected(const winrt::Windows::Devices::Enumeration::Devi
 
     if (category == BluetoothDeviceCategory::Phone || !is_bluetooth_card_allowed(name))
     {
-        // Fork: see HandleBluetoothDisconnected; phones and devices outside the
-        // allow list are not shown.
         host::log(L"Bluetooth: connected (card suppressed) - %s", name.c_str());
         return;
     }
@@ -366,11 +332,7 @@ void handle_bluetooth_connected(const winrt::Windows::Devices::Enumeration::Devi
     }
     trigger_nudge();
 
-    // Windows often hasn't populated the battery property at the exact
-    // instant the connection event fires — it needs a moment to actually
-    // query the device. Keep retrying in the background for a while; if a
-    // value shows up and this connection is still the one being displayed,
-    // patch it into the live state and re-render.
+    // Windows fills the battery property a moment after connecting, so keep retrying in the background.
     if (g_settings.bluetooth_show_battery && snapshot.battery_percent < 0)
     {
         std::thread(
@@ -410,12 +372,9 @@ void handle_bluetooth_disconnected(winrt::hstring const& id,
                                    std::mutex& cache_mutex)
 {
     {
-        // Fork: phones (iPhone via Phone Link) drop and re-open their links
-        // constantly, so their connect/disconnect cards are just noise.
+        // Phones drop and reopen their links constantly; their cards are noise.
         std::lock_guard lock(cache_mutex);
         auto it = cache.find(std::wstring(id.c_str()));
-        // Unknown devices (never seen connecting) are blocked too, so a stranger's
-        // device can't pop a nameless "Bluetooth Device" card.
         if (it == cache.end() || it->second.category == BluetoothDeviceCategory::Phone ||
             !is_bluetooth_card_allowed(it->second.name))
         {
@@ -427,7 +386,6 @@ void handle_bluetooth_disconnected(winrt::hstring const& id,
 
     ++g_bluetooth_connect_generation; // cancel any pending battery retry for the old connection
 
-    // Re-read the default output once (event-driven, no polling).
     g_volume_endpoint_stale = true;
     if (HWND recheck_hwnd = g_hwnd)
     {
@@ -489,9 +447,7 @@ DWORD WINAPI bluetooth_thread_proc(void*)
     std::mutex cache_mutex;
     std::vector<DeviceWatcher> watchers;
 
-    // Watching the "Connected" selector directly means a device APPEARING
-    // in the watcher (Added) is a connect, and DISAPPEARING (Removed) is a
-    // disconnect — no property polling or IsConnected lookups required.
+    // The "Connected" selector turns Added into connect and Removed into disconnect, with no polling.
     auto start_watcher = [&](winrt::hstring const& selector, const wchar_t* label)
     {
         try
@@ -508,11 +464,7 @@ DWORD WINAPI bluetooth_thread_proc(void*)
             watcher.Added(
                 [&device_cache, &cache_mutex, enum_done](DeviceWatcher const&, DeviceInformation const& info)
                 {
-                    // Devices reported before EnumerationCompleted are the
-                    // watcher's initial snapshot (already connected when the mod
-                    // started) — cache them silently so a later disconnect still
-                    // resolves a name, but don't pop a card for a connection the
-                    // user didn't just cause.
+                    // Devices in the initial snapshot were already connected: cache them, but show no card.
                     if (!*enum_done)
                     {
                         std::wstring name = info.Name().c_str();
@@ -548,9 +500,6 @@ DWORD WINAPI bluetooth_thread_proc(void*)
     start_watcher(BluetoothLEDevice::GetDeviceSelectorFromConnectionStatus(BluetoothConnectionStatus::Connected),
                   L"BLE");
 
-    // DeviceWatcher does its work via WinRT callbacks on background threads;
-    // this thread just needs to stay alive to keep the watchers rooted
-    // until shutdown is signaled.
     while (WaitForSingleObject(g_stop_event, 1000) == WAIT_TIMEOUT)
     {
     }

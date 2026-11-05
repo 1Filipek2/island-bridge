@@ -5,7 +5,6 @@
 
 namespace island
 {
-
 void set_click_through(HWND hwnd, bool click_through)
 {
     LONG_PTR ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
@@ -108,7 +107,6 @@ void toggle_endpoint_mute()
     }
 }
 
-// Shared by the scrubber's live drag updates and its on-release commit.
 void seek_media_to_ticks(int64_t target_ticks)
 {
     std::thread(
@@ -156,10 +154,6 @@ void seek_media_to_ticks(int64_t target_ticks)
 
 namespace
 {
-
-// Resolves the SMTC session matching the island's current media source, falling
-// back to whatever Windows reports as the current session. Must be called on a
-// thread with an initialised apartment.
 winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession resolve_media_session()
 {
     using Manager = winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager;
@@ -190,16 +184,9 @@ winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession resolv
 
 }
 
-// Sends a transport command: 0 = previous, 1 = play/pause, 2 = next.
-//
-// SMTC is the only mechanism used when a session exists. The global media keys
-// are deliberately NOT used as a fallback for a session that merely *reports*
-// failure: the shell routes those keys to whatever it considers the current
-// session, which is not necessarily the session the island is showing (see
-// SelectActiveMediaSession), and a player that acts on the request while still
-// answering false would then be driven twice -- skipping two tracks, or toggling
-// play/pause straight back. The keys are only synthesized when SMTC could not
-// act at all, where there is nothing to double-drive and no better option.
+// Transport command: 0 = previous, 1 = play/pause, 2 = next. Only SMTC when a session exists; media
+// keys are sent only when SMTC could not act at all, because the shell routes them to its own
+// "current" session and a player could be driven twice.
 void send_media_transport_command(int cmd)
 {
     std::thread(
@@ -238,9 +225,6 @@ void send_media_transport_command(int cmd)
             {
                 if (!reported_success)
                 {
-                    // Not escalated to a media key on purpose (see above). Logged so
-                    // a player that genuinely refuses transport control is
-                    // diagnosable from the mod log.
                     host::log(L"Media transport command %d was refused by the session.", cmd);
                 }
                 return;
@@ -270,7 +254,6 @@ void send_media_transport_command(int cmd)
 
 namespace
 {
-
 struct WindowSearch
 {
     std::wstring target_title;
@@ -292,7 +275,6 @@ BOOL CALLBACK enum_windows_proc(HWND hwnd, LPARAM l_param)
     if (GetWindowTextW(hwnd, title, ARRAYSIZE(title)) > 0)
     {
         std::wstring w_title(title);
-        // Case-insensitive check if window title contains currently playing media title
         auto it = std::search(w_title.begin(), w_title.end(), search->target_title.begin(), search->target_title.end(),
                               [](wchar_t ch1, wchar_t ch2)
                               {
@@ -306,7 +288,6 @@ BOOL CALLBACK enum_windows_proc(HWND hwnd, LPARAM l_param)
         }
     }
 
-    // Fallback: check if the window belongs to the target app (by process executable name)
     if (!search->fallback_hwnd && !search->target_app.empty())
     {
         DWORD pid = 0;
@@ -319,7 +300,6 @@ BOOL CALLBACK enum_windows_proc(HWND hwnd, LPARAM l_param)
                 std::wstring target_lower = to_lower_copy(search->target_app);
                 std::wstring exe_lower = to_lower_copy(exe_path);
 
-                // Remove quotes from target AppUserModelId if any
                 if (target_lower.size() >= 2 && target_lower.front() == L'"' && target_lower.back() == L'"')
                 {
                     target_lower = target_lower.substr(1, target_lower.size() - 2);
@@ -361,7 +341,6 @@ void open_relevant_app()
         app = g_state.media.source_app_user_model_id;
     }
 
-    // Try to find and focus window containing track title (ideal for browser playing YouTube/Spotify)
     if (!title.empty() || !app.empty())
     {
         WindowSearch search;
@@ -382,12 +361,10 @@ void open_relevant_app()
         }
     }
 
-    // Fallback: Launch or focus via AppUserModelId or Path
     if (!app.empty())
     {
         std::wstring execute_path = app;
 
-        // Remove surrounding quotes if any
         if (execute_path.size() >= 2 && execute_path.front() == L'"' && execute_path.back() == L'"')
         {
             execute_path = execute_path.substr(1, execute_path.size() - 2);
@@ -400,7 +377,6 @@ void open_relevant_app()
         {
             if (GetFileAttributesW(execute_path.c_str()) == INVALID_FILE_ATTRIBUTES)
             {
-                // Path doesn't exist. Try 64-bit Program Files if it was in x86
                 size_t x86_pos = execute_path.find(L" (x86)");
                 if (x86_pos != std::wstring::npos)
                 {
@@ -412,8 +388,7 @@ void open_relevant_app()
                     }
                 }
 
-                // If it STILL doesn't exist after trying alternatives, just gracefully abort!
-                // Trying to guess 'brave.exe' triggers broken Windows Registry App Paths.
+                // Gives up when the path does not exist: guessing an exe name triggers broken App Paths entries.
                 if (GetFileAttributesW(execute_path.c_str()) == INVALID_FILE_ATTRIBUTES)
                 {
                     return;
@@ -428,7 +403,6 @@ void open_relevant_app()
         }
         else
         {
-            // It's a UWP/Desktop AppUserModelId, launch via AppsFolder
             std::wstring shell_path = L"shell:AppsFolder\\" + execute_path;
             SHELLEXECUTEINFOW sei = {sizeof(sei)};
             sei.fMask = SEE_MASK_FLAG_NO_UI;

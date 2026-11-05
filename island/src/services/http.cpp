@@ -2,8 +2,6 @@
 
 namespace island
 {
-
-// --- Weather Fetching Helpers ---
 std::string http_get(const wchar_t* host, const wchar_t* path, bool https)
 {
     std::string response;
@@ -116,7 +114,7 @@ HttpResult http_get_ex(const wchar_t* host, const wchar_t* path, bool https, con
                         }
                         result.body.append(buffer.data(), downloaded);
                         if (result.body.size() > 4u * 1024u * 1024u)
-                        { // sanity cap
+                        {
                             read_ok = false;
                             break;
                         }
@@ -136,16 +134,9 @@ HttpResult http_get_ex(const wchar_t* host, const wchar_t* path, bool https, con
     return result;
 }
 
-// Percent-encodes a city name for use as a wttr.in path segment. Only spaces
-// used to be escaped, so a city containing a comma, an accent or any other
-// non-ASCII character produced a malformed request; wttr.in then answered with
-// an error page that the parser happily turned into "0 degrees".
 std::wstring percent_encode_utf8(const std::wstring& text)
 {
-    // Some users worked around the old space-only escaping by typing the escape
-    // themselves ("New%20York"). Re-encoding that would send "New%2520York", so
-    // an already-encoded value is passed through untouched. Only the exact
-    // "%XX" shape counts, so a literal percent sign in a name still encodes.
+    // An already encoded "%XX" value is passed through untouched.
     auto looks_pre_encoded = [](const std::wstring& value)
     {
         const size_t pos = value.find(L'%');

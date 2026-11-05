@@ -9,9 +9,7 @@ namespace island
 {
 namespace
 {
-
-// ── GitHub contributions tab (fork addition) ────────────────────────────────
-// Reads the public contribution calendar, so no token is needed or stored.
+// GitHub contributions tab: reads the public calendar, no token.
 struct GitHubDay
 {
     std::string date;
@@ -21,7 +19,6 @@ struct GitHubDay
     int count = 0;
 };
 
-// Pulls the value of attribute `name` from the tag text in [tagStart, tagEnd).
 std::string html_attribute(const std::string& html, size_t tag_start, size_t tag_end, const char* name)
 {
     const std::string needle = std::string(" ") + name + "=\"";
@@ -81,7 +78,6 @@ std::vector<GitHubDay> parse_git_hub_calendar(const std::string& html)
         int row = -1, column = -1;
         if (target.rfind(id_prefix, 0) == 0 && sscanf(target.c_str() + id_prefix.size(), "%d-%d", &row, &column) == 2)
         {
-            // "No contributions on ..." parses as 0, "3 contributions on ..." as 3.
             counts[{row, column}] = atoi(html.c_str() + tag_end + 1);
         }
         cursor = tag_end;

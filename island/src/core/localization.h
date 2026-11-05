@@ -4,14 +4,9 @@
 
 namespace island
 {
-
 std::wstring format_with_name(const wchar_t* format, const std::wstring& name);
 
-// ── Localization (#35) ───────────────────────────────────────────────────────
-// Every user-visible string in the island goes through Loc(). The English text
-// doubles as the lookup key, so an untranslated string degrades to readable
-// English rather than to a raw identifier, and adding a language means adding
-// one column -- no key bookkeeping.
+// Localization: the English text is the lookup key, so a missing translation falls back to English.
 enum class UiLanguage
 {
     English,

@@ -11,16 +11,8 @@ namespace island
 {
 namespace
 {
-
-// Chooses which SMTC session the island should follow.
-//
-// GetCurrentSession() returns whatever Windows last treated as the foreground
-// media app, which is often a stale or paused session belonging to a different
-// player. Following it blindly meant a player that was genuinely playing could
-// be ignored entirely -- the reason VLC frequently produced no reaction at all
-// while Spotify worked. Prefer the current session when it is actually playing,
-// otherwise the first session that is, and only then fall back to the current
-// one so paused/idle state still shows.
+// Follows the current session only when it is playing, else the first playing one, else the current one
+// (GetCurrentSession is often a stale paused player).
 winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession select_active_media_session(
     winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager const& manager,
     const std::wstring& preferred_aumid)
@@ -52,7 +44,6 @@ winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession select
     {
     }
 
-    // The user picked a source (dock / menu): follow it, playing or not.
     if (!preferred_aumid.empty())
     {
         try
@@ -92,7 +83,6 @@ winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession select
     return current;
 }
 
-// Exe name for path-style AUMIDs (classic desktop apps), friendly name otherwise.
 std::wstring media_source_display_name(const std::wstring& aumid)
 {
     std::wstring name = friendly_media_source_name(aumid);
@@ -110,7 +100,6 @@ std::wstring media_source_display_name(const std::wstring& aumid)
 
 struct MediaSourceTracker
 {
-    // Auto mode / dock pick bookkeeping (see ChooseMediaSourceAumid).
     std::unordered_map<std::wstring, bool> was_playing;     // playing state at the previous poll
     std::unordered_map<std::wstring, uint64_t> started_seq; // when each source last STARTED playing (higher = newer)
     uint64_t seq_counter = 0;
@@ -163,11 +152,9 @@ bool collect_media_sources(
     }
     catch (...)
     {
-        return false; // keep whatever the dock showed before
+        return false;
     }
 
-    // Remember when each source last STARTED playing (not playing -> playing).
-    // Auto mode follows the newest start.
     {
         std::wstring current_aumid;
         try
@@ -182,7 +169,6 @@ bool collect_media_sources(
         {
         }
 
-        // A source that disappeared forgets its history, so reopening it counts as a fresh start.
         for (auto it = tracker.was_playing.begin(); it != tracker.was_playing.end();)
         {
             const std::wstring& id = it->first;
@@ -212,7 +198,6 @@ bool collect_media_sources(
             }
             was = e.second;
         }
-        // Several sources starting inside one poll: the one Windows calls "current" counts as newest.
         std::stable_sort(started.begin(), started.end(),
                          [&](const std::wstring& a, const std::wstring& b)
                          {
@@ -224,7 +209,6 @@ bool collect_media_sources(
         }
     }
 
-    // Stable order: new sources go on the end, vanished ones drop out.
     tracker.order.erase(std::remove_if(tracker.order.begin(), tracker.order.end(),
                                        [&](const std::wstring& id)
                                        {
@@ -272,7 +256,7 @@ bool collect_media_sources(
 
         PixelsRef& icon = tracker.icons[id];
         if (!icon)
-        { // window enumeration is not free, so retry rarely
+        {
             int& wait = tracker.icon_retry[id];
             if (wait <= 0)
             {
@@ -290,12 +274,10 @@ bool collect_media_sources(
     return true;
 }
 
-// Which source should the island show?  Returns "" to fall back to the system's current session.
-//   1. Dock pick: temporary. Ends when something NEW starts playing anywhere, or when
-//      that app goes away. After that, the lock or Auto applies again.
-//   2. Locked app (right-click menu): wins over Auto.
-//   3. Auto: the playing app that started most recently. If it closes, the next most
-//      recent playing app. With nothing playing: the app that played last.
+// Which source the island shows ("" = the system's current session):
+// 1. dock pick, until something new starts playing or that app goes away,
+// 2. the app locked in the context menu,
+// 3. Auto: the most recently started playing app, else the one that played last.
 std::wstring choose_media_source_aumid(MediaSourceTracker& tracker, const std::wstring& locked_aumid)
 {
     auto exists = [&](const std::wstring& id)
@@ -308,7 +290,6 @@ std::wstring choose_media_source_aumid(MediaSourceTracker& tracker, const std::w
         return it == tracker.started_seq.end() ? 0 : it->second;
     };
 
-    // Pick up a new dock request (or an Auto reset from the menu).
     const unsigned rev = g_dock_override_rev.load();
     if (rev != tracker.dock_override_rev_seen)
     {
@@ -333,7 +314,7 @@ std::wstring choose_media_source_aumid(MediaSourceTracker& tracker, const std::w
         }
         if (!exists(tracker.dock_override) || something_new_started)
         {
-            tracker.dock_override.clear(); // back to the lock / Auto
+            tracker.dock_override.clear();
         }
         else
         {
@@ -346,7 +327,6 @@ std::wstring choose_media_source_aumid(MediaSourceTracker& tracker, const std::w
         return locked_aumid;
     }
 
-    // Auto. Playing sources beat paused ones; within each group the newest start wins.
     std::wstring best;
     bool best_playing = false;
     uint64_t best_seq = 0;
@@ -364,7 +344,7 @@ std::wstring choose_media_source_aumid(MediaSourceTracker& tracker, const std::w
     }
     if (!best_playing && best_seq == 0)
     {
-        return std::wstring(); // nothing has ever played: let Windows decide
+        return std::wstring();
     }
     return best;
 }
@@ -440,9 +420,8 @@ DWORD WINAPI media_thread_proc(void*)
                         }
 
                         std::lock_guard lock(g_state_mutex);
-                        // Some sources (notably the Spotify desktop app) refresh LastUpdatedTime
-                        // without moving Position(), which makes the estimate jump backwards.
-                        // Hold off until a second poll confirms it is a real seek.
+                        // Some sources (Spotify desktop) refresh LastUpdatedTime without moving Position(); wait for a second
+                        // poll before treating it as a seek.
                         constexpr int64_t jitter_tolerance_ticks = 15000000LL; // 1.5s
                         constexpr int64_t confirm_tolerance_ticks = 5000000LL; // 0.5s
                         const bool same_track_playing = np_p && g_state.media.playing && ne == g_state.media.end_ticks;
@@ -509,15 +488,7 @@ DWORD WINAPI media_thread_proc(void*)
                     next.source_app_user_model_id = session.SourceAppUserModelId().c_str();
                     next.source_name = media_source_display_name(next.source_app_user_model_id);
 
-                    // Fallback for VLC, which often exposes a session with no
-                    // Title metadata at all.
-                    //
-                    // The marker must still be at the END of the caption, just
-                    // without insisting on the exact " - " separator that skins
-                    // and fullscreen do not reliably produce. Matching the
-                    // marker anywhere would happily pick up a browser tab named
-                    // "How to use VLC media player - YouTube". The owning
-                    // process is checked too, so only a real VLC window counts.
+                    // VLC often has no title metadata: take it from a real VLC window caption that ends with the app name.
                     if (next.title.empty() && next.source_name == L"VLC")
                     {
                         const std::wstring marker = L"VLC media player";
@@ -553,8 +524,6 @@ DWORD WINAPI media_thread_proc(void*)
                                 continue;
                             }
 
-                            // Everything before the app name is the media title,
-                            // minus any trailing " - " separator.
                             std::wstring candidate = caption.substr(0, caption.size() - marker.size());
                             while (!candidate.empty() && (candidate.back() == L' ' || candidate.back() == L'-'))
                             {
@@ -622,11 +591,8 @@ DWORD WINAPI media_thread_proc(void*)
                         next.source_icon_generation = next.source_icon->generation;
                     }
 
-                    // Track when title/artist last changed. Browsers often update
-                    // the text metadata a beat before they swap the artwork bytes,
-                    // so we keep retrying the art fetch for a short "settle window"
-                    // after any track change instead of locking onto the first
-                    // (possibly stale/empty) result forever.
+                    // Browsers update the text before the artwork, so the art fetch keeps retrying for a short window
+                    // after a track change.
                     const bool source_changed = (next.source_app_user_model_id != prev_source_app_user_model_id);
                     const bool metadata_changed = (source_changed || next.title != prev_title ||
                                                    next.artist != prev_artist || (!prev_playing && next.playing));
@@ -658,11 +624,7 @@ DWORD WINAPI media_thread_proc(void*)
                         }
                     }
 
-                    // If this particular poll's fetch came back empty (thumbnail
-                    // not ready yet), don't flash a blank cover for a track that
-                    // hasn't actually changed — keep the old art until a fresh
-                    // fetch succeeds. But never do this across an actual track
-                    // change, or we're back to showing the wrong song's art.
+                    // An empty fetch for the same track keeps the old art instead of flashing a blank cover.
                     if (!next.art && prev_art && !metadata_changed)
                     {
                         next.art = prev_art;
@@ -685,8 +647,7 @@ DWORD WINAPI media_thread_proc(void*)
         {
             std::lock_guard lock(g_state_mutex);
 
-            // A switch the user asked for is not a "new track": it must not auto-expand
-            // the island or open the 5s recentTrackChange window.
+            // A user source switch is not a new track: no auto-expand.
             const bool user_source_switch = !g_state.media.source_app_user_model_id.empty() &&
                                             next.source_app_user_model_id != g_state.media.source_app_user_model_id &&
                                             now_seconds() - g_user_source_switch_at.load() < 4.0;

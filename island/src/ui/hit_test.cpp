@@ -5,18 +5,13 @@
 
 namespace island
 {
+// Media dashboard hit testing (geometry published by draw_media, see layout.h)
 
-// ── Media dashboard hit-testing (see the notes next to MediaLayout) ──────────
-
-// Converts a client-area mouse position into the media dashboard's content
-// space. Returns valid == false when DrawMedia has not painted recently, so a
-// stale frame can never produce a phantom hit.
 MediaContentPoint media_content_from_client(int client_x, int client_y)
 {
     MediaContentPoint out;
 
-    // Seqlock read: retry until a write is not in progress and the counter has
-    // not moved, so all six fields come from the same frame.
+    // Seqlock read: all fields come from the same frame.
     float left = 0.0f, top = 0.0f, right = 0.0f, bottom = 0.0f, scale = 1.0f;
     float trim = 0.0f;
     unsigned long long stamp = 0;
@@ -25,7 +20,7 @@ MediaContentPoint media_content_from_client(int client_x, int client_y)
         const unsigned before = g_media_hit_seq.load(std::memory_order_relaxed);
         if (before & 1u)
         {
-            continue; // write in progress
+            continue;
         }
         std::atomic_thread_fence(std::memory_order_acquire);
 
@@ -42,7 +37,7 @@ MediaContentPoint media_content_from_client(int client_x, int client_y)
         {
             break;
         }
-        stamp = 0; // torn; force another attempt (or bail out below)
+        stamp = 0;
     }
 
     if (stamp == 0 || GetTickCount64() - stamp > 500)
@@ -62,8 +57,6 @@ MediaContentPoint media_content_from_client(int client_x, int client_y)
         return out;
     }
 
-    // DrawPill scales content about the pill centre, so undo that about the
-    // same point to get back into content space.
     const float center_x = (left + right) * 0.5f;
     const float center_y = (top + bottom) * 0.5f;
     const float content_x = (static_cast<float>(client_x) - center_x) / scale + center_x;
@@ -79,11 +72,7 @@ MediaContentPoint media_content_from_client(int client_x, int client_y)
 
 namespace
 {
-
-// The immersive lyrics view draws the transport block (scrubber, controls, dock,
-// lyrics button) slightly smaller. This maps a content-space point back into that
-// block's own design space, so the hit tests below keep using the MediaLayout
-// constants. A no-op unless the immersive view is showing.
+// Maps a content point into the transport block's design space (the immersive view draws it smaller).
 MediaContentPoint media_player_zone_point(const MediaContentPoint& pt)
 {
     const float mix = g_immersive_mix_pub.load(std::memory_order_relaxed);
@@ -137,8 +126,6 @@ int media_transport_hit_test(const MediaContentPoint& raw_pt)
     return -1;
 }
 
-// Fraction along the scrubber bar (0..1) for a content-space point, or -1 when
-// the point is not on the bar.
 float media_scrub_fraction_from_content(const MediaContentPoint& raw_pt)
 {
     const MediaContentPoint pt = media_player_zone_point(raw_pt);
@@ -163,8 +150,6 @@ float media_scrub_fraction_from_content(const MediaContentPoint& raw_pt)
     return clamp((clamp(pt.x, bar_left, bar_right) - bar_left) / (bar_right - bar_left), 0.0f, 1.0f);
 }
 
-// Clamped fraction for an ongoing drag, ignoring the on-bar test so the scrub
-// keeps tracking once the press has been captured.
 float media_scrub_fraction_unbounded(const MediaContentPoint& raw_pt)
 {
     const MediaContentPoint pt = media_player_zone_point(raw_pt);
@@ -181,8 +166,6 @@ float media_scrub_fraction_unbounded(const MediaContentPoint& raw_pt)
     return clamp((clamp(pt.x, bar_left, bar_right) - bar_left) / (bar_right - bar_left), 0.0f, 1.0f);
 }
 
-// Index of the File Tray row under a content-space point, or -1. Rows are drawn
-// newest-first, so index 0 is the most recently dropped file.
 int file_tray_row_at_content_point(const MediaContentPoint& pt, int item_count)
 {
     if (!pt.valid || item_count <= 0 || pt.height <= media_layout::expanded_min_height)
@@ -202,7 +185,6 @@ int file_tray_row_at_content_point(const MediaContentPoint& pt, int item_count)
 
     const float stride = file_tray_layout::k_row_height + file_tray_layout::k_row_gap;
     const int index = static_cast<int>((pt.y - file_tray_layout::k_list_top) / stride);
-    // Reject the gap between rows so hovering dead space highlights nothing.
     const float row_top = file_tray_layout::k_list_top + index * stride;
     if (pt.y > row_top + file_tray_layout::k_row_height)
     {
@@ -217,7 +199,6 @@ int file_tray_row_at_content_point(const MediaContentPoint& pt, int item_count)
     return index;
 }
 
-// True when the point is over the bin button in the File Tray header.
 bool file_tray_clear_hit_test(const MediaContentPoint& pt)
 {
     if (!pt.valid || pt.height <= media_layout::expanded_min_height)
@@ -232,7 +213,6 @@ bool file_tray_clear_hit_test(const MediaContentPoint& pt)
     return pt.x >= left - k_slop && pt.x <= right + k_slop && pt.y >= top - k_slop && pt.y <= bottom + k_slop;
 }
 
-// True when the point is over the paste button (left of the bin) in the File Tray header.
 bool file_tray_paste_hit_test(const MediaContentPoint& pt)
 {
     if (!pt.valid || pt.height <= media_layout::expanded_min_height)
@@ -248,7 +228,6 @@ bool file_tray_paste_hit_test(const MediaContentPoint& pt)
     return pt.x >= left - k_slop && pt.x <= right + k_slop && pt.y >= top - k_slop && pt.y <= bottom + k_slop;
 }
 
-// True when the point is over the cut button of the given visible row.
 bool file_tray_remove_hit_test(const MediaContentPoint& pt, int row)
 {
     if (!pt.valid || row < 0 || pt.height <= media_layout::expanded_min_height)
@@ -310,7 +289,6 @@ NotificationCenterHit notification_center_hit_test(const MediaContentPoint& pt)
 
 namespace
 {
-
 void set_notification_center_view(notification_center::View view)
 {
     g_notification_center_detail_open.store(view.open(), std::memory_order_relaxed);
@@ -397,7 +375,6 @@ bool scroll_notification_center_detail(int step)
     return true;
 }
 
-// True when the point is over the expanded layout's album art.
 bool media_art_hit_test(const MediaContentPoint& pt)
 {
     if (!pt.valid || pt.height <= media_layout::expanded_min_height)
@@ -414,7 +391,6 @@ bool media_art_hit_test(const MediaContentPoint& pt)
            pt.y >= media_layout::art_inset_y && pt.y <= media_layout::art_inset_y + media_layout::k_art_size;
 }
 
-// True when the point is over the immersive-lyrics toggle button.
 bool media_lyrics_button_hit_test(const MediaContentPoint& raw_pt)
 {
     const MediaContentPoint pt = media_player_zone_point(raw_pt);
@@ -427,7 +403,6 @@ bool media_lyrics_button_hit_test(const MediaContentPoint& raw_pt)
     return std::fabs(pt.x - cx) <= reach && std::fabs(pt.y - media_layout::controls_y) <= reach;
 }
 
-// Drawing and hit testing call this with the same inputs, so they always agree.
 DockSlots compute_dock_slots(int source_count, int active_index)
 {
     DockSlots d;
@@ -445,7 +420,7 @@ DockSlots compute_dock_slots(int source_count, int active_index)
     }
     else
     {
-        d.count = 3; // first, the active one, and "+N" for the rest
+        d.count = 3;
         d.source_index[0] = 0;
         d.source_index[1] = active_index >= 2 ? active_index : 1;
         d.source_index[2] = -1;
@@ -456,9 +431,7 @@ DockSlots compute_dock_slots(int source_count, int active_index)
 
 namespace
 {
-
-// Slot under a content-space point, or -1. Boundaries sit in the middle of the gaps,
-// so the targets tile the pill (28px+ each) with no dead space.
+// Boundaries sit in the middle of the gaps, so the slots tile the pill with no dead space.
 int media_source_dock_hit_test(const MediaContentPoint& raw_pt, int slot_count)
 {
     const MediaContentPoint pt = media_player_zone_point(raw_pt);

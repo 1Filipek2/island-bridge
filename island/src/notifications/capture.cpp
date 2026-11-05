@@ -8,7 +8,6 @@
 
 namespace island
 {
-
 std::wstring read_clipboard_text(HWND hwnd)
 {
     std::wstring text;
@@ -34,12 +33,8 @@ std::wstring read_clipboard_text(HWND hwnd)
 
 namespace
 {
-
-// Decodes whatever bitmap is currently on the clipboard into a small BGRA
-// thumbnail, aspect-preserving and capped at maxDim on the longer side.
-// Requesting CF_BITMAP works regardless of which bitmap format the source
-// app actually placed on the clipboard (CF_DIB/CF_DIBV5) — Windows
-// synthesizes CF_BITMAP from those automatically.
+// Clipboard bitmap -> small BGRA thumbnail (aspect kept, longer side capped). CF_BITMAP is synthesized
+// by Windows from CF_DIB/CF_DIBV5.
 bool read_clipboard_image_pixels(HWND hwnd, BitmapPixels* out_pixels, UINT max_dim)
 {
     if (!out_pixels || !OpenClipboard(hwnd))
@@ -90,8 +85,6 @@ bool read_clipboard_image_pixels(HWND hwnd, BitmapPixels* out_pixels, UINT max_d
         return false;
     }
 
-    // Selecting the clipboard's own HBITMAP into a scratch DC to read from it
-    // is the MSDN-documented way to do this; we must not DeleteObject it.
     HGDIOBJ old_src = SelectObject(src_dc, source_bitmap);
 
     BITMAPINFO bi = {};
@@ -125,8 +118,7 @@ bool read_clipboard_image_pixels(HWND hwnd, BitmapPixels* out_pixels, UINT max_d
     pixels.bgra.resize(static_cast<size_t>(dst_w) * dst_h * 4);
     memcpy(pixels.bgra.data(), bits, pixels.bgra.size());
 
-    // GDI blits never populate an alpha channel; without this the D2D bitmap
-    // (which expects premultiplied alpha) would render fully invisible.
+    // GDI blits leave alpha at 0; D2D expects premultiplied alpha, so set it.
     for (size_t i = 3; i < pixels.bgra.size(); i += 4)
     {
         pixels.bgra[i] = 255;
@@ -169,16 +161,13 @@ bool is_likely_toast_window(HWND hwnd, const wchar_t* class_name, const wchar_t*
     const std::wstring cls = to_lower_copy(class_name ? class_name : L"");
     const std::wstring text = to_lower_copy(title ? title : L"");
 
-    // Classic Windows 10 toasts have clear class names
     if (cls.find(L"notification") != std::wstring::npos || cls.find(L"toast") != std::wstring::npos ||
         cls.find(L"windows.ui.notifications") != std::wstring::npos)
     {
         return true;
     }
 
-    // Windows 11 toasts use generic XAML or CoreWindow classes, usually hosted by
-    // explorer.exe, sihost.exe, or ShellExperienceHost.exe.
-    // Importantly, their title is often empty at the exact moment of creation!
+    // Windows 11 toasts use generic XAML/CoreWindow classes and often have no title when created.
     if (cls.find(L"xaml_windowedpopupclass") != std::wstring::npos ||
         cls.find(L"windows.ui.core.corewindow") != std::wstring::npos)
     {
@@ -188,7 +177,6 @@ bool is_likely_toast_window(HWND hwnd, const wchar_t* class_name, const wchar_t*
             const std::wstring base = to_lower_copy(base_name_from_path(image));
             if (base == L"explorer.exe" || base == L"sihost.exe" || base == L"shellexperiencehost.exe")
             {
-                // Ensure it's not the start menu, search, or action center main panel
                 if (text != L"start" && text != L"action center" && text != L"search" && text != L"task view")
                 {
                     return true;
@@ -204,9 +192,6 @@ bool is_likely_toast_window(HWND hwnd, const wchar_t* class_name, const wchar_t*
 
 void capture_shell_notification(HWND hwnd)
 {
-    // Grace period: ignore notifications that fire in the first 3 seconds after
-    // the mod starts. sihost.exe gets injected while system windows are still
-    // settling, which causes false positives (e.g. Snipping Tool windows).
     if (now_seconds() < 3.0)
     {
         return;
@@ -227,7 +212,6 @@ void capture_shell_notification(HWND hwnd)
     notification.app = L"Notification";
     notification.title = title;
     notification.expires_at = now_seconds() + 4.0;
-    // Fetch a 64px icon to ensure crisp rendering inside the pill
     notification.icon = get_window_icon_pixels(hwnd, 64);
 
     if (notification.title.size() > 96)
@@ -243,14 +227,13 @@ void capture_shell_notification(HWND hwnd)
     }
     trigger_nudge();
 
-    // Spawn a background thread to extract the full rich text body of the toast using UI Automation.
-    // Modern Windows Toasts often only provide the App Name via GetWindowTextW, leaving the body hidden in the XAML tree.
+    // Toast bodies are only in the XAML tree: read them with UI Automation on a background thread.
     std::thread(
         [hwnd]()
         {
             try
             {
-                Sleep(400); // Give the heavy UWP XAML tree enough time to fully construct the text nodes
+                Sleep(400);
                 if (!IsWindow(hwnd))
                 {
                     return;
@@ -292,7 +275,6 @@ void capture_shell_notification(HWND hwnd)
                                         if (name && wcslen(name) > 0)
                                         {
                                             std::wstring chunk = name;
-                                            // Skip generic screen-reader labels often found in toasts
                                             if (chunk != L"Notification" && chunk != L"New notification")
                                             {
                                                 if (app_name.empty())
@@ -382,7 +364,6 @@ void capture_clipboard(HWND hwnd)
     {
         DWORD pid = 0;
         GetWindowThreadProcessId(owner, &pid);
-        // Fetch at 64px for crisp rendering — 18px/32px is often too small for icon APIs and returns empty.
         clip.app_icon = get_window_icon_pixels(owner, 64);
 
         clip.app_name = owner_title;

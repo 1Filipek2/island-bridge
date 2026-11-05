@@ -2,8 +2,6 @@
 
 namespace island
 {
-
-// "Playing from %s" + "Brave" -> "Playing from Brave"
 std::wstring format_with_name(const wchar_t* format, const std::wstring& name)
 {
     std::wstring out = format;
@@ -46,7 +44,6 @@ UiLanguage language_from_tag(std::wstring_view tag)
     return UiLanguage::English;
 }
 
-// Resolves the "auto" language setting from the user's Windows UI language.
 UiLanguage detect_system_language()
 {
     wchar_t name[LOCALE_NAME_MAX_LENGTH] = {};
@@ -57,11 +54,8 @@ UiLanguage detect_system_language()
     return UiLanguage::English;
 }
 
-// ── Clock / date presentation (#61) ──────────────────────────────────────────
+// Clock and date
 
-// Formats the time honouring the 12h/24h override and the seconds toggle.
-// Windows' own locale formatting is used unless the user forced a mode, so the
-// default keeps regional conventions (separators, AM/PM placement) intact.
 std::wstring format_island_time(const SYSTEMTIME& local, bool follow_system, bool use24_hour, bool show_seconds)
 {
     wchar_t buffer[64] = {};
@@ -76,7 +70,6 @@ std::wstring format_island_time(const SYSTEMTIME& local, bool follow_system, boo
         return L"--:--";
     }
 
-    // Explicit override: build the pattern rather than fighting locale flags.
     const wchar_t* pattern =
         use24_hour ? (show_seconds ? L"HH:mm:ss" : L"HH:mm") : (show_seconds ? L"h:mm:ss tt" : L"h:mm tt");
     if (GetTimeFormatEx(LOCALE_NAME_USER_DEFAULT, 0, &local, pattern, buffer, ARRAYSIZE(buffer)) > 0)
@@ -101,8 +94,6 @@ std::wstring format_island_date(const SYSTEMTIME& local, const std::wstring& cus
         {
             return buffer;
         }
-        // An invalid pattern falls through to the default rather than showing
-        // nothing at all.
     }
 
     if (GetDateFormatEx(LOCALE_NAME_USER_DEFAULT, 0, &local, fallback_pattern, buffer, ARRAYSIZE(buffer), nullptr) > 0)
@@ -117,11 +108,10 @@ const wchar_t* loc(const wchar_t* english)
     struct Row
     {
         const wchar_t* key;
-        // Indexed by UiLanguage; nullptr falls back to the English key.
         const wchar_t* text[static_cast<size_t>(UiLanguage::Count)];
     };
 
-    // Order: en, fr, es, de, pt, it, ru, tr, hi, zh, ja, ko
+    // Columns: en, fr, es, de, pt, it, ru, tr, hi, zh, ja, ko
     static const Row k_rows[] = {
         {L"Media",
          {nullptr, L"Média", L"Multimedia", L"Medien", L"Mídia", L"Media", L"Медиа", L"Medya", L"मीडिया", L"媒体",

@@ -5,13 +5,8 @@
 
 namespace island
 {
-
-// ── Lyrics cache ─────────────────────────────────────────────────────────────
-// Lookup order is memory -> disk -> network; a network result is written to both.
-// Everything below runs on the lyrics thread ONLY, so the memory cache and the
-// directory bookkeeping need no locks. The only cross-thread state is the four
-// atomics here: the right-click menu reads the counters and sets the clear flag,
-// and never touches the disk itself.
+// Lyrics cache: memory, then disk, then network. Runs on the lyrics thread only; the menu touches just
+// these atomics.
 inline std::atomic<bool> g_lyrics_cache_clear_requested{false};
 inline std::atomic<bool> g_lyrics_cache_counts_valid{false}; // false until the first folder scan
 inline std::atomic<int> g_lyrics_cache_file_count{0};
@@ -23,7 +18,6 @@ namespace island
 {
 namespace lyrics_cache
 {
-
 enum class Status
 {
     Found,
@@ -33,7 +27,7 @@ enum class Status
 struct Keys
 {
     std::wstring loose; // normalized artist|title
-    std::wstring full;  // normalized artist|title|album|durationSec
+    std::wstring full;  // normalized artist|title|album|duration_sec
     int duration_sec = 0;
     uint64_t loose_hash = 0;
     uint64_t full_hash = 0;
@@ -46,10 +40,8 @@ bool write_file_atomic(const std::wstring& final_path, const std::string& data);
 void maybe_cleanup(bool disk_on, uint64_t cap_bytes) noexcept;
 void clear_all() noexcept;
 
-// Constructed at the top of every lyrics-loop iteration: the constructor services
-// a pending "clear" request, the destructor runs housekeeping once the iteration
-// is done (including on `continue`). So the first folder scan happens AFTER the
-// first track's lyrics were handled, never in front of them.
+// Created at the top of each lyrics loop iteration: handles a pending clear, then runs housekeeping
+// when the iteration ends.
 class IterationGuard
 {
 public:

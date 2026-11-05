@@ -7,7 +7,6 @@ namespace island
 {
 namespace
 {
-
 float sample_audio_amplitude(BYTE* data, UINT32 frames, WAVEFORMATEX* format)
 {
     if (!data || !frames || !format || !format->nChannels)
@@ -43,16 +42,14 @@ float sample_audio_amplitude(BYTE* data, UINT32 frames, WAVEFORMATEX* format)
     return clamp(static_cast<float>(rms * 4.0), 0.0f, 1.0f);
 }
 
-// Goertzel filter bank over a sliding window of the mixed-down system audio.
-// Produces kSpectrumBands log-spaced magnitudes (50 Hz .. 14 kHz) with an
-// attack/release envelope and a slow auto-gain so quiet and loud tracks both
-// fill the visualizer. Only ever touched from the audio thread.
+// FFT filter bank over a sliding window of the mixed-down system audio: spectrum_bands log-spaced bands
+// (50 Hz .. 14 kHz) with attack/release and slow auto-gain. Audio thread only.
 struct SpectrumAnalyzer
 {
     static constexpr size_t k_window = 1024;
     static constexpr size_t hop = 512;
 
-    static constexpr int log2_window = 10; // kWindow == 1 << 10
+    static constexpr int log2_window = 10;
 
     float ring[k_window]{};
     float window[k_window]{};
@@ -125,8 +122,6 @@ struct SpectrumAnalyzer
         }
     }
 
-    // In-place radix-2 FFT. Replaces ~100 Goertzel filters (each a 1024-step
-    // dependent chain) with ~5k butterflies.
     void fft(float* re, float* im) const
     {
         for (size_t i = 0; i < k_window; ++i)
@@ -179,10 +174,7 @@ struct SpectrumAnalyzer
                 sum += p;
                 mx = std::max(mx, p);
             }
-            // Half mean, half strongest bin: broadband energy still counts, but a
-            // single strong partial is not averaged away.
             const float power = 0.5f * (sum / static_cast<float>(bin_hi[b] - bin_lo[b])) + 0.5f * mx;
-            // 4/kWindow normalises a Hann-windowed sinusoid back to ~its amplitude.
             float amp = std::sqrt(power) * (4.0f / k_window);
             // Music has a steep spectral tilt; lift the highs so they stay visible.
             const float tilt = 1.0f + 2.2f * static_cast<float>(b) / (spectrum_bands - 1);
@@ -209,7 +201,6 @@ struct SpectrumAnalyzer
         }
     }
 
-    // Returns true when at least one new analysis frame was produced.
     bool feed(BYTE* data, UINT32 frames, WAVEFORMATEX* format)
     {
         if (!data || !frames || !format || !format->nChannels)
@@ -299,8 +290,6 @@ void push_waveform_sample(float amplitude)
         last_val = g_state.waveform[(g_state.waveform_write - 1) % g_state.waveform.size()];
     }
 
-    // Apply an attack/release envelope (Exponential Moving Average)
-    // Quick snappy attack (0.7) for beats, buttery smooth release (0.85) for decay.
     float smoothed;
     if (amplitude > last_val)
     {
@@ -380,8 +369,7 @@ DWORD WINAPI audio_thread_proc(void*)
 
     while (WaitForSingleObject(g_stop_event, 0) == WAIT_TIMEOUT)
     {
-        // Don't touch the audio engine at all unless a playing waveform is
-        // actually going to be shown right now. Cheap poll, no capture open.
+        // The audio engine is untouched unless a visualizer that needs audio is on screen.
         if (!g_audio_capture_needed.load(std::memory_order_relaxed))
         {
             WaitForSingleObject(g_stop_event, 250);
@@ -433,8 +421,6 @@ DWORD WINAPI audio_thread_proc(void*)
             continue;
         }
 
-        // Watchdog state — reset every time a capture session (re)starts so we
-        // don't flag a stall before the first packet has even arrived.
         double last_packet_time = now_seconds();
         double next_watchdog_check = last_packet_time + 1.0;
 
@@ -497,13 +483,7 @@ DWORD WINAPI audio_thread_proc(void*)
                 decay_and_publish_spectrum();
             }
 
-            // --- Stall watchdog -------------------------------------------
-            // Checked at most once a second (cheap: one time comparison plus
-            // a mutex-protected bool read, same cost as work already done
-            // elsewhere in this loop). Only forces a reconnect if SMTC says
-            // media is playing but we've had zero packets for 5+ seconds —
-            // that combination almost never happens unless the loopback
-            // engine has stalled, so it won't fire during normal silence.
+            // Stall watchdog (once a second): reconnect only when SMTC says playing but no packet came for 5 s.
             const double now = now_seconds();
             if (now >= next_watchdog_check)
             {

@@ -7,7 +7,6 @@ namespace lyrics_cache
 {
 namespace
 {
-
 constexpr int64_t found_ttl_sec = 90LL * 24 * 3600;    // found lyrics: refetched after 90 days
 constexpr int64_t not_found_ttl_sec = 3LL * 24 * 3600; // "not found": retried after 3 days
 constexpr size_t memory_capacity = 30;
@@ -33,8 +32,6 @@ struct Entry
 
 namespace lyrics_cache
 {
-
-// ---- small helpers ----------------------------------------------------------
 std::string wide_to_utf8(const std::wstring& w)
 {
     if (w.empty())
@@ -73,7 +70,6 @@ namespace lyrics_cache
 {
 namespace
 {
-
 int64_t unix_now()
 {
     FILETIME ft = {};
@@ -106,8 +102,7 @@ bool ends_with(const std::wstring& s, const wchar_t* suffix)
     return s.size() >= n && _wcsicmp(s.c_str() + s.size() - n, suffix) == 0;
 }
 
-// Lowercase, trim, collapse whitespace; '|' is replaced so a title can never
-// forge the key separator.
+// Lowercase, trim, collapse whitespace; '|' is replaced so a title cannot forge the key separator.
 std::wstring normalize_part(const std::wstring& in)
 {
     std::wstring out;
@@ -135,7 +130,6 @@ std::wstring normalize_part(const std::wstring& in)
 
 namespace lyrics_cache
 {
-
 Keys build_keys(const std::wstring& title, const std::wstring& artist, const std::wstring& album, int64_t end_ticks)
 {
     Keys k;
@@ -153,7 +147,6 @@ namespace lyrics_cache
 {
 namespace
 {
-
 std::wstring file_name_for(uint64_t loose_hash, uint64_t full_hash)
 {
     wchar_t name[48] = {};
@@ -166,7 +159,7 @@ bool duration_compatible(int a, int b)
 {
     if (a <= 0 || b <= 0)
     {
-        return true; // unknown on either side: don't reject
+        return true;
     }
     return std::abs(a - b) <= loose_duration_tolerance_sec;
 }
@@ -175,14 +168,14 @@ bool entry_expired(const Entry& e, int64_t now_unix)
 {
     if (e.saved_at <= 0 || e.saved_at > now_unix + 86400)
     {
-        return true; // missing or future-dated
+        return true;
     }
     return (now_unix - e.saved_at) > (e.status == Status::Found ? found_ttl_sec : not_found_ttl_sec);
 }
 
 void counters_adjust(int d_count, int64_t d_bytes)
 {
-    // Single writer (the lyrics thread), so load/store is race-free; the menu only reads.
+    // Single writer (the lyrics thread); the menu only reads.
     int c = g_lyrics_cache_file_count.load(std::memory_order_relaxed) + d_count;
     if (c < 0)
     {
@@ -197,8 +190,7 @@ void counters_adjust(int d_count, int64_t d_bytes)
     g_lyrics_cache_bytes.store(static_cast<uint64_t>(b), std::memory_order_relaxed);
 }
 
-// ---- cache folder -------------------------------------------------------------
-// Windhawk mod storage directory \lyrics. Strictly kept inside mod storage.
+// cache folder: <island storage>\lyrics.
 const std::wstring& cache_dir(bool create)
 {
     static std::wstring dir;
@@ -214,8 +206,6 @@ const std::wstring& cache_dir(bool create)
     }
     if (create && !dir.empty())
     {
-        // Cheap and idempotent; done on every write so a folder deleted by hand
-        // while the mod runs is simply recreated.
         const std::wstring parent = dir.substr(0, dir.find_last_of(L'\\'));
         CreateDirectoryW(parent.c_str(), nullptr);
         CreateDirectoryW(dir.c_str(), nullptr);
@@ -223,8 +213,7 @@ const std::wstring& cache_dir(bool create)
     return dir;
 }
 
-// ---- memory layer ---------------------------------------------------------------
-// MRU at the back. 30 entries, so linear scans are free.
+// memory layer: MRU at the back, 30 entries.
 std::vector<Entry>& memory()
 {
     static std::vector<Entry> mem;
@@ -247,8 +236,6 @@ void put_memory(Entry e)
     }
 }
 
-// Exact key first, otherwise the best loose match. Moves the hit to the MRU slot;
-// the returned pointer is valid until the next modification of the vector.
 const Entry* find_in_memory(const Keys& k, int64_t now_unix)
 {
     auto& mem = memory();
@@ -288,9 +275,7 @@ const Entry* find_in_memory(const Keys& k, int64_t now_unix)
     return &mem.back();
 }
 
-// ---- file I/O -------------------------------------------------------------------
-// "Touching" (last-write time = now) is what makes least-recently-USED eviction
-// work. Expiry uses the saved-at stamp inside the file, which is not touched.
+// File I/O. Touching (last-write = now) drives LRU eviction; expiry uses the saved stamp in the file.
 void touch_file(const std::wstring& path)
 {
     HANDLE h = CreateFileW(path.c_str(), FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
@@ -310,9 +295,7 @@ void touch_file(const std::wstring& path)
 
 namespace lyrics_cache
 {
-
-// Write to <name>.tmp, then rename over the final name: a reader never sees a
-// half-written file, and a crash leaves at worst a stray .tmp (swept by cleanup).
+// Write <name>.tmp, then rename: a reader never sees a half-written file.
 bool write_file_atomic(const std::wstring& final_path, const std::string& data)
 {
     const std::wstring tmp = final_path + L".tmp";
@@ -343,7 +326,6 @@ namespace lyrics_cache
 {
 namespace
 {
-
 std::wstring single_line(std::wstring s)
 {
     s.erase(std::remove(s.begin(), s.end(), L'\r'), s.end());
@@ -352,8 +334,8 @@ std::wstring single_line(std::wstring s)
 }
 
 // File layout (UTF-8):
-//   DIWLC 1            <- magic + format version (anything else = miss + delete)
-//   saved=<unix>       <- (PeekHeader relies on saved/status being lines 2 and 3)
+//   DIWLC 1            magic + format version (anything else = miss + delete)
+//   saved=<unix>       (peek_header relies on saved/status being lines 2 and 3)
 //   status=found|notfound
 //   synced=1|0
 //   dur=<sec>
@@ -361,7 +343,7 @@ std::wstring single_line(std::wstring s)
 //   fkey=<normalized artist|title|album|dur>
 //   title=... / artist=...   (informational only)
 //   ---
-//   body: synced -> "<timeMs>\t<text>\n" per line, plain -> "<text>\n" per line
+//   body: synced -> "<time_ms>\t<text>\n" per line, plain -> "<text>\n" per line
 std::string serialize_entry(const Entry& e, const std::wstring& title, const std::wstring& artist)
 {
     std::string out;
@@ -394,7 +376,6 @@ std::string serialize_entry(const Entry& e, const std::wstring& title, const std
     return out;
 }
 
-// Returns false for anything that is not a complete, current-version entry.
 bool parse_entry(const std::string& data, Entry* out)
 {
     size_t pos = 0;
@@ -506,7 +487,7 @@ bool parse_entry(const std::string& data, Entry* out)
                 const size_t tab = row.find(L'\t');
                 if (tab == std::wstring::npos || tab == 0)
                 {
-                    return false; // corrupt row
+                    return false;
                 }
                 ll.time_ms = static_cast<int64_t>(wcstoll(row.c_str(), nullptr, 10));
                 ll.text = row.substr(tab + 1);
@@ -571,7 +552,7 @@ LoadResult load_entry(const std::wstring& path, int64_t now_unix, Entry* out, ui
     }
     if (e.status != Status::Found)
     {
-        return LoadResult::Invalid; // legacy "no lyrics" file: miss + delete
+        return LoadResult::Invalid;
     }
     if (entry_expired(e, now_unix))
     {
@@ -589,7 +570,7 @@ void remove_entry_file(const std::wstring& path, uint64_t known_size)
     }
 }
 
-// ---- disk layer ------------------------------------------------------------------
+// Disk layer
 bool lookup_disk(const Keys& k, int64_t now_unix, Entry* out)
 {
     const std::wstring& dir = cache_dir(false);
@@ -613,11 +594,11 @@ bool lookup_disk(const Keys& k, int64_t now_unix, Entry* out)
         }
         if (r == LoadResult::Invalid || r == LoadResult::Expired)
         {
-            remove_entry_file(path, size); // corrupt / wrong version / expired: miss + delete
+            remove_entry_file(path, size);
         }
     }
 
-    // 2) Loose key: same artist|title, duration within tolerance (album may differ).
+    // 2) Loose key: same artist|title, duration within tolerance.
     wchar_t pattern[40] = {};
     swprintf_s(pattern, L"%016llx-*.lrc", static_cast<unsigned long long>(k.loose_hash));
     std::vector<std::wstring> candidates;
@@ -685,7 +666,6 @@ bool lookup_disk(const Keys& k, int64_t now_unix, Entry* out)
     return true;
 }
 
-// Cleanup bookkeeping (lyrics thread only).
 bool g_cleanup_due = false;
 bool g_scanned_once = false;
 double g_last_cleanup = -1e9;
@@ -722,7 +702,6 @@ void write_entry_to_disk(const Entry& e, const std::wstring& title, const std::w
     g_cleanup_due = true;
 }
 
-// Reads just enough of a file to know its saved-at stamp and status.
 bool peek_header(const std::wstring& path, int64_t* saved_at, bool* found)
 {
     HANDLE h = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
@@ -773,10 +752,8 @@ bool peek_header(const std::wstring& path, int64_t* saved_at, bool* found)
     return *saved_at > 0;
 }
 
-// One pass over the folder: sweep stray .tmp files, delete corrupt / wrong-version
-// / expired entries, recompute the counters, then evict least-recently-used files
-// down to 90% of the cap if it is exceeded. Files that don't end in .lrc are
-// foreign and never touched.
+// One pass: sweep .tmp files, delete corrupt or expired entries, recount, then evict least recently
+// used files down to 90% of the cap. Files not ending in .lrc are never touched.
 void cleanup_pass(uint64_t cap_bytes)
 {
     struct FileInfo
@@ -820,7 +797,6 @@ void cleanup_pass(uint64_t cap_bytes)
                 bool drop = !peek_header(path, &saved_at, &found);
                 if (!drop)
                 {
-                    // Not-found entries are no longer kept at all.
                     drop = !found || saved_at > now_unix + 86400 || (now_unix - saved_at) > found_ttl_sec;
                 }
                 if (drop)
@@ -848,7 +824,7 @@ void cleanup_pass(uint64_t cap_bytes)
                   {
                       return a.last_write < b.last_write;
                   });
-        const uint64_t target = cap_bytes - cap_bytes / 10; // evict down to 90% so it doesn't thrash
+        const uint64_t target = cap_bytes - cap_bytes / 10;
         for (size_t i = 0; i < files.size() && total_bytes > target; ++i)
         {
             if (DeleteFileW(files[i].path.c_str()))
@@ -869,7 +845,6 @@ void cleanup_pass(uint64_t cap_bytes)
 
 namespace lyrics_cache
 {
-
 void maybe_cleanup(bool disk_on, uint64_t cap_bytes) noexcept
 {
     if (!disk_on)
@@ -879,7 +854,7 @@ void maybe_cleanup(bool disk_on, uint64_t cap_bytes) noexcept
     try
     {
         const double now = now_seconds();
-        const bool cap_changed = g_scanned_once && cap_bytes != g_last_cap; // applies a shrunk cap at once
+        const bool cap_changed = g_scanned_once && cap_bytes != g_last_cap;
         const bool due = g_cleanup_due && (now - g_last_cleanup) >= cleanup_min_interval_sec;
         if (!g_scanned_once || cap_changed || due)
         {
@@ -895,9 +870,6 @@ void maybe_cleanup(bool disk_on, uint64_t cap_bytes) noexcept
     }
 }
 
-// Deletes every cache file and empties the memory layer. Runs on the lyrics thread
-// (the menu only sets a flag). It does not touch g_state.lyrics, so lyrics already
-// on screen stay; the track simply isn't cached until it is fetched again.
 void clear_all() noexcept
 {
     try
@@ -927,7 +899,7 @@ void clear_all() noexcept
         }
         g_lyrics_cache_file_count.store(0, std::memory_order_relaxed);
         g_lyrics_cache_bytes.store(0, std::memory_order_relaxed);
-        g_scanned_once = false; // next housekeeping pass rescans for exact numbers
+        g_scanned_once = false;
         g_cleanup_due = false;
         host::log(L"Lyrics cache cleared.");
     }
@@ -942,8 +914,7 @@ namespace lyrics_cache
 {
 namespace
 {
-
-// ---- public API used by the lyrics thread -------------------------------------------
+// Used by the lyrics thread
 void fill_snapshot(const Entry& e, const std::wstring& title, const std::wstring& artist, LyricsSnapshot* out)
 {
     *out = LyricsSnapshot{};
@@ -966,9 +937,6 @@ void fill_snapshot(const Entry& e, const std::wstring& title, const std::wstring
 
 namespace lyrics_cache
 {
-
-// True on a hit (memory or disk); *out is then ready to publish: hasData for found
-// lyrics, notFound for a cached "no lyrics", fetching never set.
 bool lookup(const Keys& k, bool disk_on, const std::wstring& title, const std::wstring& artist, LyricsSnapshot* out)
 {
     const int64_t now_unix = unix_now();
@@ -978,7 +946,6 @@ bool lookup(const Keys& k, bool disk_on, const std::wstring& title, const std::w
         fill_snapshot(*m, title, artist, out);
         if (disk_on)
         {
-            // A song replayed from memory must still look "recently used" on disk.
             const std::wstring& dir = cache_dir(false);
             if (!dir.empty())
             {
@@ -1002,11 +969,9 @@ bool lookup(const Keys& k, bool disk_on, const std::wstring& title, const std::w
     return true;
 }
 
-// Stores a definitive outcome. Memory always; disk only when enabled.
 void store(const Keys& k, Status status, const LyricsSnapshot& snap, bool disk_on)
 {
-    // Only songs that actually have lyrics are ever cached. "Not found" results
-    // (YouTube videos, podcasts, obscure tracks) are never remembered.
+    // Only tracks that have lyrics are cached; "not found" is never remembered.
     if (status != Status::Found)
     {
         return;

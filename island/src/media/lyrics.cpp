@@ -10,9 +10,7 @@ namespace island
 {
 namespace
 {
-
-// ── Lyrics (LRCLIB, https://lrclib.net) ──────────────────────────────────────
-// User-Agent sent to LRCLIB.
+// Lyrics (LRCLIB, https://lrclib.net)
 constexpr wchar_t lyrics_user_agent[] =
     L"DynamicIslandForWindows/" ISLAND_VERSION L" (https://github.com/devcode90/Dynamic-Island-for-Windows)";
 
@@ -63,8 +61,6 @@ std::wstring ascii_to_wide(const std::string& s)
     return w;
 }
 
-// Unescapes a raw JSON string value (still containing \n, \", \uXXXX etc.)
-// and decodes it from UTF-8 into a wide string.
 std::wstring json_string_unescape(const std::string& raw)
 {
     std::string out;
@@ -141,8 +137,6 @@ std::wstring json_string_unescape(const std::string& raw)
     return wout;
 }
 
-// Finds "fieldName":"....." in a JSON blob and returns the raw (still
-// escaped) contents between the quotes. Returns false if missing or null.
 bool extract_json_string_field(const std::string& json, const char* field_key, std::string* out_raw)
 {
     const std::string key = std::string("\"") + field_key + "\":\"";
@@ -180,8 +174,6 @@ bool extract_json_string_field(const std::string& json, const char* field_key, s
     return false;
 }
 
-// Splits a top-level JSON array "[ {...}, {...} ]" into the substrings for
-// each object, respecting nested braces and quoted strings.
 std::vector<std::string> split_json_object_array(const std::string& json)
 {
     std::vector<std::string> objects;
@@ -238,7 +230,6 @@ std::vector<std::string> split_json_object_array(const std::string& json)
 
 namespace
 {
-
 std::vector<LyricsLine> parse_synced_lyrics(const std::wstring& text)
 {
     std::vector<LyricsLine> lines;
@@ -312,7 +303,6 @@ std::vector<LyricsLine> parse_plain_lyrics(const std::wstring& text)
     return lines;
 }
 
-// ── Lyrics lookup helpers ────────────────────────────────────────────────────
 std::wstring trim_lyrics_text(const std::wstring& s)
 {
     const size_t a = s.find_first_not_of(L" \t\r\n");
@@ -496,8 +486,7 @@ struct LyricsPick
     std::vector<LyricsLine> lines;
 };
 
-// Scores every candidate in an LRCLIB response (single object or array) and keeps
-// the best one in *best. `trusted` = exact /api/get answer, so title checks are skipped.
+// Scores every candidate in an LRCLIB response; `trusted` = exact /api/get answer (no title checks).
 void consider_lyrics_body(const std::string& body, const std::wstring& want_title, const std::wstring& want_artist,
                           int want_duration_sec, bool trusted, LyricsPick* best)
 {
@@ -598,9 +587,8 @@ void consider_lyrics_body(const std::string& body, const std::wstring& want_titl
     }
 }
 
-// Tries exact lookups first, then tolerant searches. Returns true if usable lyrics
-// were found. *definitive becomes false when a request failed (timeout / 429 / 5xx),
-// meaning "no lyrics" can't be trusted and the caller should retry later.
+// Exact lookups first, then tolerant searches. *definitive is false when a request failed, so "no
+// lyrics" cannot be trusted yet.
 bool fetch_lyrics_from_lrclib(const std::wstring& title, const std::wstring& artist, const std::wstring& album,
                               int duration_sec, LyricsPick* pick, bool* definitive)
 {
@@ -616,7 +604,6 @@ bool fetch_lyrics_from_lrclib(const std::wstring& title, const std::wstring& art
         return ascii_to_wide(url_encode_component(s));
     };
 
-    // One quick retry on a transport failure before giving up on this request.
     auto request = [&](const std::wstring& path) -> HttpResult
     {
         HttpResult r = http_get_ex(L"lrclib.net", path.c_str(), true, lyrics_user_agent);
@@ -765,7 +752,6 @@ DWORD WINAPI lyrics_thread_proc(void*)
         const bool same_track = (title == last_title && artist == last_artist);
         if (same_track)
         {
-            // Already handled. Only continue if a failed fetch is due for a retry.
             if (retry_at_sec <= 0.0 || now_seconds() < retry_at_sec)
             {
                 WaitForSingleObject(g_stop_event, 1000);
@@ -835,13 +821,13 @@ DWORD WINAPI lyrics_thread_proc(void*)
         }
         else if (definitive)
         {
-            snap.not_found = true; // LRCLIB really has nothing for this track
+            snap.not_found = true;
             fail_count = 0;
             host::log(L"Lyrics: genuinely no lyrics for %s - %s", artist.c_str(), title.c_str());
         }
         else
         {
-            // Network / 429 / 5xx: NOT "not found". Back off and retry.
+            // Network, 429 or 5xx is not "not found": back off and retry.
             ++fail_count;
             static const double backoff[] = {4.0, 10.0, 30.0, 60.0};
             retry_at_sec = now_seconds() + backoff[std::min<size_t>(fail_count - 1, 3)];

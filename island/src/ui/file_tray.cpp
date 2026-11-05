@@ -10,7 +10,6 @@ namespace file_tray_store
 {
 namespace
 {
-
 inline std::wstring get_current_user_sid()
 {
     HANDLE h_token = nullptr;
@@ -50,7 +49,6 @@ inline std::wstring get_current_user_sid()
 
 namespace file_tray_store
 {
-
 bool resolve_paths(std::wstring* dir, std::wstring* file)
 {
     wchar_t storage_path[MAX_PATH] = {};
@@ -126,9 +124,8 @@ std::wstring unescape(const std::string& value)
 
 }
 
-// Writes the current tray to disk. Safe to call from any thread, and never call
-// it while holding g_stateMutex. With persistence off, or an empty tray, the
-// saved file is removed instead.
+// Safe from any thread, but never while holding g_state_mutex. Persistence off or an empty tray
+// removes the file.
 void save_file_tray()
 {
     bool persist = true;
@@ -188,10 +185,8 @@ void save_file_tray()
     }
 }
 
-// Reads the saved tray back. Runs once on the render thread at startup (it needs
-// COM for the shell icons). Files that have since moved or been deleted are kept,
-// since you asked for items to stay until you remove them; they just show a
-// generic icon.
+// Runs once on the render thread at startup (shell icons need COM). Missing files stay with a
+// generic icon until the user removes them.
 void load_file_tray()
 {
     bool persist = true;
@@ -300,8 +295,7 @@ void load_file_tray()
                 item.size_bytes = (static_cast<uint64_t>(attr.nFileSizeHigh) << 32) | attr.nFileSizeLow;
             }
 
-            // A missing file gets its type icon from the extension alone, which
-            // never touches the disk (so an unplugged drive can't stall startup).
+            // A missing file gets its icon from the extension alone (an unplugged drive cannot stall startup).
             SHFILEINFOW info = {};
             UINT flags = SHGFI_ICON | SHGFI_LARGEICON;
             if (!exists)
@@ -329,7 +323,6 @@ void load_file_tray()
 
     std::lock_guard lock(g_state_mutex);
     auto& items = g_state.file_tray_items;
-    // Saved items are older than anything dropped since startup, so they go in front.
     items.insert(items.begin(), std::make_move_iterator(loaded.begin()), std::make_move_iterator(loaded.end()));
     while (items.size() > static_cast<size_t>(max_items))
     {
@@ -346,7 +339,6 @@ bool tray_module_enabled()
 
 namespace
 {
-
 void add_paths_to_file_tray_core(const std::vector<std::wstring>& paths)
 {
     int max_items = 10;
@@ -391,7 +383,6 @@ void add_paths_to_file_tray_core(const std::vector<std::wstring>& paths)
     std::lock_guard lock(g_state_mutex);
     for (auto& item : added)
     {
-        // Re-dropping a file promotes the existing entry instead of duplicating it.
         auto existing = std::find_if(g_state.file_tray_items.begin(), g_state.file_tray_items.end(),
                                      [&](const FileTrayItem& other)
                                      {
@@ -411,8 +402,6 @@ void add_paths_to_file_tray_core(const std::vector<std::wstring>& paths)
 
 }
 
-// Adds files and persists the result. Callers use this; the Core version above
-// only changes the in-memory list.
 void add_paths_to_file_tray(const std::vector<std::wstring>& paths)
 {
     add_paths_to_file_tray_core(paths);
@@ -421,7 +410,6 @@ void add_paths_to_file_tray(const std::vector<std::wstring>& paths)
 
 namespace
 {
-
 void remove_file_tray_item_by_path(const std::wstring& path)
 {
     {
@@ -452,7 +440,6 @@ bool extract_drop_paths(IDataObject* data, std::vector<std::wstring>* out)
         return false;
     }
 
-    // An HDROP is just the HGLOBAL; DragQueryFile locks it itself.
     HDROP drop = reinterpret_cast<HDROP>(medium.hGlobal);
     const UINT count = DragQueryFileW(drop, 0xFFFFFFFF, nullptr, 0);
     for (UINT i = 0; i < count; ++i)
@@ -472,7 +459,6 @@ bool extract_drop_paths(IDataObject* data, std::vector<std::wstring>* out)
 
 namespace
 {
-
 void add_text_to_file_tray(const std::wstring& raw_text)
 {
     std::wstring text = raw_text;
@@ -490,7 +476,6 @@ void add_text_to_file_tray(const std::wstring& raw_text)
         text.resize(k_max_chars);
     }
 
-    // One-line preview for the row: whitespace collapsed, capped.
     constexpr size_t preview_chars = 60;
     std::wstring preview;
     bool last_space = true;
@@ -542,7 +527,6 @@ void add_text_to_file_tray(const std::wstring& raw_text)
 
     std::lock_guard lock(g_state_mutex);
     auto& items = g_state.file_tray_items;
-    // Pasting the same snippet again promotes it instead of duplicating it.
     items.erase(std::remove_if(items.begin(), items.end(),
                                [&](const FileTrayItem& other)
                                {
@@ -587,8 +571,6 @@ void copy_text_to_clipboard(HWND hwnd, const std::wstring& text)
     CloseClipboard();
 }
 
-// Pastes whatever is on the clipboard into the tray: copied files first
-// (as references), otherwise copied text.
 void paste_into_file_tray(HWND hwnd)
 {
     std::vector<std::wstring> paths;
@@ -650,7 +632,6 @@ DWORD pick_tray_drop_effect(DWORD allowed)
 
 namespace
 {
-
 class TrayDropSource final : public IDropSource
 {
 public:
@@ -707,8 +688,7 @@ private:
     std::atomic<LONG> refs_{1};
 };
 
-// Builds the same data object Explorer would hand out for this file, so any
-// app, folder or the desktop accepts it as a normal file drag.
+// The same data object Explorer hands out, so any target accepts it as a normal file drag.
 bool create_file_data_object(const std::wstring& path, IDataObject** out)
 {
     *out = nullptr;
@@ -746,8 +726,6 @@ void start_file_tray_drag(const std::wstring& path)
     constexpr DWORD ok_effects = DROPEFFECT_COPY | DROPEFFECT_LINK;
     DWORD effect = DROPEFFECT_NONE;
 
-    // SHDoDragDrop adds the normal Explorer drag image (thumbnail + name).
-    // Resolved dynamically; plain DoDragDrop is the fallback.
     using ShDoDragDropT = HRESULT(WINAPI*)(HWND, IDataObject*, IDropSource*, DWORD, DWORD*);
     static const auto p_sh_do_drag_drop =
         reinterpret_cast<ShDoDragDropT>(GetProcAddress(GetModuleHandleW(L"shell32.dll"), "SHDoDragDrop"));
@@ -767,7 +745,6 @@ void start_file_tray_drag(const std::wstring& path)
     g_hovered_file_tray_action = -1;
     g_layout_dirty = true;
 
-    // File was moved away by the target: its tray entry is now stale.
     if (effect != DROPEFFECT_NONE && GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES)
     {
         remove_file_tray_item_by_path(path);

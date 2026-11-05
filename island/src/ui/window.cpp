@@ -20,12 +20,11 @@
 
 namespace island
 {
-
 LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param)
 {
     static POINT s_touch_start = {0, 0};
     static ULONGLONG s_touch_start_time = 0;
-    static bool s_tray_press_active = false; // left button went down on a File Tray row
+    static bool s_tray_press_active = false;
     static POINT s_tray_press_pt = {0, 0};
     static std::wstring s_tray_press_path;
     switch (msg)
@@ -41,9 +40,7 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                 g_taskbar_created_message = RegisterWindowMessageW(L"TaskbarCreated");
             }
             RegisterShellHookWindow(hwnd);
-            // File Tray (#33). An OLE drop target (instead of DragAcceptFiles) so the
-            // island can react while a drag is still hovering. The module being off is
-            // handled inside TrayDropTarget::DragEnter.
+            // File Tray: an OLE drop target (not DragAcceptFiles) so the island reacts while a drag hovers.
             {
                 g_ole_initialized = SUCCEEDED(OleInitialize(nullptr));
                 ComPtr<IDropTarget> drop_target;
@@ -80,8 +77,6 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                 FileTrayItem item;
                 item.path = path;
 
-                // BaseNameFromPath instead of PathFindFileNameW so we do not
-                // pull in shlwapi just for this.
                 item.name = base_name_from_path(path);
                 if (item.name.empty())
                 {
@@ -95,7 +90,6 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                     item.size_bytes = (static_cast<uint64_t>(attr.nFileSizeHigh) << 32) | attr.nFileSizeLow;
                 }
 
-                // Grab the real Explorer icon so the shelf looks native.
                 SHFILEINFOW info = {};
                 if (SHGetFileInfoW(path, 0, &info, sizeof(info), SHGFI_ICON | SHGFI_SMALLICON) && info.hIcon)
                 {
@@ -112,8 +106,6 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                 std::lock_guard lock(g_state_mutex);
                 for (auto& item : added)
                 {
-                    // Re-dropping a file promotes the existing entry instead of
-                    // creating a duplicate.
                     auto existing = std::find_if(g_state.file_tray_items.begin(), g_state.file_tray_items.end(),
                                                  [&](const FileTrayItem& other)
                                                  {
@@ -133,7 +125,6 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                 }
             }
 
-            // Jump to the shelf so the drop is visibly acknowledged.
             const int tray_tab = file_tray_tab_index(g_settings);
             if (tray_tab >= 0)
             {
@@ -154,8 +145,7 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
             DeregisterShellHookWindow(hwnd);
             return 0;
 
-        // Both of these touch the window from the thread that owns it, the only
-        // thread allowed to bind a hot key to it or reshape it.
+        // Hotkeys and the window shape must be changed from the thread that owns the window.
         case wm_app_apply_hotkey:
             apply_hide_show_hotkey();
             return 0;
@@ -165,8 +155,6 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
             return 0;
 
         case wm_app_mouse_wake:
-            // No-op payload — its only job is to wake MsgWaitForMultipleObjects
-            // and get drained by the PeekMessage pump.
             return 0;
 
         case wm_app_capslock:
@@ -212,7 +200,6 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                     }
                     else
                     {
-                        // Generic/Bluetooth OEM
                         is_bt = true;
                         dev_name = L"Bluetooth Device";
                     }
@@ -261,8 +248,7 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
             POINT pt = {GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param)};
             ScreenToClient(hwnd, &pt);
 
-            // The window is now a big transparent stage, so only the pill itself
-            // is clickable; everything else falls through to the windows below.
+            // The window is a large transparent stage: only the pill is clickable.
             if (g_pill_client_rect.valid)
             {
                 const PillClientRect& r = g_pill_client_rect;
@@ -307,7 +293,6 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
             break;
 
         case WM_KILLFOCUS:
-            // Clicked another window / Alt+Tab / Win key: the search is over.
             if (g_lookup_ui.open)
             {
                 close_lookup_panel(hwnd);
@@ -360,7 +345,6 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                     }
                 }
 
-                // A File Tray row under the cursor is clickable (opens the file).
                 if (g_settings.file_tray_module && current_tab == file_tray_tab_index(g_settings) &&
                     (g_hovered_file_tray_row.load(std::memory_order_relaxed) >= 0 ||
                      g_hovered_file_tray_action.load(std::memory_order_relaxed) != -1))
@@ -391,11 +375,9 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
             if (g_lookup_ui.open)
             {
                 s_tray_press_active = false;
-                return 0; // handled on button-up by HandleLookupClick
+                return 0;
             }
 
-            // File Tray: remember a press on a row so moving the mouse picks it up
-            // for dragging, while a plain click still opens it.
             s_tray_press_active = false;
             if (g_settings.file_tray_module && normalized_tab_index(g_settings) == file_tray_tab_index(g_settings))
             {
@@ -423,7 +405,6 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
             {
                 const MediaContentPoint cp = media_content_from_client(x_pos, y_pos);
 
-                // Source dock: remember the held slot for its press animation.
                 {
                     const DockHit dock = resolve_source_dock_hit(cp);
                     if (dock.slot >= 0)
@@ -515,7 +496,6 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
             {
                 const MediaContentPoint media_pt = media_content_from_client(x_pos, y_pos);
                 hovered_slot = resolve_source_dock_hit(media_pt).slot;
-                // The dock's right edge overlaps the prev button's slop; the dock wins.
                 hovered = hovered_slot >= 0 ? -1 : media_transport_hit_test(media_pt);
             }
 
@@ -539,7 +519,6 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                 }
             }
 
-            // File Tray hover: row highlight plus the bin / cut buttons.
             int hovered_row = -1;
             int hovered_action = -1;
             if (g_settings.file_tray_module && current_tab == file_tray_tab_index(g_settings))
@@ -591,7 +570,6 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                 g_layout_dirty = true;
             }
 
-            // Pressed on a row and moved past the system drag threshold: pick the file up.
             if (s_tray_press_active)
             {
                 if (!(w_param & MK_LBUTTON))
@@ -704,16 +682,15 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
             {
                 const int dx = x_pos - s_touch_start.x;
                 const int dy = y_pos - s_touch_start.y;
-                const int travel = abs(dy) > abs(dx) ? dy : dx; // dominant axis wins
+                const int travel = abs(dy) > abs(dx) ? dy : dx;
                 if (abs(travel) > 40)
                 {
-                    // Swipe up / left -> next tab, down / right -> previous tab
                     if (active_tab_count(get_settings_copy()) > 1)
                     {
                         step_idle_tab(travel > 0 ? -1 : 1);
                     }
                     s_touch_start_time = 0;
-                    return 0; // Consume swipe gesture
+                    return 0;
                 }
             }
             s_touch_start_time = 0;
@@ -730,8 +707,6 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                 kinds = choose_activities(g_state, g_settings, now_seconds());
             }
 
-            // Clicking an active transient notification or clipboard card immediately dismisses it cleanly.
-            // In a split layout (kinds.size() > 1), don't dismiss if clicking on the secondary pill on the right.
             const bool on_secondary_split =
                 (kinds.size() > 1 && g_pill_client_rect.valid &&
                  x_pos > (g_pill_client_rect.left + (g_pill_client_rect.right - g_pill_client_rect.left) * 0.5f));
@@ -764,7 +739,7 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
             {
                 g_click_expanded = true;
                 g_layout_dirty = true;
-                return 0; // consumed click to expand
+                return 0;
             }
 
             RECT client_rect;
@@ -788,9 +763,6 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                 }
             }
 
-            // File Tray: the bin clears the shelf, the cut button removes one file,
-            // and a plain click on a row opens it with its default app. (Dragging a
-            // row out is started from WM_MOUSEMOVE.)
             if (g_settings.file_tray_module && current_tab == file_tray_tab_index(g_settings))
             {
                 const bool was_pressed = s_tray_press_active;
@@ -819,7 +791,6 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                         const int row = file_tray_row_at_content_point(cp, count);
                         if (row >= 0)
                         {
-                            // Rows render newest-first, so map back from the end.
                             const size_t index = static_cast<size_t>(count - 1 - row);
                             if (file_tray_remove_hit_test(cp, row))
                             {
@@ -864,14 +835,11 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                     ShellExecuteExW(&sei);
                     return 0;
                 }
-                // A click on the empty shelf should not fall through to
-                // "focus the media app".
                 return 0;
             }
 
             if (media_active && current_tab == 0)
             {
-                // Source dock: "+N" opens the list, another slot switches to it.
                 {
                     const DockHit dock = resolve_source_dock_hit(cp);
                     if (dock.slot >= 0)
@@ -914,10 +882,7 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                     return 0;
                 }
 
-                // A release over the scrubber that never went through the
-                // drag path (press started elsewhere) is swallowed rather
-                // than falling through to "open the app". The actual seek
-                // is handled by the g_scrubbing branch above.
+                // A release over the scrubber that did not start a drag is swallowed (no "open the app").
                 if (media_scrub_fraction_from_content(cp) >= 0.0f)
                 {
                     return 0;
@@ -966,10 +931,7 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
 
         case WM_MOUSEWHEEL:
         {
-            // Delta is accumulated rather than dropped inside a debounce window, so
-            // every notch counts and touchpads (many small deltas) work properly.
-            // The spring is interruptible, so a step never has to wait for the
-            // previous one to finish.
+            // Wheel delta is accumulated, so every notch counts and touchpads work.
             static int s_wheel_accum = 0;
             static ULONGLONG s_last_wheel_event = 0;
             static ULONGLONG s_last_wheel_step = 0;
@@ -981,7 +943,6 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                 return 0;
             }
 
-            // New gesture (pause, or direction change): forget the leftover.
             if (wheel_now - s_last_wheel_event > 220 || (s_wheel_accum != 0 && ((delta > 0) != (s_wheel_accum > 0))))
             {
                 s_wheel_accum = 0;
@@ -994,8 +955,7 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                 return 0;
             }
 
-            // Rate limit so a free-spinning wheel or touchpad inertia can't race
-            // through every tab. At most one notch is held pending, never a backlog.
+            // At most one notch is held pending, so inertia cannot race through every tab.
             const bool precise = abs(delta) < WHEEL_DELTA;
             const ULONGLONG cooldown = precise ? 200 : 85;
             if (wheel_now - s_last_wheel_step < cooldown)
@@ -1066,7 +1026,6 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                     }
                     if (is_currently_hidden)
                     {
-                        // User wants to reveal / unhide
                         g_manually_hidden = false;
                         host::set_int_value(L"ManuallyHidden", 0);
                         g_auto_hidden_parked = false;
@@ -1080,7 +1039,6 @@ LRESULT CALLBACK overlay_wnd_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_
                     }
                     else
                     {
-                        // User wants to manually hide
                         g_manually_hidden = true;
                         host::set_int_value(L"ManuallyHidden", 1);
                         g_hotkey_unhide_until.store(0.0);

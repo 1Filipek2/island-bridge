@@ -4,8 +4,7 @@
 
 namespace island
 {
-
-// ── Media source selection ───────────────────────────────────────────────────
+// Media source selection
 int active_media_source_index(const SharedState& state)
 {
     for (size_t i = 0; i < state.media_sources.size(); ++i)
@@ -24,14 +23,12 @@ std::wstring get_preferred_media_source()
     return g_preferred_media_source;
 }
 
-// Instant switch. Empty AUMID = Auto. The timestamp tells MediaThreadProc this title
-// change is not a "new track": no auto-expand, no 5s recentTrackChange window.
+// Instant switch, empty = Auto. The timestamp tells the media thread this is not a new track.
 void request_media_source(const std::wstring& aumid)
 {
     {
         std::lock_guard lock(g_media_source_mutex);
-        // Dock pick: a TEMPORARY override, not a lock. MediaThreadProc drops it as soon as
-        // something new starts playing or that app goes away, so Auto keeps working.
+        // Dock pick: temporary, dropped when something new starts playing or that app goes away.
         g_dock_override_aumid = aumid;
         g_dock_override_rev.fetch_add(1);
     }
@@ -43,9 +40,7 @@ void request_media_source(const std::wstring& aumid)
     g_layout_dirty = true;
 }
 
-// Right-click menu pick. Empty AUMID = Auto. A real AUMID LOCKS the island to that app
-// until Auto or another app is picked; what starts playing elsewhere is ignored.
-// Any temporary dock pick is cleared, so "Auto" really means "newest playing app".
+// Context menu pick: locks the island to that app until Auto or another app is picked.
 void lock_media_source(const std::wstring& aumid)
 {
     {
@@ -62,8 +57,6 @@ void lock_media_source(const std::wstring& aumid)
     g_layout_dirty = true;
 }
 
-// Dock click. Animated when "Expanded player transitions" is on: the renderer slides
-// the old content out first, then calls RequestMediaSource().
 void request_media_source_switch(const std::wstring& aumid)
 {
     int direction = 1;

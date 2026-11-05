@@ -4,7 +4,6 @@
 
 namespace island
 {
-
 struct BitmapPixels
 {
     std::vector<uint8_t> bgra;
@@ -14,9 +13,7 @@ struct BitmapPixels
     D2D1_COLOR_F sampled_accent = D2D1::ColorF(0x4cc9f0);
 };
 
-// Immutable, shared pixel data. Copying one is a refcount bump, so copying
-// SharedState every frame no longer copies album art / icons.
-// Null-safe: operator-> on an empty ref points at a static empty BitmapPixels.
+// Immutable shared pixels: copying is a refcount bump, an empty ref reads as an empty bitmap.
 class PixelsRef
 {
 public:

@@ -11,7 +11,6 @@ namespace island
 {
 namespace
 {
-
 std::vector<WeatherCityEntry> parse_weather_cities(const std::wstring& spec)
 {
     std::vector<WeatherCityEntry> cities;
@@ -74,7 +73,6 @@ int get_active_weather_city_index(size_t city_count)
 
 namespace
 {
-
 static bool read_json_double(const std::string& json, const char* key, double& out)
 {
     const char* field = strstr(json.c_str(), key);
@@ -92,8 +90,7 @@ static bool read_json_double(const std::string& json, const char* key, double& o
     return end != field;
 }
 
-// Looks up the approximate location of this PC from its public IP and returns
-// the index of the nearest configured city, or -1 when the lookup fails.
+// IP geolocation -> index of the nearest configured city, or -1.
 int find_nearest_weather_city(const std::vector<WeatherCityEntry>& cities)
 {
     struct Provider
@@ -126,7 +123,6 @@ int find_nearest_weather_city(const std::vector<WeatherCityEntry>& cities)
         {
             const double c_lat = wcstod(cities[i].latitude.c_str(), nullptr);
             const double c_lon = wcstod(cities[i].longitude.c_str(), nullptr);
-            // Haversine; only the ordering matters, so skip the final radius factor.
             const double d_lat = (c_lat - lat) * to_rad;
             const double d_lon = (c_lon - lon) * to_rad;
             const double a = sin(d_lat / 2) * sin(d_lat / 2) +
@@ -143,8 +139,7 @@ int find_nearest_weather_city(const std::vector<WeatherCityEntry>& cities)
     return -1;
 }
 
-// Maps a WMO code from Open-Meteo to the WWO code the existing icons and visuals
-// are keyed on, and to the English description the wttr.in feed used to supply.
+// Open-Meteo WMO code -> the WWO code the icons are keyed on, plus an English description.
 int wwo_code_from_wmo(int wmo, std::wstring& desc)
 {
     switch (wmo)
@@ -305,8 +300,7 @@ std::wstring wind_degrees_to_compass(float degrees)
     return k_points[sector];
 }
 
-// Reads a numeric field from the "current" object only, so "current_units"
-// (whose values are strings) can never be mistaken for a reading.
+// Reads only from the "current" object, so "current_units" is never mistaken for a reading.
 bool read_current_number(const char* current, const char* key, float& out)
 {
     const char* field = strstr(current, key);
@@ -325,8 +319,7 @@ DWORD WINAPI weather_thread_proc(void*)
     winrt::init_apartment(winrt::apartment_type::multi_threaded);
     WaitForSingleObject(g_stop_event, 3000);
 
-    // Failures back off; a good reading is refreshed every 15 minutes, which
-    // matches how often Open-Meteo updates its "current" values.
+    // Failures back off; a good reading refreshes every 15 min (Open-Meteo's update rate).
     static const DWORD backoff_ms[] = {60 * 1000, 2 * 60 * 1000, 5 * 60 * 1000, 15 * 60 * 1000};
     size_t backoff_index = 0;
     std::wstring previous_key;
@@ -364,8 +357,6 @@ DWORD WINAPI weather_thread_proc(void*)
         {
             if (!located && is_weather_city_auto())
             {
-                // Re-check where the PC is on every refresh (and after resume);
-                // on failure the previously found city stays in use.
                 const int nearest = find_nearest_weather_city(cities);
                 if (nearest >= 0)
                 {
@@ -397,8 +388,6 @@ DWORD WINAPI weather_thread_proc(void*)
             const char* current = response.empty() ? nullptr : strstr(response.c_str(), "\"current\":{");
 
             float temp = 0.0f, feels = 0.0f, humidity = 0.0f, wind = 0.0f, wind_deg = 0.0f, wmo = 0.0f;
-            // Open-Meteo reports errors as {"error":true,"reason":...} with no
-            // "current" object, so any failure lands here as "no reading".
             if (current && read_current_number(current, "\"temperature_2m\":", temp) &&
                 read_current_number(current, "\"weather_code\":", wmo))
             {
@@ -407,8 +396,7 @@ DWORD WINAPI weather_thread_proc(void*)
                 const bool has_wind = read_current_number(current, "\"wind_speed_10m\":", wind);
                 const bool has_wind_dir = read_current_number(current, "\"wind_direction_10m\":", wind_deg);
 
-                // Whole degrees are all the UI shows; rounding here (and adding
-                // 0.0f, which turns -0 into 0) keeps "-0°" off the island.
+                // Whole degrees; + 0.0f turns -0 into 0.
                 temp = roundf(temp) + 0.0f;
                 feels = roundf(feels) + 0.0f;
 
@@ -462,7 +450,6 @@ DWORD WINAPI weather_thread_proc(void*)
         }
         if (wait_result == WAIT_OBJECT_0 + 1)
         {
-            // City changed or the PC resumed, so retry immediately.
             backoff_index = 0;
         }
     }

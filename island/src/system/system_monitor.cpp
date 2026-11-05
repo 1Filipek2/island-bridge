@@ -6,7 +6,6 @@
 
 namespace island
 {
-
 void update_battery_snapshot()
 {
     SYSTEM_POWER_STATUS status = {};
@@ -60,7 +59,6 @@ void update_battery_snapshot()
 
 namespace
 {
-
 ULONGLONG file_time_to_u_int64(FILETIME ft)
 {
     ULARGE_INTEGER value = {};
@@ -178,14 +176,11 @@ static void get_network_usage(float& out_up_mbps, float& out_down_mbps)
         return 0.0;
     };
 
-    // Bytes to Mbps
     out_up_mbps = static_cast<float>(get_sum(g_net_up_counter) * 8.0 / 1000000.0);
     out_down_mbps = static_cast<float>(get_sum(g_net_down_counter) * 8.0 / 1000000.0);
 }
 
-// ---- Endpoint volume notifications ----
-// Event-driven rather than polled: a 1s poll turned a held volume key into
-// one visible step per second.
+// Endpoint volume: event-driven (a poll turned a held volume key into one step per second).
 void apply_volume_reading(float level, bool muted, bool can_surface)
 {
     const int percent = clamp_int(static_cast<int>(level * 100.0f + 0.5f), 0, 100);
@@ -221,8 +216,6 @@ void apply_volume_reading(float level, bool muted, bool can_surface)
         trigger_nudge();
     }
 }
-
-// g_volumeEndpointStale is declared with the other globals near the top of the file.
 
 // Called on audio service threads, not the render thread.
 class VolumeNotifyClient final : public IAudioEndpointVolumeCallback, public IMMNotificationClient
@@ -275,8 +268,7 @@ public:
         return S_OK;
     }
 
-    // MMDevice API calls are not allowed from inside these callbacks, so the
-    // render thread rebinds; the posted message wakes it even while parked.
+    // MMDevice calls are not allowed inside these callbacks: the render thread rebinds.
     HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(EDataFlow flow, ERole role, LPCWSTR) override
     {
         if (flow == eRender && role == eConsole)
@@ -314,13 +306,10 @@ private:
     LONG refs_ = 1;
 };
 
-// Owned by the render thread.
 ComPtr<IMMDeviceEnumerator> g_volume_enumerator;
 VolumeNotifyClient* g_volume_notify_client = nullptr;
 
-// Event-driven: runs only when BindVolumeEndpoint() rebinds (startup, default output
-// changed, Bluetooth connect/disconnect). Never from a timer or a draw path.
-// "BTH*" enumerator names (BTHENUM, BTHHFENUM, BTHLEENUM) mean a Bluetooth endpoint.
+// Runs only when bind_volume_endpoint rebinds. "BTH*" enumerator names mean a Bluetooth endpoint.
 void update_default_output_bluetooth_flag(IMMDevice* device)
 {
     // PKEY_Device_EnumeratorName {A45C254E-DF1C-4EFD-8020-67D146A850E0}, 24
@@ -418,7 +407,6 @@ void bind_volume_endpoint()
     if (SUCCEEDED(hr) && SUCCEEDED(g_endpoint_volume->GetMasterVolumeLevelScalar(&level)) &&
         SUCCEEDED(g_endpoint_volume->GetMute(&muted)))
     {
-        // Baseline only: switching device must not pop the flyout.
         apply_volume_reading(level, muted != FALSE, false);
     }
     else if (g_endpoint_volume)
@@ -460,11 +448,7 @@ void update_system_snapshot(bool include_gpu_stats, bool include_net_stats)
         next.charging = g_state.system.charging;
     }
 
-    // GPU/network sampling is comparatively expensive (the GPU counter in
-    // particular enumerates every GPU engine instance across every process
-    // using the GPU), so only sample them when something on screen is
-    // actually displaying them. Otherwise just carry the last sampled
-    // value forward (already done via `next = g_state.system` above).
+    // GPU and network counters are expensive; sample them only while they are on screen.
     if (include_gpu_stats)
     {
         next.gpu_percent = get_gpu_usage();
@@ -539,7 +523,6 @@ void update_system_snapshot(bool include_gpu_stats, bool include_net_stats)
     }
 
     std::lock_guard lock(g_state_mutex);
-    // Volume is owned by ApplyVolumeReading and may have moved since `next` was copied.
     next.volume_percent = g_state.system.volume_percent;
     next.volume_muted = g_state.system.volume_muted;
     g_state.system = next;
@@ -548,16 +531,14 @@ void update_system_snapshot(bool include_gpu_stats, bool include_net_stats)
 
 namespace
 {
-
-// Built-in panel brightness (0-100), or -1 when there is no such panel (desktops)
-// or the query fails. Same IOCTL the Windows brightness slider uses, so no WMI.
+// Built-in panel brightness (0-100) or -1. Same IOCTL as the Windows brightness slider, no WMI.
 int read_panel_brightness(bool on_ac)
 {
     constexpr DWORD ioctl_query_display_brightness =
         0x230498; // CTL_CODE(FILE_DEVICE_VIDEO, 0x126, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
     struct DisplayBrightness
-    {                 // DISPLAY_BRIGHTNESS from ntddvdeo.h
+    {
         UCHAR policy; // bit 0 = AC level valid, bit 1 = DC level valid
         UCHAR ac_brightness;
         UCHAR dc_brightness;
@@ -604,8 +585,6 @@ int read_panel_brightness(bool on_ac)
         s_logged_first = true;
         host::log(L"Brightness: policy=%d ac=%d dc=%d", db.policy, db.ac_brightness, db.dc_brightness);
     }
-    // Pick the level for the current power source, falling back to the other one
-    // when the driver only reports one of them.
     const bool has_ac = (db.policy & 1) != 0;
     const bool has_dc = (db.policy & 2) != 0;
     int level = on_ac ? db.ac_brightness : db.dc_brightness;
@@ -633,8 +612,7 @@ void update_brightness_snapshot()
     }
 
     std::lock_guard lock(g_state_mutex);
-    // Plugging in or unplugging swaps between the AC and battery levels, which is
-    // not the user moving the slider, so that sample only resets the baseline.
+    // A power source switch swaps AC and battery levels: that is not the user moving the slider.
     const bool changed =
         g_brightness_initialized && level != g_last_brightness && power.ACLineStatus == g_brightness_power_source;
     if (changed && g_settings.brightness)

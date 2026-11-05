@@ -10,7 +10,6 @@
 
 namespace island
 {
-
 std::wstring get_string_setting_copy(PCWSTR name)
 {
     return host::string_setting(name);
@@ -18,7 +17,6 @@ std::wstring get_string_setting_copy(PCWSTR name)
 
 namespace
 {
-
 std::wstring get_string_setting_with_fallback(PCWSTR primary, PCWSTR fallback, PCWSTR fallback2 = nullptr)
 {
     std::wstring result = get_string_setting_copy(primary);
@@ -92,8 +90,6 @@ void load_settings()
         next.target_monitor = _wtoi(mon.c_str());
     }
 
-    // Auto DPI scaling: multiply sizeScale by monitor DPI factor for the target display.
-    // On mixed-DPI setups or a 4K 200% display this scales the island to the right physical size.
     next.auto_dpi_scale = (host::int_setting(L"Appearance.AutoDpiScale") != 0);
     HMONITOR anchor_mon = get_anchor_monitor_for(next.target_monitor);
     const float dpi = next.auto_dpi_scale ? get_monitor_dpi_scale(anchor_mon) : 1.0f;
@@ -182,7 +178,7 @@ void load_settings()
     }
     else
     {
-        next.progress_style = ProgressStyle::Slim; // default
+        next.progress_style = ProgressStyle::Slim;
     }
 
     const std::wstring spectrum_str = get_string_setting_copy(L"Appearance.SpectrumStyle");
@@ -200,7 +196,7 @@ void load_settings()
     }
     else
     {
-        next.spectrum_style = SpectrumStyle::Bars; // default
+        next.spectrum_style = SpectrumStyle::Bars;
     }
     g_spectrum_bands_needed.store(next.spectrum_style == SpectrumStyle::Orb ||
                                       next.spectrum_style == SpectrumStyle::Plasma,
@@ -283,7 +279,6 @@ void load_settings()
     }
     next.hide_show_modifiers |= MOD_NOREPEAT;
 
-    // Single A-Z/0-9 key only; anything else (blank, multi-char, symbol) falls back to 'D'.
     const std::wstring hotkey_key_str = get_string_setting_copy(L"Shortcuts.HideShowKey");
     next.hide_show_vk = 'D';
     if (hotkey_key_str.size() == 1)
@@ -295,7 +290,7 @@ void load_settings()
         }
     }
 
-    // ── Quick Lookup ─────────────────────────────────────────────────────────
+    // Quick lookup
     next.quick_lookup = host::int_setting(L"Modules.QuickLookup") != 0;
 
     const std::wstring lookup_mod_str = get_string_setting_copy(L"Shortcuts.LookupModifiers");
@@ -321,7 +316,6 @@ void load_settings()
     }
     next.lookup_modifiers |= MOD_NOREPEAT;
 
-    // "Space", or a single A-Z / 0-9 key; anything else falls back to Space.
     next.lookup_vk = VK_SPACE;
     {
         std::wstring key_str = get_string_setting_copy(L"Shortcuts.LookupKey");
@@ -349,7 +343,7 @@ void load_settings()
     next.do_not_disturb_indicator = host::int_setting(L"Modules.DoNotDisturbIndicator") != 0;
     next.notification_respect_dn_d = host::int_setting(L"Modules.NotificationRespectDnD") != 0;
 
-    // ── Premium material / redesign ──────────────────────────────────────────
+    // Material
     {
         const std::wstring backdrop = get_string_setting_copy(L"Themes.BackdropMaterial");
         if (equals_no_case(backdrop, L"acrylic"))
@@ -373,7 +367,7 @@ void load_settings()
     next.accent_bloom = clamp(host::int_setting(L"Themes.AccentBloom") / 100.0f, 0.0f, 2.0f);
     next.text_scale = clamp(host::int_setting(L"Themes.TextScale") / 100.0f, 0.7f, 1.6f);
 
-    // ── Clock / date presentation (#61) ──────────────────────────────────────
+    // Clock and date
     next.show_seconds = host::int_setting(L"Modules.ShowSeconds") != 0;
     const std::wstring clock_mode = get_string_setting_copy(L"Modules.ClockFormat");
     next.clock_follow_system = clock_mode.empty() || equals_no_case(clock_mode, L"system");
@@ -395,7 +389,7 @@ void load_settings()
     }
     next.media_pill_clock = host::int_setting(L"Modules.MediaPillClock") != 0;
 
-    // ── Localization (#35) ───────────────────────────────────────────────────
+    // Localization
     {
         std::wstring lang_tag = get_string_setting_copy(L"Modules.Language");
         if (lang_tag.empty())
@@ -408,13 +402,13 @@ void load_settings()
         g_ui_language.store(static_cast<int>(resolved), std::memory_order_relaxed);
     }
 
-    // ── File tray (#33) ──────────────────────────────────────────────────────
+    // File tray
     next.file_tray_module = host::int_setting(L"Modules.FileTrayModule") != 0;
     next.file_tray_max_items = clamp_int(host::int_setting(L"Modules.FileTrayMaxItems"), 1, 25);
     next.file_tray_persist = host::int_setting(L"Modules.FileTrayPersist") != 0;
     next.notification_center_module = host::int_setting(L"Modules.NotificationCenter") != 0;
 
-    // ── Media auto-expand exclusions (#62) ───────────────────────────────────
+    // Media auto-expand exclusions (stored lowercase for case-insensitive matching)
     next.media_expand_blocklist.clear();
     {
         const std::wstring raw = get_string_setting_copy(L"Modules.MediaExpandBlocklist");
@@ -429,8 +423,6 @@ void load_settings()
             {
                 const size_t b = token.find_last_not_of(L" \t\r\n");
                 std::wstring entry = token.substr(a, b - a + 1);
-                // Stored lowercase so matching against media source/title is
-                // case-insensitive without re-lowering on every frame.
                 std::transform(entry.begin(), entry.end(), entry.begin(),
                                [](wchar_t c)
                                {
@@ -446,7 +438,7 @@ void load_settings()
         }
     }
 
-    // ── Game overlay options (#25) ───────────────────────────────────────────
+    // Game overlay
     next.game_overlay_show_fps = host::int_setting(L"Modules.GameOverlayShowFps") != 0;
     next.game_overlay_show_cpu = host::int_setting(L"Modules.GameOverlayShowCpu") != 0;
     next.game_overlay_show_gpu = host::int_setting(L"Modules.GameOverlayShowGpu") != 0;
@@ -478,7 +470,7 @@ void load_settings()
     next.lyrics_cache = host::int_setting(L"Modules.LyricsCache") != 0;
     {
         const std::wstring cap_str = get_string_setting_copy(L"Modules.LyricsCacheMaxMB");
-        int cap_mb = 25; // default, also used if the value is unparsable
+        int cap_mb = 25;
         if (cap_str == L"0")
         {
             cap_mb = 0;
@@ -501,10 +493,10 @@ void load_settings()
     const int local_expand_on_hover = host::int_value(L"ExpandOnHoverOverride", -1);
     next.expand_on_hover =
         local_expand_on_hover >= 0 ? (local_expand_on_hover != 0) : (host::int_setting(L"Behavior.ExpandOnHover") != 0);
-    // Right-click toggle; stored with Wh_SetIntValue so it survives restarts.
+    // Context menu toggle, stored in the island state key.
     next.collapsed_lyrics = host::int_value(L"CollapsedLyrics", 0) != 0;
     {
-        // Right-click choice wins until the Mod Settings value is changed.
+        // The context menu choice wins until the setting itself changes.
         const int media_tab_lyrics_setting = host::int_setting(L"Modules.MediaTabLyrics") != 0 ? 1 : 0;
         int media_tab_lyrics_override = host::int_value(L"MediaTabLyricsOverride", -1);
         if (media_tab_lyrics_override >= 0 &&
@@ -539,29 +531,13 @@ void load_settings()
     const int local_notch_style = host::int_value(L"NotchStyleOverride", -1);
     next.notch_style = local_notch_style >= 0 ? (local_notch_style != 0) : base_notch;
 
-    // A bottom-anchored island cannot be a top-edge macOS notch.
     if (is_bottom_position(next.position))
     {
         next.notch_style = false;
     }
 
-    // Color settings — check local theme override first, then settings YAML.
-    // Palettes live in kThemePalettes at file scope so the right-click menu
-    // resolves the same colors and labels this does.
-    //
-    // A custom hex field counts as an intentional override once it differs from
-    // the value shipped as its default. Presets keep working untouched for
-    // anyone who never edits these fields, but an edited hex now takes effect
-    // immediately instead of being silently discarded unless the Theme preset
-    // also happened to be switched to Custom. Clearing the field back to its
-    // default hands control back to the preset.
-    //
-    // `defaultHexes` deliberately lists the *historical* defaults as well as the
-    // current one. Retiring the old palettes moved these defaults, and Windhawk
-    // keeps whatever value is already stored in a user's config -- so someone who
-    // never touched the hex fields would still be carrying "#0D0D0F" from the old
-    // OLED Black default. Matching only the current default would read that as a
-    // deliberate override and pin every new palette back to the old background.
+    // A hex field overrides the preset only when it differs from its default; the list also holds the
+    // historical defaults, so an untouched old value is not mistaken for an override.
     auto resolve_color = [](const wchar_t* setting_key, std::initializer_list<const wchar_t*> default_hexes,
                             D2D1_COLOR_F preset_color) -> D2D1_COLOR_F
     {
@@ -571,15 +547,10 @@ void load_settings()
             return preset_color;
         }
 
-        // Compare the parsed colors rather than the strings, so equivalent
-        // spellings of the default ("0D0D0F" without the '#', "#0D0D0FFF",
-        // different case) are all still recognised as "untouched" and leave the
-        // preset in charge.
         const D2D1_COLOR_F sentinel = D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.0f);
         const D2D1_COLOR_F parsed = color_from_hex(value, sentinel);
         if (parsed.r == sentinel.r && parsed.g == sentinel.g && parsed.b == sentinel.b && parsed.a == sentinel.a)
         {
-            // Unparseable, so treat it as not set.
             return preset_color;
         }
 
@@ -610,9 +581,7 @@ void load_settings()
     };
 
     std::wstring theme_preset_str = get_string_setting_copy(L"Themes.ThemePreset");
-    // The active palette is persisted as an integer so the right-click menu can
-    // change it without rewriting the settings file. Migrate the old key across
-    // once, since the integers were renumbered when the palettes changed.
+    // The palette is persisted as an index; migrate the old key once (the indexes were renumbered).
     if (host::int_value(theme_value_name, -1) < 0)
     {
         const int legacy = host::int_value(legacy_theme_value_name, -1);
@@ -663,7 +632,6 @@ void load_settings()
     }
     else if (theme >= custom_theme_index || equals_no_case(theme_preset_str, L"custom"))
     {
-        // Explicit Custom: the hex fields are authoritative, defaults included.
         next.theme_preset = ThemePreset::Custom;
         next.pill_bg_color =
             color_from_hex(get_string_setting_copy(L"Themes.PillBgColor"), D2D1::ColorF(0.031f, 0.031f, 0.039f, 1.0f));
@@ -682,9 +650,7 @@ void load_settings()
         apply_preset(next, preset_idx);
     }
 
-    // Graphite inherits the old Fluent theme's auto-translucency: it is the
-    // neutral Windows 11 grey, and it reads best when the desktop shows through
-    // a little. The rest of the palettes are opaque unless the user says so.
+    // Graphite is translucent by default; the other palettes are opaque unless set otherwise.
     if (next.theme_preset == ThemePreset::Graphite && local_opacity < 0)
     {
         next.pill_opacity = 0.88f;
@@ -712,7 +678,7 @@ void load_settings()
     }
     else
     {
-        next.contour_border_enabled = true; // no such setting; the mode dropdown drives this
+        next.contour_border_enabled = true;
         next.contour_border_mode =
             next.contour_border_enabled ? ContourBorderMode::Default : ContourBorderMode::Borderless;
     }
@@ -746,11 +712,10 @@ void load_settings()
         }
     }
 
-    // Privacy Indicators: unified reading with complete fallback to legacy keys
     next.privacy_dots = host::int_setting(L"Indicators.PrivacyDots") != 0;
     next.privacy_dots_mic = host::int_setting(L"Indicators.PrivacyDotsMic") != 0;
     next.privacy_dots_cam = host::int_setting(L"Indicators.PrivacyDotsCam") != 0;
-    next.privacy_dots_pulse = true; // no such setting; pulsing is always on
+    next.privacy_dots_pulse = true;
 
     std::wstring mic_hex_str = get_string_setting_with_fallback(L"Indicators.PrivacyDotsMicHex",
                                                                 L"Indicators.MicDotHex", L"Modules.PrivacyDotsMicHex");
@@ -760,7 +725,6 @@ void load_settings()
                                                                 L"Indicators.CamDotHex", L"Modules.PrivacyDotsCamHex");
     next.privacy_dots_cam_hex = color_from_hex(cam_hex_str, D2D1::ColorF(0.204f, 0.780f, 0.349f, 1.0f));
 
-    // Compatibility aliases: always keep in sync
     next.privacy_dots_enabled = next.privacy_dots;
     next.privacy_dot_pulsing = next.privacy_dots_pulse;
     next.mic_dot_color = next.privacy_dots_mic_hex;
@@ -769,11 +733,7 @@ void load_settings()
     g_pinned_expanded.store(false);
     host::set_int_value(L"PinnedExpanded", 0);
 
-    // Compare-then-publish under one lock so the change flags describe exactly
-    // the transition we are about to commit. Two LoadSettings() calls can run
-    // concurrently (settings thread vs. tray menu on the render thread); without
-    // this, both could read the same "old" values and each decide a hotkey
-    // re-registration was needed, or neither would.
+    // Compare and publish under one lock, so the change flags match exactly what is committed.
     bool city_changed = false;
     bool hotkey_setting_changed = false;
     bool backdrop_changed = false;
@@ -798,22 +758,12 @@ void load_settings()
     {
         SetEvent(g_settings_changed_event);
     }
-    // Installs or removes WH_KEYBOARD_LL to match. The keyboard thread would pick
-    // this up on its next backstop tick anyway; this just makes it immediate.
     if (caps_lock_changed)
     {
         notify_keyboard_thread_setting_changed();
     }
-    // g_hwnd only exists once RenderThreadProc has created the overlay window;
-    // the very first LoadSettings() call (at mod init, before StartThreads())
-    // runs with g_hwnd still null, so ApplyHideShowHotkey() no-ops there and
-    // RenderThreadProc does the initial registration itself right after
-    // CreateWindowExW. Every later call (e.g. from WhTool_ModSettingsChanged)
-    // re-registers live so hotkey edits apply without a mod restart.
-    // Posted, not called: UnregisterHotKey / RegisterHotKey fail with
-    // ERROR_WINDOW_OF_OTHER_THREAD from this thread, which left the old
-    // combination registered, the new one never registered, and the bookkeeping
-    // flag claiming otherwise -- so switching the hotkey off never released it.
+    // Hotkeys belong to the window's thread (RegisterHotKey fails from other threads), so the change is
+    // posted. Before the window exists this is a no-op and the render thread registers at startup.
     if (hotkey_setting_changed)
     {
         if (g_hwnd)
@@ -821,8 +771,6 @@ void load_settings()
             PostMessageW(g_hwnd, wm_app_apply_hotkey, 0, 0);
         }
     }
-    // Same story for the backdrop: no-ops before the window exists, and applies
-    // live afterwards so switching blur/acrylic needs no mod restart.
     if (backdrop_changed && g_hwnd)
     {
         PostMessageW(g_hwnd, wm_app_apply_backdrop, 0, 0);

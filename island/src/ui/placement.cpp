@@ -7,7 +7,6 @@
 
 namespace island
 {
-
 RECT get_anchor_work_rect(HMONITOR* out_monitor)
 {
     HMONITOR selected_monitor = get_anchor_monitor();
@@ -22,18 +21,8 @@ RECT get_anchor_work_rect(HMONITOR* out_monitor)
 
 namespace
 {
-
-// Vertical offset for the island's current size (#83).
-//
-// One Offset Y forced a compromise: a value that tucks the idle pill up near the
-// screen edge leaves the expanded dashboard awkward to reach, and vice versa.
-// With the separate offset enabled, Offset Y becomes the collapsed value and
-// OffsetYExpanded the expanded one, and the island *eases* between them in step
-// with the expansion itself rather than snapping at some threshold.
-//
-// windowHeight is the layered window's height, which carries kRenderPadY on both
-// edges, so the pill's own height is recovered before measuring how expanded it
-// is.
+// Vertical offset: with the separate expanded offset on, the island eases between the collapsed and
+// the expanded value together with the expansion.
 int resolve_offset_y(float window_height)
 {
     if (!g_settings.separate_expanded_offset_y)
@@ -44,8 +33,6 @@ int resolve_offset_y(float window_height)
     const float scale = std::max(0.05f, g_settings.size_scale);
     const float pill_height = std::max(0.0f, window_height - render_pad_y * 2.0f) / scale;
 
-    // Collapsed alert pills are ~44px tall in content space; the expanded
-    // dashboard is MediaLayout::kExpandedHeight.
     constexpr float collapsed_height = 44.0f;
     const float span = media_layout::expanded_height - collapsed_height;
     const float t = (span <= 1.0f) ? 0.0f : clamp((pill_height - collapsed_height) / span, 0.0f, 1.0f);
@@ -55,10 +42,8 @@ int resolve_offset_y(float window_height)
     return static_cast<int>(std::lround(collapsed + (expanded - collapsed) * t));
 }
 
-// Where the layered window's top-left goes for a pill `pillWidth` px wide.
-// *subX receives the pill's fractional left edge (0..1) so the renderer can draw
-// at the exact float position. Snapping to whole pixels made the pill's centre
-// wobble ~1px while its width animated.
+// *sub_x receives the fractional left edge so the pill is drawn at the exact float position (whole
+// pixels made it wobble while the width animated).
 POINT compute_overlay_origin(int height, float pill_width, float* sub_x)
 {
     RECT work = get_anchor_work_rect();
@@ -114,7 +99,6 @@ StageLayout compute_stage_layout(const Settings& settings, float pill_w, float p
 
     if (!uses_fixed_stage(settings))
     {
-        // Legacy path, identical to what Render() did before.
         s.height = std::max(1, static_cast<int>(std::ceil(pill_h + render_pad_y * 2.0f)));
         float sub_x = 0.0f;
         s.origin = compute_overlay_origin(s.height, pill_w, &sub_x);
@@ -129,8 +113,6 @@ StageLayout compute_stage_layout(const Settings& settings, float pill_w, float p
     s.width = static_cast<int>(std::ceil(stage_content_width * settings.size_scale + render_pad_x * 2.0f));
     s.height = static_cast<int>(std::ceil(stage_content_height * settings.size_scale + render_pad_y * 2.0f));
 
-    // Horizontal: the stage is anchored, and the pill sits inside it the same way
-    // the old window-per-pill code anchored it on screen.
     switch (settings.position)
     {
         case Position::TopLeft:
@@ -143,14 +125,13 @@ StageLayout compute_stage_layout(const Settings& settings, float pill_w, float p
             s.origin.x = work.right - 16 + static_cast<int>(render_pad_x) - s.width;
             s.pill_left = static_cast<float>(s.width) - render_pad_x - pill_w;
             break;
-        default: // centered
+        default:
             s.origin.x = work.left + (work_w - s.width) / 2;
             s.pill_left = (static_cast<float>(s.width) - pill_w) * 0.5f;
             break;
     }
     s.origin.x += settings.offset_x;
 
-    // Vertical. Bottom positions keep the pill's bottom edge fixed, so it grows upward.
     const int offset_y = resolve_offset_y(pill_h + render_pad_y * 2.0f);
     if (is_bottom_position(settings.position))
     {
@@ -165,14 +146,11 @@ StageLayout compute_stage_layout(const Settings& settings, float pill_w, float p
     return s;
 }
 
-// z-order / owner / backdrop-region upkeep only. Position and size are NOT touched
-// here: UpdateLayeredWindow sets them together with the new pixels, so the window
-// never moves or resizes in a separate step from its content.
+// Z-order and owner upkeep only: UpdateLayeredWindow sets position and size together with the pixels.
 void apply_overlay_z_order(HWND hwnd, int width, int height)
 {
     HWND z_order = g_settings.always_on_top ? HWND_TOPMOST : HWND_NOTOPMOST;
 
-    // Yield to the screen-clip overlay.
     const bool yield_to_clip_ui = backdrop::clip_ui_active_cached();
     SetWindowPos(hwnd, yield_to_clip_ui ? nullptr : z_order, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER |
@@ -185,17 +163,12 @@ void apply_overlay_z_order(HWND hwnd, int width, int height)
 
 namespace
 {
-
-// Windows' own shell surfaces are all WS_EX_TOPMOST, and they are *supposed* to
-// sit above the island. Raising ourselves over the Start menu, the notification
-// centre, the volume OSD, Task View, a popup menu or a tooltip would be a bug,
-// not a fix, so these classes are never treated as something to reclaim from.
+// Shell surfaces (Start, flyouts, OSDs, Task View, menus, tooltips) are meant to sit above the island.
 bool is_shell_owned_window(HWND hwnd)
 {
     wchar_t class_name[128] = {};
     if (GetClassNameW(hwnd, class_name, ARRAYSIZE(class_name)) <= 0)
     {
-        // Unknown, so treat it as shell-owned and leave the z-order alone.
         return true;
     }
 
@@ -224,15 +197,9 @@ bool is_shell_owned_window(HWND hwnd)
 
 }
 
-// Re-asserts the island's place in the topmost band when another always-on-top
-// window has been raised over it (PowerToys' bar, taskbar mods, other
-// overlays). PositionOverlayWindow only runs on a resize or an explicit layout
-// change, so without this the island stayed buried until the next one.
-//
-// Deliberately conservative: shell surfaces are ignored, a slight clip does not
-// count, and we only act when we are still in the topmost band ourselves. That
-// keeps this from turning into a z-order tug-of-war or from stealing focus
-// surfaces away from Windows.
+// Re-asserts the topmost band when another always-on-top window covers the island. Conservative:
+// shell surfaces are ignored, small overlaps do not count, and nothing happens unless the island is
+// still topmost itself.
 void ensure_topmost(HWND hwnd, const RECT* pill_screen_rect)
 {
     if (!g_settings.always_on_top || !IsWindow(hwnd) || !IsWindowVisible(hwnd))
@@ -244,8 +211,6 @@ void ensure_topmost(HWND hwnd, const RECT* pill_screen_rect)
         return;
     }
 
-    // If we are not topmost at all, PositionOverlayWindow owns fixing that;
-    // walking the whole z-order from a demoted position would be expensive.
     if ((GetWindowLongW(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST) == 0)
     {
         return;
@@ -254,7 +219,7 @@ void ensure_topmost(HWND hwnd, const RECT* pill_screen_rect)
     RECT island_rect = {};
     if (pill_screen_rect && !IsRectEmpty(pill_screen_rect))
     {
-        island_rect = *pill_screen_rect; // the stage is mostly empty, so test the pill only
+        island_rect = *pill_screen_rect;
     }
     else if (!GetWindowRect(hwnd, &island_rect))
     {
@@ -263,7 +228,6 @@ void ensure_topmost(HWND hwnd, const RECT* pill_screen_rect)
 
     const long island_area =
         std::max(1L, (island_rect.right - island_rect.left) * (island_rect.bottom - island_rect.top));
-    // Require a real overlap, not a one-pixel graze.
     const long min_overlap_area = std::max(256L, island_area / 8);
 
     bool covered = false;
@@ -273,8 +237,6 @@ void ensure_topmost(HWND hwnd, const RECT* pill_screen_rect)
         {
             continue;
         }
-        // Everything above a topmost window is itself topmost, so reaching a
-        // non-topmost window means we are already at the top of that band.
         if ((GetWindowLongW(above, GWL_EXSTYLE) & WS_EX_TOPMOST) == 0)
         {
             break;
@@ -343,8 +305,6 @@ RECT get_island_dock_rect()
     }
 
     x += g_settings.offset_x;
-    // The dock rect is the hover target for a hidden island, which is always in
-    // its collapsed state, so it follows the collapsed offset.
     y += g_settings.offset_y;
 
     RECT r;

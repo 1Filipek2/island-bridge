@@ -26,13 +26,7 @@ namespace island
 {
 namespace
 {
-
-// ── Weather iconography ──────────────────────────────────────────────────────
-// The dashboard used colour emoji (☀️ ⛅ 🌡️) rendered with ENABLE_COLOR_FONT,
-// which clashed badly with the island's monochrome, accent-tinted UI and varied
-// in size and baseline between glyphs. These are drawn as vectors instead: they
-// inherit the accent colour, scale cleanly, sit on a predictable baseline, and
-// can never fall back to a missing-glyph box the way a font-dependent icon can.
+// Weather icons: vectors, not emoji, so they take the accent color and scale cleanly.
 enum class WeatherVisual
 {
     Clear,
@@ -45,8 +39,6 @@ enum class WeatherVisual
     Unknown,
 };
 
-// Groupings mirror GetWeatherIconAndText so both stay keyed off the same WWO
-// weather codes.
 WeatherVisual weather_visual_from_code(int code)
 {
     switch (code)
@@ -109,10 +101,8 @@ WeatherVisual weather_visual_from_code(int code)
     }
 }
 
-// Cache for DrawKaraokeLetterPop: the layout and per-cluster hit rects only
-// depend on the active lyric line's text/format/box size, never on time, so
-// they are rebuilt only when the line changes. Rects are stored relative to a
-// (0,0) layout origin.
+// draw_karaoke_letter_pop cache: the layout depends only on the line text and box, so it is rebuilt
+// only when the line changes.
 struct KaraokeLayoutCache
 {
     struct ClusterInfo
@@ -141,10 +131,8 @@ struct MarqueeLayoutCache
     DWRITE_TEXT_METRICS metrics{};
 };
 
-// Measured geometry of the collapsed idle strip, produced by
-// Renderer::MeasureIdleStrip. The render loop uses totalWidth to size the
-// island; DrawIdleDashboard uses the per-slot widths to place the clock, divider
-// and weather reading inside it.
+// Collapsed idle strip geometry from measure_idle_strip: total_width sizes the island, the slot widths
+// place the Clock, divider and weather.
 struct IdleStripMetrics
 {
     float clock_width = 0.0f;
@@ -180,13 +168,11 @@ struct TitleGlyph
     bool eligible = true; // visible when the animation started (only these get paired)
     float w = 0.0f;
     float h = 0.0f;
-    float seed = 0.0f;                // stable 0..1 value so each letter's smoke is unique
-    int match = -1;                   // index of the paired glyph in the other title, or -1
-    ComPtr<IDWriteTextLayout> layout; // this character alone, same format as the title
+    float seed = 0.0f; // stable 0..1 value so each letter's smoke is unique
+    int match = -1;    // index of the paired glyph in the other title, or -1
+    ComPtr<IDWriteTextLayout> layout;
 };
 
-// Marquee state of one title at the moment the animation starts, mirroring what
-// DrawMarqueeText does (offset = fmod(now * speed, cycle)).
 struct TitleScroll
 {
     bool scrolls = false;
@@ -195,31 +181,24 @@ struct TitleScroll
     float offset0 = 0.0f;
 };
 
-// State for the gentle swap animation of the artist / album lines.
+// Swap animation of the artist and album lines.
 struct SwapTextState
 {
-    std::wstring shown;            // text currently on screen
-    std::wstring prev;             // text that is fading out
-    double start = -1.0;           // animation start, -1 = idle
-    double last_drawn = -1.0;      // last frame this row was drawn
-    MarqueeLayoutCache prev_cache; // layout cache for the outgoing text
+    std::wstring shown;  // text currently on screen
+    std::wstring prev;   // text that is fading out
+    double start = -1.0; // animation start, -1 = idle
+    double last_drawn = -1.0;
+    MarqueeLayoutCache prev_cache;
 };
 
 struct MediaPillMetrics
 {
     float clock_width = 0.0f;
-    float section_width = 0.0f;                        // clock + divider block on the left
-    float total_width = media_pill_layout::base_width; // content space, before sizeScale
+    float section_width = 0.0f; // Clock + divider block on the left
+    float total_width = media_pill_layout::base_width;
 };
 
-// Substitutes '0' for every decimal digit before measuring.
-//
-// Proportional faces give '1' a visibly narrower advance than '0', so measuring
-// the live clock would change the pill's width as the time changed -- with
-// seconds enabled that is a layered-window resize and reposition every second,
-// and a visible twitch. Normalising to the widest digit makes the width stable
-// for a given digit count, and since '0' is never narrower than the digit it
-// replaces, the real string is guaranteed to fit the box we reserve.
+// Every digit becomes '0' before measuring, so a ticking Clock never changes the pill width.
 std::wstring widest_digit_form(std::wstring text)
 {
     for (wchar_t& c : text)
@@ -232,21 +211,16 @@ std::wstring widest_digit_form(std::wstring text)
     return text;
 }
 
-// ── Collapsed-pill lyrics ────────────────────────────────────────────────────
-// Width of the collapsed media pill while it carries a lyric line (content px).
+// Collapsed pill lyrics
 constexpr float collapsed_lyrics_width = 320.0f;
 
-// True when the collapsed pill should be widened for lyrics. "fetching" counts
-// too, so the pill does not shrink and regrow on every track change.
+// Wide while lyrics are on and media is available, so the pill does not shrink on every track change.
 bool collapsed_lyrics_active(const SharedState& state, const Settings& settings)
 {
-    // Stays wide for as long as media is available. If there are no lyrics to
-    // show, DrawCollapsedLyrics shows the media title instead.
     return settings.collapsed_lyrics && settings.media && state.media.available;
 }
 
-// One pre-built lyric line. Built once when the line changes, then reused every
-// frame, so animating it costs a DrawTextLayout and nothing else.
+// One lyric line, built when the line changes and reused every frame.
 struct CollapsedLyricLine
 {
     std::wstring text;
@@ -303,7 +277,6 @@ public:
         width = std::max(width, 0.0f);
         if (uses_fixed_stage(settings))
         {
-            // A pill can never be bigger than the stage it lives in.
             width = std::min(width, stage_content_width * settings.size_scale);
             height = std::min(height, stage_content_height * settings.size_scale);
         }
@@ -320,8 +293,7 @@ public:
         const bool size_changed = pixel_width != bitmap_width_ || pixel_height != bitmap_height_;
         const bool moved = stage.origin.x != last_origin_.x || stage.origin.y != last_origin_.y;
 
-        // Full repaint when anything about the window itself changed, plus once a
-        // second as a safety net (sleep/resume, display changes).
+        // Full repaint when the window itself changed, plus once a second as a safety net.
         const bool full_paint = !use_dirty_rect || !stage_valid_ || size_changed || moved || alpha != last_alpha_ ||
                                 (now - last_full_paint_) > 1.0;
 
@@ -346,12 +318,11 @@ public:
             }
             else
             {
-                g_layout_dirty = true; // retry once the throttle expires
+                g_layout_dirty = true;
             }
         }
 
-        // Region that can contain pixels this frame: the pill plus its shadow and
-        // nudge slack, unioned with where it was last frame so the old pixels get erased.
+        // Pixels that can change this frame: the pill with shadow and nudge slack, plus last frame's area.
         RECT bounds;
         bounds.left = std::max(0, static_cast<int>(std::floor(left - render_pad_x - 4.0f)));
         bounds.top = std::max(0, static_cast<int>(std::floor(top - render_pad_y - 12.0f)));
@@ -369,10 +340,8 @@ public:
             dirty = RECT{0, 0, pixel_width, pixel_height};
         }
 
-        // Bind only the region being repainted. Binding the whole stage made D2D copy
-        // all of it in at BeginDraw and out at EndDraw every frame, even for a small pill.
-        // The bound rect's top-left becomes (0,0); the translation restores stage
-        // coordinates, and every draw routine composes with the current transform.
+        // Bind only the dirty region (binding the whole stage copied all of it every frame); the translation
+        // restores stage coordinates.
         RECT rc = dirty;
         HRESULT hr = target_->BindDC(mem_dc_, &rc);
         if (FAILED(hr))
@@ -380,7 +349,7 @@ public:
             return false;
         }
 
-        pill_count_ = 0; // DrawPill records each pill it draws for the backdrop windows
+        pill_count_ = 0; // draw_pill records each pill it draws for the backdrop windows
 
         target_->BeginDraw();
         target_->SetTransform(
@@ -397,7 +366,6 @@ public:
 
         const bool game_metrics_present =
             primary.kind == IslandKind::Idle && (settings.game_overlay || g_game_overlay_pinned.load());
-        // True while the island is collapsing to nothing (auto-hide / fullscreen).
         island_hiding_ = primary.width < 1.0f && primary.height < 1.0f && !secondary;
 
         const float hover_scale =
@@ -411,9 +379,7 @@ public:
             {
                 const float gap = 12.0f * settings.size_scale;
                 const float max_h = std::max(primary.height, secondary->height);
-                // Notch / border-merged islands hang from the top edge, so the
-                // shorter pill stays flush with it instead of being centred
-                // inside the taller one's height (which pushed it down).
+                // Notch and border-merged islands hang from the top edge.
                 const bool hang_from_top = settings.notch_style || settings.border_merged_mode;
                 const float p_top = hang_from_top ? top : top + (max_h - primary.height) * 0.5f;
                 const float s_top = hang_from_top ? top : top + (max_h - secondary->height) * 0.5f;
@@ -565,16 +531,10 @@ public:
         }
     }
 
-    // Measures the collapsed idle strip so the render loop can size the island to
-    // the text it is actually about to paint, instead of the old fixed 96/170px.
-    // DrawIdleDashboard calls this too and lays the slots out from the same
-    // numbers, so the pill can never be sized for a clock width the painter is
-    // not using.
+    // Sizes the island to the idle text it is about to paint; draw_idle_dashboard uses the same numbers.
     IdleStripMetrics measure_idle_strip(const SharedState& state, const Settings& settings, double now)
     {
-        // Idempotent and cheap when nothing changed, but necessary here: textScale
-        // drives the idle font size, so measuring before the formats are rebuilt
-        // would size the pill for the previous Text size setting.
+        // The text scale drives the idle font size, so the formats must be current before measuring.
         ensure_text_formats(settings.size_scale, settings.font_family, settings.text_scale);
 
         IdleStripMetrics metrics;
@@ -589,8 +549,6 @@ public:
         metrics.has_weather = settings.weather;
         if (metrics.has_weather)
         {
-            // Mirrors the label DrawIdleDashboard builds, including the no-data
-            // placeholder, so the reserved slot matches what gets drawn.
             const bool has_data = state.weather.has_data && (now - state.weather.last_updated < 3600.0);
             wchar_t label[32] = {};
             if (has_data)
@@ -623,10 +581,7 @@ public:
         return metrics;
     }
 
-    // Collapsed media pill, with the optional clock. Returns content-space
-    // sizes; the render loop multiplies by sizeScale like every other collapsed
-    // width. Measured in the widest-digit form so the width does not wobble as
-    // the digits change.
+    // Collapsed media pill with the optional Clock (content space, measured in the widest-digit form).
     MediaPillMetrics measure_media_pill(const SharedState& state, const Settings& settings)
     {
         (void)state;
@@ -654,10 +609,7 @@ public:
     }
 
 private:
-    // Keyed on the string alone. EnsureTextFormats invalidates both caches
-    // whenever it rebuilds the formats, so a cached width can never outlive the
-    // font size it was measured at -- comparing the IDWriteTextFormat pointer
-    // would not be enough, since a rebuilt format can land on the freed address.
+    // Keyed on the string: ensure_text_formats invalidates the caches whenever it rebuilds the formats.
     struct TextWidthCache
     {
         std::wstring key;
@@ -679,8 +631,6 @@ private:
         if (fmt && dwrite_factory_ && !text.empty())
         {
             ComPtr<IDWriteTextLayout> layout;
-            // Effectively unbounded wrap width: the idle formats are NO_WRAP, and
-            // we want the natural advance, not a wrapped block.
             if (SUCCEEDED(dwrite_factory_->CreateTextLayout(text.c_str(), static_cast<UINT32>(text.size()), fmt,
                                                             4096.0f, idle_strip_layout::k_height, &layout)) &&
                 layout)
@@ -703,9 +653,7 @@ private:
     {
         const int logical_w = width;
         const int logical_h = height;
-        // Expand/collapse changes the needed size almost every frame. Reuse the
-        // existing DIB whenever it is big enough; UpdateLayeredWindow only reads
-        // the (0,0,width,height) region, so a larger DIB is fine.
+        // Reuse the DIB while it is big enough; UpdateLayeredWindow reads only (0, 0, width, height).
         if (dib_ && width <= bitmap_cap_w_ && height <= bitmap_cap_h_)
         {
             bitmap_width_ = width;
@@ -713,7 +661,6 @@ private:
             return true;
         }
 
-        // Round up with headroom so growing animations rarely reallocate.
         width = ((width + 63) / 64) * 64 + 64;
         height = ((height + 31) / 32) * 32 + 32;
 
@@ -765,10 +712,7 @@ private:
     float last_text_scale_ = 0.0f;
     std::wstring last_font_family_;
 
-    // textScale is an independent typography multiplier (the Text size setting):
-    // sizeScale magnifies the whole island via a transform, whereas this changes
-    // only the type, so the island can stay compact while the clock and labels
-    // get bigger.
+    // text_scale changes only the type; size_scale magnifies the whole island through a transform.
     void ensure_text_formats(float scale, const std::wstring& font_family, float text_scale)
     {
         if (std::abs(scale - last_font_scale_) < 0.001f && font_family == last_font_family_ &&
@@ -779,8 +723,6 @@ private:
         last_text_scale_ = text_scale;
         const float ts = clamp(text_scale, 0.7f, 1.6f);
 
-        // Every format below is about to be recreated at a new size, so any
-        // width measured against the old ones is stale.
         idle_clock_width_cache_.valid = false;
         idle_weather_width_cache_.valid = false;
 
@@ -898,9 +840,6 @@ private:
         {
             bold_text_format_->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
             bold_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
-            // Match every other centered format: without this the text hugs the
-            // top of its layout rect, which left the weather dashboard's city /
-            // icon / temperature visually "stuck" near the top of the island.
             bold_text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
         }
         if (huge_text_format_)
@@ -976,7 +915,6 @@ private:
         karaoke_cache_.layout.Reset();
         karaoke_cache_.valid = false;
 
-        // Collapsed lyric layouts were built from the old font; rebuild them.
         collapsed_lyric_cur_ = CollapsedLyricLine{};
         collapsed_lyric_prev_ = CollapsedLyricLine{};
         collapsed_lyric_idx_ = -2;
@@ -994,22 +932,15 @@ private:
         }
         else if (settings.accent_mode == AccentMode::Auto && state.media.art)
         {
-            // Already contrast-corrected when the art was decoded.
             target_accent = state.media.art->sampled_accent;
         }
         else
         {
-            // A custom or system accent was never checked against the island's
-            // own background. That did not matter while every theme was dark,
-            // but it does now that one is light: the default cyan sits at about
-            // 1.6:1 on Porcelain. Corrected before the smoothing lerp so the
-            // value is stable rather than re-derived every frame.
+            // A custom or system accent must also reach 3:1 against the island background (light themes).
             target_accent = ensure_contrast_against_background(target_accent, settings.pill_bg_color);
         }
 
-        // Smooth accent transition: exponential lerp toward target, ~300ms half-life.
-        // On the very first frame (lastAccentTime_ < 0) snap immediately so there's
-        // no fade-in from the default color on startup.
+        // Accent eases toward the target; the first frame snaps.
         if (last_accent_time_ < 0.0)
         {
             current_accent_ = target_accent;
@@ -1017,9 +948,8 @@ private:
         }
         else
         {
-            const double dt = std::max(0.0, std::min(now - last_accent_time_, 0.1)); // cap at 100ms
+            const double dt = std::max(0.0, std::min(now - last_accent_time_, 0.1));
             last_accent_time_ = now;
-            // k = 1 - exp(-dt / tau), tau ≈ 0.18s → reaches 95% in ~350ms
             const float k = 1.0f - static_cast<float>(std::exp(-dt / 0.18));
             current_accent_.r += (target_accent.r - current_accent_.r) * k;
             current_accent_.g += (target_accent.g - current_accent_.g) * k;
@@ -1043,7 +973,6 @@ private:
             target_->CreateSolidColorBrush(D2D1::ColorF(1.0f, 0.27f, 0.27f, 1.0f), &red_brush_);
         }
 
-        // Use user-configured text colors.
         D2D1_COLOR_F primary = settings.text_primary_color;
         primary.a = 0.98f;
         if (!text_brush_)
@@ -1066,9 +995,7 @@ private:
             muted_brush_->SetColor(secondary);
         }
 
-        // Keep the authored alpha. An 8-digit #RRGGBBAA background is how a
-        // translucent island is requested independently of the global pill
-        // transparency slider; DrawPillSurface combines the two.
+        // Keeps the authored alpha: #RRGGBBAA is how a translucent island is requested.
         pill_bg_color_ = settings.pill_bg_color;
 
         D2D1_COLOR_F tint_color = D2D1::ColorF(0.010f, 0.010f, 0.012f, settings.tint_opacity);
@@ -1089,11 +1016,7 @@ private:
         build_material_tokens(settings);
     }
 
-    // ── Premium material system ─────────────────────────────────────────────
-    // Every surface in the island is built from one small token set so the whole
-    // UI shares a single visual language. Tokens are recomputed once per frame
-    // from the resolved theme, and adapt to background luminance so a light
-    // custom background gets dark separators instead of washed-out white ones.
+    // Material tokens: recomputed once per frame from the theme, adapted to the background luminance.
     struct MaterialTokens
     {
         D2D1_COLOR_F base{};          // the pill's own fill
@@ -1122,8 +1045,7 @@ private:
         return c;
     }
 
-    // ── Cached Direct2D resources ───────────────────────────────────────────
-    // Nothing below is created per frame once it has warmed up. Render thread only.
+    // Cached Direct2D resources: nothing below is created per frame once warm. render thread only.
     struct LinearGradientSlot
     {
         ComPtr<ID2D1LinearGradientBrush> brush;
@@ -1183,8 +1105,7 @@ private:
         layer_pool_used_ = 0;
     }
 
-    // Returns a brush that is unique for the rest of this frame. Colour and opacity are
-    // reset, so a previous user's SetOpacity() can never leak into the next one.
+    // A brush unique for the rest of this frame, with color and opacity reset.
     ID2D1SolidColorBrush* acquire_brush(const D2D1_COLOR_F& color)
     {
         if (brush_pool_used_ >= brush_pool_.size())
@@ -1202,8 +1123,7 @@ private:
         return brush;
     }
 
-    // Same idea for layers. Each Acquire is distinct within a frame, so nested
-    // PushLayer calls are safe, and the layer's backing store is kept between frames.
+    // Layers likewise: each acquire is distinct within a frame, so nested PushLayer calls are safe.
     ID2D1Layer* acquire_layer()
     {
         if (layer_pool_used_ >= layer_pool_.size())
@@ -1290,8 +1210,7 @@ private:
         return slot.brush.Get();
     }
 
-    // Rounded-rect or notch geometry, cached by rect + radius. Returns a ref-counted
-    // pointer, so a caller holding it is safe even if the entry is evicted meanwhile.
+    // Rounded-rect or notch geometry, cached by rect and radius (ref-counted, safe across eviction).
     ComPtr<ID2D1Geometry> get_shape_geometry(D2D1_RECT_F rect, float radius, bool notch)
     {
         const ShapeKey key{rect.left, rect.top, rect.right, rect.bottom, radius, notch};
@@ -1305,7 +1224,7 @@ private:
             }
             if (e.last_used < victim->last_used)
             {
-                victim = &e; // empty entries have lastUsed == 0, so they go first
+                victim = &e; // empty entries have last_used == 0, so they go first
             }
         }
 
@@ -1319,7 +1238,7 @@ private:
             }
         }
         if (!geom)
-        { // not a notch, or the notch failed: same fallback as before
+        {
             ComPtr<ID2D1RoundedRectangleGeometry> rr;
             if (SUCCEEDED(d2d_factory_->CreateRoundedRectangleGeometry(D2D1::RoundedRect(rect, radius, radius), &rr)) &&
                 rr)
@@ -1370,9 +1289,6 @@ private:
         const D2D1_COLOR_F black = D2D1::ColorF(0.0f, 0.0f, 0.0f, 1.0f);
         const D2D1_COLOR_F lift = on_dark ? white : black;
 
-        // Cards carry a slightly stronger fill than before. They used to be
-        // outlined with a hairline ring, and losing that ring is what the fill
-        // now has to compensate for so a card still reads as a distinct surface.
         t.raised = with_alpha(lift, on_dark ? 0.085f : 0.062f);
         t.raised_strong = with_alpha(lift, on_dark ? 0.150f : 0.105f);
         t.hairline = with_alpha(lift, on_dark ? 0.100f : 0.085f);
@@ -1384,8 +1300,6 @@ private:
 
         t.text_primary = with_alpha(settings.text_primary_color, 0.98f);
         t.text_secondary = with_alpha(settings.text_secondary_color, 0.88f);
-        // Derived rather than configured, so a third tier always reads as
-        // quieter than "secondary" whatever the user picked.
         t.text_tertiary = with_alpha(mix_color(settings.text_secondary_color, t.base, 0.35f), 0.72f);
 
         material_ = t;
@@ -1433,11 +1347,6 @@ private:
             draw_island_shape(rect, radius, settings.w11_style, settings.notch_style, red_brush_.Get(), 2.0f);
             red_brush_->SetOpacity(1.0f);
         }
-
-        // No inner highlight ring here. A second bright hairline just inside the
-        // contour read as a light rim tracing the whole island, which is exactly
-        // the edge glow this design drops. The contour stroke alone defines the
-        // silhouette now.
 
         D2D1_MATRIX_3X2_F old_transform;
         target_->GetTransform(&old_transform);
@@ -1498,19 +1407,13 @@ private:
                 break;
         }
 
-        // ── Apple-style privacy indicator dots ───────────────────────────────
-        // Green dot = camera in use, Orange dot = mic in use.
-        // Drawn in top-right corner of pill, outside content area.
+        // Privacy dots: green = camera, orange = microphone.
         draw_privacy_dots(state, settings, unscaled_rect, now);
 
         target_->SetTransform(old_transform);
     }
 
-    // A real soft shadow, approximated by stacking concentric rounded shapes
-    // with a quadratic alpha falloff. There is no GPU device here (this renders
-    // to a DC-bound target for UpdateLayeredWindow), so a Gaussian blur effect
-    // is not available -- but the render padding around the pill leaves room to
-    // fake it convincingly and cheaply.
+    // Soft shadow from stacked rounded shapes with quadratic falloff (DC target: no GPU blur effect).
     void draw_soft_shadow(D2D1_RECT_F rect, float radius)
     {
         // The island sits on top of the backdrop, so a shadow here would darken the blur.
@@ -1533,7 +1436,6 @@ private:
         {
             const float t = static_cast<float>(i) / static_cast<float>(steps);
             const float grow = spread * t;
-            // Quadratic falloff keeps the core dense and the outer edge feathered.
             const float alpha = material_.shadow.a * (1.0f - t) * (1.0f - t) * 0.55f * settings_opacity_;
             if (alpha <= 0.002f)
             {
@@ -1548,11 +1450,7 @@ private:
         brush->SetOpacity(1.0f);
     }
 
-    // Vertical depth shading. This used to open with a white sheen across the
-    // top, which on a dark island read as a lit strip along the upper edge --
-    // the same edge-glow look the rest of this design removes. What is left is
-    // a single downward shade that grounds the surface without lighting any
-    // edge: neutral at the top, gradually deeper toward the bottom.
+    // Depth shading: one downward shade, no lit edge.
     void fill_surface_depth(D2D1_RECT_F rect, float radius, bool strong)
     {
         const float h = rect.bottom - rect.top;
@@ -1561,12 +1459,8 @@ private:
             return;
         }
 
-        // Light backgrounds need less of it: the same alpha over near-white
-        // turns into a visible grey wash rather than subtle depth.
         const float bot_a = (strong ? 0.085f : 0.060f) * (material_.on_dark ? 1.0f : 0.55f) * settings_opacity_;
 
-        // Stops are constant; `botA` is applied as brush opacity (identical result,
-        // since every stop alpha was just a multiple of botA). One brush forever.
         static const D2D1_GRADIENT_STOP k_stops[3] = {
             {0.0f, D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.0f)},
             {0.45f, D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.25f)},
@@ -1582,9 +1476,7 @@ private:
         fill_island_shape(rect, radius, g_settings.w11_style, g_settings.notch_style, brush);
     }
 
-    // A wide, very soft accent wash bled in from the top of the surface. Driven
-    // by the album-art accent, this is what makes the media surface feel alive
-    // without tinting the whole pill.
+    // Soft accent wash from the top, driven by the album-art accent.
     void fill_accent_bloom(D2D1_RECT_F rect, float radius, float strength)
     {
         if (strength <= 0.01f)
@@ -1599,8 +1491,6 @@ private:
             return;
         }
 
-        // Only the accent colour is baked into the stops. Strength is brush opacity, so
-        // the gradient is rebuilt only while the accent is actually changing colour.
         const D2D1_COLOR_F a = material_.accent;
         const D2D1_GRADIENT_STOP stops[2] = {
             {0.0f, D2D1::ColorF(a.r, a.g, a.b, 1.0f)},
@@ -1616,13 +1506,7 @@ private:
         fill_island_shape(rect, radius, g_settings.w11_style, g_settings.notch_style, brush);
     }
 
-    // Rounded inner card used by every dashboard, so panels across the media,
-    // calendar, weather, hardware and file-tray surfaces match exactly.
-    //
-    // Fill only, no outline. Each card used to also get a hairline ring, and six
-    // of those side by side in the hardware grid turned into a mesh of bright
-    // edges competing with the content. The fill alpha in BuildMaterialTokens
-    // was raised to carry the separation on its own.
+    // Shared inner card for every dashboard. Fill only, no outline.
     void draw_card(D2D1_RECT_F rect, float radius, bool active = false)
     {
         ID2D1SolidColorBrush* fill = active ? raised_strong_brush_.Get() : raised_brush_.Get();
@@ -1632,8 +1516,7 @@ private:
         }
     }
 
-    // Accent-filled progress track shared by the scrubber, volume, battery and
-    // timer, so "progress" looks the same everywhere.
+    // Shared accent progress track (scrubber, volume, battery, timer).
     void draw_accent_track(D2D1_RECT_F track, float progress, float radius)
     {
         if (raised_strong_brush_)
@@ -1828,26 +1711,16 @@ private:
         target_->DrawRoundedRectangle(D2D1::RoundedRect(rect, radius, radius), brush, stroke_width);
     }
 
-    // The island's material, composed bottom-up:
-    //   tint scrim -> base fill -> depth shading -> accent bloom -> contour
-    // Each layer is individually subtle; together they give the pill depth
-    // instead of the flat single-fill look it had before. Deliberately absent:
-    // any bright rim, hairline or sheen tracing the island's edge.
+    // Island material, bottom-up: tint scrim -> base fill -> depth shading -> accent bloom -> contour.
     void draw_pill_surface(D2D1_RECT_F rect, float radius, IslandKind kind, const Settings& settings)
     {
-        // The dark tint scrim exists to deepen an opaque background. With a real
-        // backdrop enabled it would just mud up the blur, so it is skipped.
         if (tint_brush_ && settings.backdrop_material == BackdropMaterial::None)
         {
             fill_island_shape(rect, radius, settings.w11_style, settings.notch_style, tint_brush_.Get());
         }
 
-        // Blur / acrylic and tint come from the DWM window below (see DwmBackdrop);
-        // only the fill is drawn here.
+        // Blur and tint come from the DWM backdrop window; only the fill is drawn here.
 
-        // User-defined pill background color. The authored alpha is combined
-        // with the global pill transparency, so a plain 6-digit hex behaves
-        // exactly as before (alpha 1.0) while #RRGGBBAA stays translucent.
         D2D1_COLOR_F bg = pill_bg_color_;
         bg.a = clamp(bg.a * settings_opacity_, 0.0f, 1.0f);
         if (settings.backdrop_material != BackdropMaterial::None)
@@ -1864,8 +1737,6 @@ private:
         {
             fill_surface_depth(rect, radius, kind == IslandKind::Media || kind == IslandKind::Idle);
 
-            // Media leans on the album-art accent; other surfaces get a whisper
-            // of it so the whole UI still feels connected to what is playing.
             const float bloom = (kind == IslandKind::Media) ? 0.115f : (kind == IslandKind::Idle) ? 0.055f : 0.075f;
             fill_accent_bloom(rect, radius, bloom * settings.accent_bloom);
         }
@@ -2005,18 +1876,11 @@ private:
         (void)state;
         (void)now;
 
-        // ── Hero column ──────────────────────────────────────────────────────
-        // Today's date as an editorial block: month over a large day figure over
-        // the weekday. Uses the shared DrawCard so it matches every other panel
-        // instead of being a one-off translucent slab.
+        // Hero column: month over the day number over the weekday.
         const D2D1_RECT_F hero = D2D1::RectF(rect.left + 22.0f * scale, rect.top + 16.0f * scale,
                                              rect.left + 115.0f * scale, rect.bottom - 20.0f * scale);
         draw_card(hero, 12.0f * scale);
 
-        // The accent is the album-art / system accent like everywhere else. This
-        // used to fall back to a hardcoded red (#D94A38) whenever the mode wasn't
-        // "System", which was the one colour in the whole island that answered to
-        // nothing -- it clashed with the accent on every other surface.
         D2D1_COLOR_F accent_color =
             (settings.calendar_accent == CalendarAccentMode::System) ? get_system_accent_color() : material_.accent;
         accent_color.a = 0.95f * settings_opacity_;
@@ -2031,9 +1895,6 @@ private:
             wchar_t month_name_buf[32] = {};
             GetDateFormatEx(LOCALE_NAME_USER_DEFAULT, 0, &local, L"MMMM", month_name_buf, ARRAYSIZE(month_name_buf),
                             nullptr);
-            // No longer uppercased. towupper is per-character and locale-blind:
-            // it turns Turkish "i" into "I" rather than "İ", and does nothing at
-            // all for CJK month names, so the effect was inconsistent by locale.
             calendar_cached_month_name_ = month_name_buf;
 
             wchar_t weekday_name_buf[32] = {};
@@ -2053,8 +1914,6 @@ private:
                         : 0;
             }
 
-            // Same locale as the month and weekday names above, so the grid
-            // headers can't end up in a different language from the hero.
             static const wchar_t* const fallback_initials[] = {L"S", L"M", L"T", L"W", L"T", L"F", L"S"};
             for (int weekday = 0; weekday < 7; ++weekday)
             {
@@ -2072,10 +1931,6 @@ private:
             calendar_cached_date_ = local;
         }
 
-        // Month and year stay on separate lines. Putting them on one ("September
-        // 2026") needs about 95px at 12px bold and the hero column only offers
-        // 85, so any long month name clipped -- and month names are exactly the
-        // strings that get long once localized.
         if (bold_text_format_)
         {
             target_->DrawTextW(calendar_cached_month_name_.c_str(),
@@ -2117,7 +1972,7 @@ private:
                                muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
         }
 
-        // ── Month grid ───────────────────────────────────────────────────────
+        // Month grid
         const float grid_start = rect.left + 134.0f * scale;
         const float grid_top = rect.top + 16.0f * scale;
         const float col_w = 28.0f * scale;
@@ -2128,19 +1983,13 @@ private:
         const int month_days = get_days_in_month(local.wYear, local.wMonth);
         const int row_count = (start_day_idx + month_days + 6) / 7; // 5 or 6
 
-        // Row height is derived from the space actually available rather than
-        // fixed at 26px. At 26 a six-row month ran to y=197 inside a 184px
-        // island, so the last row was silently clipped by the island mask --
-        // visible every month that starts late in the week.
+        // Row height comes from the available space so a six-row month is never clipped.
         const float dates_top = grid_top + header_h + 7.0f * scale;
         const float grid_bottom = rect.bottom - 14.0f * scale;
         const float row_h = (grid_bottom - dates_top) / static_cast<float>(row_count > 0 ? row_count : 1);
 
         IDWriteTextFormat* grid_fmt = cal_grid_format_ ? cal_grid_format_.Get() : bold_text_format_.Get();
 
-        // Weekday initials are uniformly quiet. They used to paint S and S in the
-        // accent, which put three competing accent marks in the grid (both
-        // weekend headers plus today) and made the headers look selected.
         muted_brush_->SetOpacity(0.55f);
         for (int i = 0; i < 7; ++i)
         {
@@ -2151,7 +2000,6 @@ private:
                                D2D1_DRAW_TEXT_OPTIONS_NONE);
         }
 
-        // Hairline under the weekday headers.
         const float hr_y = grid_top + header_h + 3.0f * scale;
         ComPtr<ID2D1SolidColorBrush> hr_brush;
         if (SUCCEEDED(target_->CreateSolidColorBrush(
@@ -2163,9 +2011,6 @@ private:
                               1.0f * scale);
         }
 
-        // Today's marker is sized from the cell it has to live in, so it stays a
-        // circle around the figure instead of a fixed 12px disc that swallowed
-        // the digits once the rows got shorter.
         const float marker_r = std::min(col_w, row_h) * 0.5f - 1.5f * scale;
 
         int row = 0;
@@ -2182,17 +2027,12 @@ private:
                 target_->FillEllipse(
                     D2D1::Ellipse(D2D1::Point2F(cell.left + col_w * 0.5f, cell.top + row_h * 0.5f), marker_r, marker_r),
                     accent.Get());
-                // Today's figure is drawn against the accent fill, so it needs the
-                // primary text colour at full strength rather than the 0.85 the
-                // other days use.
                 text_brush_->SetOpacity(1.0f);
                 target_->DrawTextW(day_text.c_str(), static_cast<UINT32>(day_text.size()), grid_fmt, cell,
                                    text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
             }
             else if (weekday == 0 || weekday == 6)
             {
-                // Weekends recede instead of taking the accent, leaving today as
-                // the only accented thing in the grid.
                 muted_brush_->SetOpacity(0.62f);
                 target_->DrawTextW(day_text.c_str(), static_cast<UINT32>(day_text.size()), grid_fmt, cell,
                                    muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
@@ -2215,11 +2055,7 @@ private:
         muted_brush_->SetOpacity(0.75f);
     }
 
-    // Fixes windhawk-mods#4352: wind direction was printed as compass
-    // initialisms (WSW, NE), which is meteorologist shorthand rather than
-    // something glanceable. These are flow arrows, not bearing arrows -- a wind
-    // *from* the north-east is drawn as an arrow pointing south-west, matching
-    // the convention weather apps use.
+    // Flow arrows, not bearing arrows: wind from the north-east points south-west, like weather apps.
     std::wstring wind_dir_to_arrow(const std::wstring& dir)
     {
         if (dir == L"N")
@@ -2257,11 +2093,7 @@ private:
         return dir;
     }
 
-    // ── Vector weather icons ────────────────────────────────────────────────
-    // All sized relative to `s` (the icon's box width) and centred on `c`, so a
-    // single call site controls scale. Built from ellipses and rounded rects
-    // rather than path geometry wherever possible, to keep per-frame allocation
-    // down.
+    // Vector weather icons, sized from `s` and centered on `c`.
 
     void draw_cloud_shape(D2D1_POINT_2F c, float s, ID2D1Brush* brush)
     {
@@ -2328,7 +2160,6 @@ private:
 
             case WeatherVisual::PartlyCloudy:
             {
-                // Sun peeking out behind the cloud's upper-left.
                 draw_sun_shape(D2D1::Point2F(center.x - 0.20f * s, center.y - 0.20f * s), s * 0.62f, soft, 0.30f);
                 draw_cloud_shape(D2D1::Point2F(center.x + 0.05f * s, center.y + 0.06f * s), s * 0.92f, strong);
                 break;
@@ -2392,7 +2223,6 @@ private:
             case WeatherVisual::Unknown:
             default:
             {
-                // Thermometer: stem, bulb, and a couple of gradation ticks.
                 const float stem_w = 0.11f * s;
                 const D2D1_RECT_F stem =
                     D2D1::RectF(center.x - stem_w, center.y - 0.40f * s, center.x + stem_w, center.y + 0.18f * s);
@@ -2407,15 +2237,8 @@ private:
         }
     }
 
-    // Small vector glyphs shared by the weather, hardware and game-overlay cards.
-    //   0 wind   1 thermometer   2 droplet
-    //   3 cpu    4 memory        5 gpu       6 upload   7 download   8 disk
-    //   9 gauge (frame rate)
-    //
-    // The game overlay used to carry its own icon set (DrawGameIcon) drawn at
-    // different stroke weights and proportions, so the same CPU appeared as two
-    // different symbols depending on which surface you were looking at. Every
-    // surface now draws from this one family.
+    // Small vector glyphs shared by the weather, hardware and game overlay cards:
+    // 0 wind, 1 thermometer, 2 droplet, 3 cpu, 4 memory, 5 gpu, 6 upload, 7 download, 8 disk, 9 gauge.
     void draw_metric_glyph(D2D1_POINT_2F c, float s, int kind, ID2D1Brush* brush)
     {
         const float stroke = std::max(1.1f, 0.11f * s);
@@ -2593,27 +2416,18 @@ private:
         std::wstring city = has_weather ? state.weather.city : std::wstring(loc(L"Locating..."));
         std::wstring desc = w_text;
 
-        // ── Layout ───────────────────────────────────────────────────────────
-        // Left is an editorial hero block (place / reading / condition), left
-        // aligned so the city, temperature and description share one optical
-        // margin. Right is a stack of metric cards using the same card primitive
-        // as every other dashboard. The old version centred each element in its
-        // own box, which is what left the icon and the temperature floating apart
-        // with a dead gap between them.
+        // Layout: left a hero block (place, reading, condition), right a stack of metric cards.
         const float hero_left = rect.left + 26.0f * scale;
         const float hero_right = rect.left + 188.0f * scale;
         const float divider_x = rect.left + 200.0f * scale;
         const float metric_left = rect.left + 214.0f * scale;
         const float metric_right = rect.right - 22.0f * scale;
 
-        // Accent-tinted icon brushes: `strong` carries the shape, `soft` the
-        // secondary detail (rain, rays, fog bands).
         ComPtr<ID2D1SolidColorBrush> icon_strong;
         ComPtr<ID2D1SolidColorBrush> icon_soft;
         target_->CreateSolidColorBrush(with_alpha(material_.accent, 0.95f * settings_opacity_), &icon_strong);
         target_->CreateSolidColorBrush(with_alpha(material_.accent, 0.42f * settings_opacity_), &icon_soft);
 
-        // Place label.
         text_brush_->SetOpacity(0.55f);
         if (small_text_format_)
         {
@@ -2623,8 +2437,6 @@ private:
                                text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
         }
 
-        // Icon and temperature share one band and sit adjacent, so they read as
-        // a single unit instead of two centred items.
         const float reading_center_y = rect.top + 82.0f * scale;
         if (has_weather && icon_strong && icon_soft)
         {
@@ -2651,7 +2463,6 @@ private:
         const float desc_top = rect.top + 120.0f * scale;
         const float desc_bottom = rect.top + 162.0f * scale;
 
-        // Description
         const size_t desc_length = desc.length();
         float desc_font_size = 13.5f;
         if (desc_length > 58)
@@ -2704,8 +2515,6 @@ private:
             if (weather_desc_format_)
             {
                 weather_desc_format_->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
-                // Left aligned to share the hero column's margin with the city
-                // and temperature.
                 weather_desc_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
                 weather_desc_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
             }
@@ -2719,8 +2528,6 @@ private:
                            D2D1_DRAW_TEXT_OPTIONS_NONE);
         text_brush_->SetOpacity(0.96f);
 
-        // Hairline divider, inset from both ends so it reads as a separator
-        // rather than a full-height rule.
         ComPtr<ID2D1SolidColorBrush> divider;
         target_->CreateSolidColorBrush(with_alpha(material_.hairline, material_.hairline.a * settings_opacity_),
                                        &divider);
@@ -2730,10 +2537,7 @@ private:
                 0.5f * scale, 0.5f * scale),
             divider.Get());
 
-        // ── Metric cards ─────────────────────────────────────────────────────
-        // Each card is icon + label on one line with the value beneath, which
-        // keeps long localized labels from colliding with the value the way a
-        // single "Label: value" line did.
+        // Metric cards: icon and label on one line, the value beneath (long localized labels fit).
         struct Metric
         {
             int glyph;
@@ -2798,7 +2602,6 @@ private:
         muted_brush_->SetOpacity(0.75f);
     }
 
-    // Cute little bin for the File Tray header: lid with handle, tapered body, two slats.
     void draw_tray_bin_button(D2D1_RECT_F box, bool enabled, bool hovered)
     {
         const float s = box.right - box.left;
@@ -2830,7 +2633,6 @@ private:
 
         const float stroke = std::max(1.2f, 0.075f * s);
 
-        // Lid and handle.
         target_->DrawLine(D2D1::Point2F(c.x - 0.31f * s, c.y - 0.17f * s),
                           D2D1::Point2F(c.x + 0.31f * s, c.y - 0.17f * s), brush.Get(), stroke, round.Get());
         target_->DrawRoundedRectangle(
@@ -2838,7 +2640,6 @@ private:
                               0.04f * s, 0.04f * s),
             brush.Get(), stroke, round.Get());
 
-        // Tapered body.
         ComPtr<ID2D1PathGeometry> body;
         if (SUCCEEDED(d2d_factory_->CreatePathGeometry(&body)) && body)
         {
@@ -2855,7 +2656,6 @@ private:
             }
         }
 
-        // Slats.
         for (int i = -1; i <= 1; i += 2)
         {
             const float x = c.x + static_cast<float>(i) * 0.08f * s;
@@ -2864,7 +2664,6 @@ private:
         }
     }
 
-    // Little clipboard for the File Tray header: board, clip and two text lines.
     void draw_tray_paste_button(D2D1_RECT_F box, bool hovered)
     {
         const float s = box.right - box.left;
@@ -2896,26 +2695,22 @@ private:
 
         const float stroke = std::max(1.2f, 0.075f * s);
 
-        // Board.
         target_->DrawRoundedRectangle(
             D2D1::RoundedRect(D2D1::RectF(c.x - 0.25f * s, c.y - 0.24f * s, c.x + 0.25f * s, c.y + 0.31f * s),
                               0.07f * s, 0.07f * s),
             brush.Get(), stroke, round.Get());
 
-        // Clip.
         target_->FillRoundedRectangle(
             D2D1::RoundedRect(D2D1::RectF(c.x - 0.11f * s, c.y - 0.32f * s, c.x + 0.11f * s, c.y - 0.15f * s),
                               0.05f * s, 0.05f * s),
             brush.Get());
 
-        // Text lines.
         target_->DrawLine(D2D1::Point2F(c.x - 0.12f * s, c.y + 0.00f * s),
                           D2D1::Point2F(c.x + 0.12f * s, c.y + 0.00f * s), brush.Get(), stroke * 0.85f, round.Get());
         target_->DrawLine(D2D1::Point2F(c.x - 0.12f * s, c.y + 0.14f * s),
                           D2D1::Point2F(c.x + 0.05f * s, c.y + 0.14f * s), brush.Get(), stroke * 0.85f, round.Get());
     }
 
-    // Small round "x" at the right end of a File Tray row.
     void draw_tray_remove_button(D2D1_POINT_2F c, float size, bool hovered, bool row_hovered)
     {
         const D2D1_COLOR_F danger = D2D1::ColorF(1.0f, 0.38f, 0.36f, 1.0f);
@@ -2950,14 +2745,11 @@ private:
                           round.Get());
     }
 
-    // File Tray (#33): a shelf for files dragged onto the island. Rows are built
-    // from the shared DrawCard primitive so the shelf matches every other
-    // dashboard, with the real Explorer icon for each file.
+    // File Tray: a shelf for files dropped on the island, with the real Explorer icons.
     void draw_file_tray_dashboard(const SharedState& state, D2D1_RECT_F rect, const Settings& settings, float scale)
     {
         const float pad_x = file_tray_layout::k_pad_x * scale;
 
-        // Header: title on the left, count chip on the right.
         const D2D1_RECT_F header_rect =
             D2D1::RectF(rect.left + pad_x, rect.top + 18.0f * scale, rect.right - pad_x, rect.top + 38.0f * scale);
         text_brush_->SetOpacity(0.96f);
@@ -3001,8 +2793,6 @@ private:
 
         if (state.file_tray_items.empty())
         {
-            // Empty state: a dashed drop target rather than a bare label, so it
-            // reads as an invitation.
             const D2D1_RECT_F drop_rect = D2D1::RectF(rect.left + pad_x, list_top, rect.right - pad_x, list_bottom);
             ComPtr<ID2D1SolidColorBrush> dash;
             if (SUCCEEDED(target_->CreateSolidColorBrush(with_alpha(material_.hairline, material_.hairline.a * 1.6f),
@@ -3035,7 +2825,6 @@ private:
         const float row_gap = file_tray_layout::k_row_gap * scale;
         const int capacity = file_tray_layout::visible_row_capacity((rect.bottom - rect.top) / scale);
 
-        // Newest first: the file just dropped is the one the user wants.
         int drawn = 0;
         for (auto it = state.file_tray_items.rbegin(); it != state.file_tray_items.rend() && drawn < capacity;
              ++it, ++drawn)
@@ -3047,7 +2836,6 @@ private:
             const bool hovered = (g_hovered_file_tray_row.load(std::memory_order_relaxed) == drawn);
             draw_card(row, 9.0f * scale, hovered);
 
-            // Real shell icon when we managed to extract one, otherwise a glyph.
             const D2D1_RECT_F icon_rect = D2D1::RectF(row.left + 8.0f * scale, row.top + 6.0f * scale,
                                                       row.left + 26.0f * scale, row.bottom - 6.0f * scale);
             if (item.icon)
@@ -3118,7 +2906,6 @@ private:
             }
         }
 
-        // "+N more" when the shelf holds more than fits.
         if (static_cast<int>(total) > capacity && small_text_format_)
         {
             wchar_t more_buf[32] = {};
@@ -3474,11 +3261,7 @@ private:
         muted_brush_->SetOpacity(0.75f);
     }
 
-    // Load colour is *semantic*, not decorative: the accent while a component is
-    // comfortable, amber under pressure, red when saturated. The previous design
-    // assigned a fixed rainbow colour per metric, which carried no information
-    // (CPU and NET UP were both green, GPU and NET DOWN both cyan) and fought the
-    // album-art accent.
+    // Load color is semantic: accent when comfortable, amber under pressure, red when saturated.
     D2D1_COLOR_F load_state_color(float fraction) const
     {
         if (fraction >= 0.90f)
@@ -3537,8 +3320,6 @@ private:
                 text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
         }
 
-        // Empty days use the shared raised surface; active days are the accent
-        // colour, so the grid follows the album art like every other panel.
         static constexpr float level_alpha[] = {0.30f, 0.52f, 0.76f, 1.0f};
         ComPtr<ID2D1SolidColorBrush> level_brushes[4];
         for (int i = 0; i < 4; ++i)
@@ -3613,7 +3394,6 @@ private:
 
         const float pad_x = 24.0f * scale;
 
-        // Header, left aligned to match the File Tray and weather dashboards.
         text_brush_->SetOpacity(0.96f);
         const wchar_t* hw_title = loc(L"Hardware Monitor");
         if (bold_text_format_)
@@ -3654,8 +3434,7 @@ private:
             float fraction; // negative means "no meaningful 0-100 scale"
         };
 
-        // Network throughput has no natural ceiling, so those two cards get no
-        // load bar rather than a bar against an invented maximum.
+        // Network throughput has no natural ceiling, so those cards get no load bar.
         const HwMetric metrics[6] = {
             {3, L"CPU", cpu_buf, clamp(state.system.cpu_percent / 100.0f, 0.0f, 1.0f)},
             {6, L"NET UP", up_buf, -1.0f},
@@ -3666,8 +3445,6 @@ private:
             {8, L"DISK", disk_buf, clamp(disk_used / 100.0f, 0.0f, 1.0f)},
         };
 
-        // 2 x 3 grid of cards. Cards give the grid its structure, so the old
-        // full-height centre divider is gone.
         const float col_gap = 9.0f * scale;
         const float col_w = (rect.right - rect.left - pad_x * 2.0f - col_gap) * 0.5f;
         const float row_h = 38.0f * scale;
@@ -3698,11 +3475,6 @@ private:
             const float text_left = card.left + 30.0f * scale;
             const float text_right = card.right - 9.0f * scale;
 
-            // Label sits above the value rather than sharing a line with it.
-            // A single "Label: value" line collides once localized -- German
-            // "Luftfeuchte" or Russian "Влажность" leave no room for the number.
-            // The three bands (label / value / bar) are kept adjacent but
-            // non-overlapping so nothing clips into its neighbour.
             if (small_text_format_)
             {
                 small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
@@ -3720,8 +3492,6 @@ private:
                 text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
                 text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
                 text_brush_->SetOpacity(0.95f);
-                // Without a bar the value takes the band the bar would have
-                // used, so the two card shapes stay optically balanced.
                 const float value_bottom = has_bar ? card.top + 30.0f * scale : card.bottom - 4.0f * scale;
                 target_->DrawTextW(m.value, static_cast<UINT32>(wcslen(m.value)), text_format_.Get(),
                                    D2D1::RectF(text_left, card.top + 15.0f * scale, text_right, value_bottom),
@@ -3758,9 +3528,7 @@ private:
         muted_brush_->SetOpacity(0.75f);
     }
 
-    // Karaoke effect: a soft wave rides the wipe boundary across the active line.
-    // The layout and per-cluster rects are cached (karaokeCache_) and only rebuilt
-    // when the line changes.
+    // Karaoke: a soft wave rides the wipe across the active line (layout cached per line).
     void draw_karaoke_letter_pop(const wchar_t* text, UINT32 text_length, IDWriteTextFormat* format,
                                  D2D1_RECT_F line_rect, float wipe_x, float base_opacity, float unsung_opacity,
                                  bool glow_enabled, float glow_strength = 1.0f)
@@ -3794,8 +3562,7 @@ private:
                                               &karaoke_cache_.layout);
             if (karaoke_cache_.layout)
             {
-                // Walk shaped glyph clusters (not raw UTF-16 units) so scripts like
-                // Devanagari, where one letter is several code units, stay intact.
+                // Walk shaped clusters, not UTF-16 units, so multi-unit letters (Devanagari) stay intact.
                 UINT32 cluster_count = 0;
                 karaoke_cache_.layout->GetClusterMetrics(nullptr, 0, &cluster_count);
                 if (cluster_count > 0)
@@ -3844,7 +3611,6 @@ private:
 
         if (!karaoke_cache_.valid)
         {
-            // Plain two-pass wipe if the layout could not be built.
             muted_brush_->SetOpacity(base_opacity * unsung_opacity);
             target_->DrawTextW(text, text_length, format, line_rect, muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
             if (wipe_x > line_rect.left)
@@ -3963,9 +3729,6 @@ private:
             }
         }
 
-        // Time and date as a single typographic block. `dateFirst` promotes the
-        // date to the headline for people who care about it more than the clock
-        // (#61); either way the pair stays optically centred as a unit.
         const std::wstring time_text =
             format_island_time(local, settings.clock_follow_system, settings.use24_hour_clock, settings.show_seconds);
         const std::wstring date_text = format_island_date(local, settings.date_format, L"dddd, MMMM d");
@@ -3980,7 +3743,6 @@ private:
 
         if (settings.date_first)
         {
-            // Date on top reads as a label, so give the big clock the lower slot.
             const D2D1_RECT_F head_rect = D2D1::RectF(rect.left, cy - 46.0f * scale, rect.right, cy - 22.0f * scale);
             text_brush_->SetOpacity(0.92f);
             target_->DrawTextW(headline.c_str(), static_cast<UINT32>(headline.size()), headline_fmt, head_rect,
@@ -4127,12 +3889,7 @@ private:
             return;
         }
 
-        // Clip to the island's real silhouette (pill / notch / w11 rounded
-        // rect), not its bounding box — a plain rect clip leaves the corners
-        // outside the rounded shape unclipped, which is what was showing up
-        // as a faint square "border" around the round island while collapsing.
-        // Publish the same content-space geometry the media surface does, so the
-        // File Tray's row hit test works while the island is idle too.
+        // Publish the content geometry so the File Tray hit test also works while idle.
         publish_content_geometry(rect);
 
         const float dash_height = rect.bottom - rect.top;
@@ -4168,21 +3925,13 @@ private:
             get_weather_icon_and_text(state.weather.weather_code, w_icon, w_text);
         }
 
-        // Cross-fade the collapsed status-bar view and the expanded tab view
-        // across a small width band around the switchover point instead of
-        // a hard cut. Previously this was a plain if/else on width, so the
-        // clock's glow (and everything else in the expanded view) just got
-        // clipped smaller as the pill shrank and then vanished outright the
-        // instant width crossed the threshold — a pop, not a fade. Blending
-        // both views by opacity (with an eased curve) makes it a dissolve.
+        // Collapsed and expanded views cross-fade by height instead of a hard cut.
         (void)width;
         auto smooth_fade = [](float t)
         {
             t = clamp(t, 0.0f, 1.0f);
             return t * t * (3.0f - 2.0f * t);
         };
-        // Height-driven, like the media surface: collapsed content is gone by
-        // ~70px, expanded content starts at ~56px and is solid by ~120px.
         const float collapsed_alpha = smooth_fade((70.0f - dash_height) / 30.0f);
         const float expanded_alpha = smooth_fade((dash_height - 56.0f) / 64.0f);
 
@@ -4198,19 +3947,10 @@ private:
                                    dash_fade_layer);
             }
 
-            // Collapsed Mode (Apple Dynamic Island status bar).
-            //
-            // Slots are placed from the same measurements that sized the pill, so
-            // the clock gets exactly the room it needs and the divider sits between
-            // the two strings instead of at an arbitrary geometric centre. The old
-            // version split the pill 50/50 at centerX and padded both ends by 6px,
-            // which is what produced the dead air on short strings
-            // (windhawk-mods#5086).
+            // Collapsed mode: the slots use the same measurements that sized the pill.
             const IdleStripMetrics idle_metrics = measure_idle_strip(state, settings, now);
             IDWriteTextFormat* idle_fmt = idle_text_format_ ? idle_text_format_.Get() : small_text_format_.Get();
 
-            // The dot is anchored to the right edge by DrawPrivacyDots, so reserve
-            // its lane rather than shrinking the text box out from under the clock.
             const float privacy_reserve = idle_dot_reserve(idle_metrics) * scale;
             const float inner_left = rect.left + idle_strip_layout::k_pad_x * scale;
             const float inner_right = rect.right - idle_strip_layout::k_pad_x * scale - privacy_reserve;
@@ -4222,15 +3962,9 @@ private:
                                idle_metrics.weather_width;
             }
 
-            // Centre the block in whatever room the pill currently has. Mid-spring
-            // the rect is wider or narrower than the natural width, and clamping
-            // the slack at zero stops the slots from inverting when it is narrower.
             const float slack = std::max(0.0f, (inner_right - inner_left) - block_width);
             float slot_x = inner_left + slack * 0.5f;
 
-            // Each slot is exactly its measured width, and the measurement used the
-            // widest-digit form, so the live string is centred inside a box it is
-            // guaranteed to fit rather than drifting as the digits change.
             text_brush_->SetOpacity(0.96f);
             const D2D1_RECT_F time_rect = D2D1::RectF(slot_x, rect.top, slot_x + idle_metrics.clock_width, rect.bottom);
             target_->DrawTextW(time_buf, static_cast<UINT32>(wcslen(time_buf)), idle_fmt, time_rect, text_brush_.Get(),
@@ -4289,7 +4023,7 @@ private:
                                    dash_fade_layer);
             }
 
-            // Expanded Mode. Order must match ActiveTabCount()/FileTrayTabIndex().
+            // Expanded mode. Order must match active_tab_count / file_tray_tab_index.
             std::vector<int> active_tabs;
             active_tabs.push_back(3); // Time (shown first when the island expands/on hover)
             if (settings.notification_center_module)
@@ -4321,9 +4055,7 @@ private:
                 tab_idx = max_tabs - 1;
             }
 
-            // Lay the expanded view out at its final size, centred horizontally and
-            // pinned to the top, so growing the pill only reveals it (same as media)
-            // instead of re-centring and rescaling the content every frame.
+            // Laid out at the final size and pinned to the top, so growing the pill only reveals it.
             const float full_w = std::max(media_layout::expanded_width, rect.right - rect.left);
             const float full_h = std::max(media_layout::expanded_height, rect.bottom - rect.top);
             const float full_cx = (rect.left + rect.right) * 0.5f;
@@ -4399,10 +4131,7 @@ private:
         const float card_bottom = rect.bottom - m.pad_y;
         float cursor_x = rect.left + m.pad_x;
 
-        // ── FPS, given hero treatment ────────────────────────────────────────
-        // Frame rate is the number a player actually watches, so it gets a wider
-        // card and a larger figure than the percentages beside it. It has no
-        // 0-100 ceiling, so it gets no load bar and keeps the plain accent.
+        // FPS gets a wider card and a larger figure; it has no 0-100 ceiling, so no load bar.
         if (g_settings.game_overlay_show_fps)
         {
             const D2D1_RECT_F fps_card = D2D1::RectF(cursor_x, card_top, cursor_x + m.fps_w, card_bottom);
@@ -4437,13 +4166,8 @@ private:
             IDWriteTextFormat* fps_fmt = clock_format_ ? clock_format_.Get() : text_format_.Get();
             if (fps_fmt)
             {
-                // clockFormat_ is centre-aligned by default; the strip reads as a
-                // left-aligned column, so override for this draw and restore.
                 fps_fmt->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
                 text_brush_->SetOpacity(0.97f);
-                // Shares the label's left margin so the glyph sits in its own
-                // column and the text column has one straight edge, rather than
-                // the value hanging out to the left of the label above it.
                 const float top = g_settings.show_metric_text ? fps_card.top + 16.0f * scale : card_top;
                 target_->DrawTextW(fps_value, static_cast<UINT32>(wcslen(fps_value)), fps_fmt,
                                    D2D1::RectF(text_left, top, text_right, card_bottom - 3.0f * scale),
@@ -4454,11 +4178,7 @@ private:
             cursor_x = fps_card.right + m.fps_gap;
         }
 
-        // ── Load cards ───────────────────────────────────────────────────────
-        // Laid out from whichever metrics are enabled (#25), so turning some off
-        // closes the gap instead of leaving a hole. Icons come from the shared
-        // DrawMetricGlyph family, so CPU here is the same symbol as CPU on the
-        // hardware dashboard.
+        // Load cards: laid out from the enabled metrics, so disabled ones leave no hole.
         struct GameCard
         {
             const wchar_t* label;
@@ -4497,17 +4217,10 @@ private:
     {
         const float scale = 1.0f;
 
-        // Same semantic load colour the hardware dashboard uses: accent while a
-        // component is comfortable, amber under pressure, red when saturated.
-        // This replaces a per-metric rainbow (cyan CPU, magenta RAM, green GPU,
-        // orange disk) that encoded nothing and fought the album-art accent.
         const bool known = percent >= 0;
         const float pct = known ? clamp(percent / 100.0f, 0.0f, 1.0f) : 0.0f;
         const D2D1_COLOR_F tint = known ? load_state_color(pct) : material_.accent;
 
-        // Fill only. This card used to carry a hairline border *and* a
-        // metric-coloured ring on top of it -- two bright outlines per card,
-        // four cards across, which is the edge lighting this design drops.
         draw_card(rect, radius);
 
         ComPtr<ID2D1SolidColorBrush> glyph_brush;
@@ -4521,7 +4234,6 @@ private:
         const float text_left = rect.left + 28.0f * scale;
         const float text_right = rect.right - 8.0f * scale;
 
-        // Label above value above bar, matching the hardware dashboard exactly.
         if (g_settings.show_metric_text && small_text_format_)
         {
             small_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
@@ -4548,8 +4260,6 @@ private:
             text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
             text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
             text_brush_->SetOpacity(0.95f);
-            // Aligned with the label above it, so the glyph owns the left column
-            // and label/value share one straight edge.
             const float value_top = g_settings.show_metric_text ? rect.top + 17.0f * scale : rect.top + 4.0f * scale;
             target_->DrawTextW(value, static_cast<UINT32>(wcslen(value)), text_format_.Get(),
                                D2D1::RectF(text_left, value_top, text_right, rect.bottom - 8.0f * scale),
@@ -4557,8 +4267,6 @@ private:
             text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
         }
 
-        // The bar spans the card rather than just the text column: at this size it
-        // reads as the card's own meter, and a 38px stub under the value did not.
         const D2D1_RECT_F track = D2D1::RectF(rect.left + 13.0f * scale, rect.bottom - 7.0f * scale,
                                               rect.right - 13.0f * scale, rect.bottom - 4.5f * scale);
         ComPtr<ID2D1SolidColorBrush> track_brush;
@@ -4583,11 +4291,8 @@ private:
         muted_brush_->SetOpacity(0.58f);
     }
 
-    // ── Tab transition (spring-driven carousel) ─────────────────────────────
-    // tabPos_ is a continuous "which tab is in view" value that a damped spring
-    // chases toward the selected index. Every visible tab is drawn from its
-    // distance to that position (slide + shrink + fade), so the motion is
-    // interruptible, keeps its momentum on fast scrolling, and never restarts.
+    // Tab transition: tab_pos_ is a continuous position a damped spring chases; each visible tab is drawn
+    // from its distance to it (slide, shrink, fade), so motion is interruptible and never restarts.
     void reset_tab_transition()
     {
         tab_init_ = false;
@@ -4608,7 +4313,6 @@ private:
         }
         tab_idx = clamp_int(tab_idx, 0, count - 1);
 
-        // ── Feel: tweak these ──
         constexpr float k_stiffness = 250.0f; // higher = faster (settles in ~0.29s)
         constexpr float k_damping = 31.0f;    // ~0.92 damping ratio: no visible overshoot
         constexpr float travel_px = 34.0f;    // vertical gap between neighbouring tabs
@@ -4617,12 +4321,8 @@ private:
 
         float dt = static_cast<float>(now - tab_last_drawn_);
         tab_last_drawn_ = now;
-        // First frame of a motion: the previous paint may be long ago, so don't
-        // let a big gap swallow the start of the animation.
         dt = tab_animating_ ? clamp(dt, 0.001f, 0.05f) : (1.0f / 120.0f);
 
-        // Snap (no animation) when the tab view was just opened, switched between
-        // media/idle views, or the number of tabs changed.
         if (!tab_init_ || context != tab_context_ || count != tab_count_)
         {
             tab_init_ = true;
@@ -4641,7 +4341,6 @@ private:
             tab_target_ = new_target;
         }
 
-        // The first and last tab are hard stops: there is no edge bump any more.
         g_tab_edge_bump.store(0, std::memory_order_relaxed);
 
         if (tab_pos_ != tab_target_ || tab_vel_ != 0.0f)
@@ -4653,8 +4352,6 @@ private:
                 tab_vel_ += (-k_stiffness * (tab_pos_ - tab_target_) - k_damping * tab_vel_) * h;
                 tab_pos_ += tab_vel_ * h;
 
-                // Never travel past the first or last tab, and kill any velocity
-                // pushing further out, so the edge tabs cannot overshoot or twitch.
                 const float max_tab_pos = static_cast<float>(count - 1);
                 if (tab_pos_ < 0.0f)
                 {
@@ -4701,10 +4398,6 @@ private:
             target_->CreateLayer(&tab_layer_); // cached: re-creating it every frame is costly
         }
 
-        // Every tab is a pure function of its distance to tabPos_, with no
-        // "arriving" / "leaving" roles. Motion is therefore continuous even when you
-        // reverse mid-scroll, and the tabs travel as one rigid strip (a fixed gap
-        // apart), which is what reads as real scrolling rather than two fading cards.
         auto draw_layer = [&](int index)
         {
             if (index < 0 || index >= count)
@@ -4742,7 +4435,6 @@ private:
             target_->SetTransform(old_transform);
         };
 
-        // Farther tab first, so the one closer to centre ends up on top.
         const int lo = static_cast<int>(std::floor(tab_pos_));
         if ((tab_pos_ - static_cast<float>(lo)) < 0.5f)
         {
@@ -4756,8 +4448,7 @@ private:
         }
     }
 
-    // Vertical pagination dots on the right edge. The active dot stretches into a
-    // pill and slides with the transition instead of jumping.
+    // Vertical pagination dots; the active dot stretches into a pill and slides with the transition.
     void draw_tab_pagination(D2D1_RECT_F rect, int tab_count)
     {
         if (tab_count <= 1)
@@ -4775,8 +4466,6 @@ private:
         const float r = 2.5f;
         const float start_y = (rect.top + rect.bottom) * 0.5f - spacing * (tab_count - 1) * 0.5f;
 
-        // Resting dots. The one under the indicator fades out, so the pill reads
-        // as travelling over the track instead of sitting on top of a dot.
         for (int i = 0; i < tab_count; ++i)
         {
             const float under = smooth_step01(clamp(1.0f - std::fabs(tab_pos_ - static_cast<float>(i)), 0.0f, 1.0f));
@@ -4785,8 +4474,6 @@ private:
                                  dot_brush);
         }
 
-        // Travelling indicator: follows the spring exactly (so it also gives a little
-        // at the ends) and stretches slightly with speed.
         const float pos = clamp(tab_pos_, -0.3f, static_cast<float>(tab_count) - 0.7f);
         const float stretch = clamp(std::fabs(tab_vel_) * 0.55f, 0.0f, 3.5f);
         const float half_h = r + 2.2f + stretch;
@@ -4796,10 +4483,7 @@ private:
             D2D1::RoundedRect(D2D1::RectF(dot_x - r, cy - half_h, dot_x + r, cy + half_h), r, r), dot_brush);
     }
 
-    // Publishes the content-space rect currently being painted so
-    // OverlayWndProc hit-tests against the real geometry rather than assuming
-    // the pill is centered in the client area. Seqlock write: bump to odd,
-    // store, bump to even, so a reader can never mix two frames.
+    // Seqlock write (odd, store, even) of the painted content rect for the window's hit tests.
     void publish_content_geometry(D2D1_RECT_F rect, float right_trim = 0.0f)
     {
         const unsigned seq = g_media_hit_seq.load(std::memory_order_relaxed);
@@ -4818,12 +4502,7 @@ private:
         g_media_hit_seq.store(seq + 2, std::memory_order_relaxed);
     }
 
-    // Corner radius for the island mask in *content* space -- the coordinate
-    // system DrawMedia and DrawIdleDashboard are handed, which DrawPill scales
-    // by sizeScale afterwards. Because that scale is applied later, these radii
-    // must not be pre-multiplied by sizeScale. They previously were, so the
-    // stadium corner arc grew with the size scale until it cut across the album
-    // art's top-left corner (visible from roughly 2x upwards).
+    // Mask radius in content space: draw_pill applies size_scale later, so it must not be pre-multiplied.
     float content_island_radius(float content_height) const
     {
         if (g_settings.notch_style)
@@ -4837,17 +4516,11 @@ private:
         return std::min(content_height * 0.5f, 44.0f);
     }
 
-    // Takes settings by reference from Render()'s private copy rather than
-    // reaching for g_settings. The dashboards it delegates to read std::wstring
-    // members (DrawCalendarDashboard -> settings.dateFormat), which would
-    // otherwise race with LoadSettings() replacing the struct mid-frame.
+    // Takes the frame's private settings copy: g_settings can be replaced mid-frame.
     void draw_media(const SharedState& state, D2D1_RECT_F rect, const Settings& settings, double now)
     {
         const float height = rect.bottom - rect.top;
 
-        // Island resize tracking: "settled" once the size has stopped changing for 0.15s.
-        // Small per-frame drifts accumulate against the last latched size, so the
-        // spring's tail can't sneak past the check.
         {
             const float cur_w = rect.right - rect.left;
             if (std::fabs(cur_w - island_size_last_w_) > 0.25f || std::fabs(height - island_size_last_h_) > 0.25f)
@@ -4862,9 +4535,7 @@ private:
         expanded_anim_ = settings.expanded_media_anim;
         pill_cover_anim_ = settings.pill_cover_anim;
 
-        // The old side panel is replaced by the immersive lyrics view, so the island never widens.
         const bool side_lyrics_on = false;
-        // 0 = normal player, 1 = immersive lyrics (always 0 unless "Lyrics in the media tab" is on).
         const float immersive_mix = update_immersive_mix(settings, height, now);
         g_immersive_mix_pub.store(immersive_mix, std::memory_order_relaxed);
         const float side_lyrics_extra =
@@ -4879,27 +4550,17 @@ private:
         float expanded_alpha = std::clamp((height - media_layout::expanded_min_height) / 60.0f, 0.0f, 1.0f);
         float collapsed_alpha = std::clamp((80.0f - height) / 30.0f, 0.0f, 1.0f);
 
-        // ── Shared album art ─────────────────────────────────────────────────
-        // One art element that morphs between the collapsed geometry (small circle
-        // on the left) and the expanded geometry (64px rounded square) as the island
-        // grows or shrinks, instead of cross-fading two different shapes.
-        // artMorph: 0 = collapsed pill, 1 = fully expanded (reached at 120px, where
-        // the expanded layer is already fully opaque and takes over drawing the art).
+        // Shared album art: one element morphs from the collapsed circle to the expanded square as the island
+        // grows (art_morph: 0 = collapsed, 1 = expanded at 120 px).
         constexpr float collapsed_pill_height = 44.0f;
         constexpr float art_morph_end_height = 120.0f;
         constexpr float collapsed_art_pad = 6.0f;
         constexpr float collapsed_art_size = collapsed_pill_height - collapsed_art_pad * 2.0f;
-        // Raw progress straight from the island's height.
         const float art_morph_raw =
             clamp((height - collapsed_pill_height) / (art_morph_end_height - collapsed_pill_height), 0.0f, 1.0f);
 
-        // Shrinking follows the height exactly (unchanged). Expanding is not
-        // allowed to run faster than kArtExpandSec for the full circle -> square
-        // change, because the expand spring is so fast that the morph would
-        // otherwise be over in a few frames.
+        // Expanding may not finish the morph faster than art_expand_sec (the spring alone would take a few frames).
         constexpr float art_expand_sec = 0.26f;
-        // The art only travels to its expanded spot on the Media tab. On any other
-        // first tab (e.g. pinned lyrics) it just follows the height, with no throttle.
         const bool art_on_media_tab = normalized_tab_index(settings) == 0;
         const bool fresh_morph = art_morph_last_ >= 0.0 && (now - art_morph_last_) < 0.25;
         const float dt_morph = fresh_morph ? clamp(static_cast<float>(now - art_morph_last_), 0.001f, 0.05f) : 0.0f;
@@ -4912,12 +4573,10 @@ private:
         else
         {
             art_morph_lin_ = std::min(art_morph_raw, art_morph_lin_ + dt_morph / art_expand_sec);
-            g_layout_dirty = true; // keep frames coming until the morph catches up
+            g_layout_dirty = true;
         }
         const float art_morph = smooth_step01(art_morph_lin_);
 
-        // Source badge: hidden during the morph, fades in once the art hands over
-        // to the expanded layer (this used to pop in instantly).
         if (art_morph >= 1.0f)
         {
             if (!fresh_morph)
@@ -4955,7 +4614,6 @@ private:
             D2D1::RectF(rect.left + immersive_layout::art_left, rect.top + immersive_layout::art_top,
                         rect.left + immersive_layout::art_left + immersive_layout::k_art_size,
                         rect.top + immersive_layout::art_top + immersive_layout::k_art_size);
-        // Equals the original rect / radius exactly while immersiveMix == 0.
         const D2D1_RECT_F expanded_art_rect =
             D2D1::RectF(lerp_f(normal_art_rect.left, immersive_art_rect.left, immersive_mix),
                         lerp_f(normal_art_rect.top, immersive_art_rect.top, immersive_mix),
@@ -4977,7 +4635,7 @@ private:
                                                      D2D1_LAYER_OPTIONS_NONE),
                                layer);
 
-            // Order must match ActiveTabCount()/FileTrayTabIndex().
+            // Order must match active_tab_count / file_tray_tab_index.
             std::vector<int> active_tabs;
             active_tabs.push_back(0); // Media
             if (settings.notification_center_module)
@@ -5002,8 +4660,6 @@ private:
                 active_tabs.push_back(4);
             }
 
-            // Same settings object as the list above, so the index can't be
-            // normalised against a tab set that no longer matches.
             int max_tabs = static_cast<int>(active_tabs.size());
             int tab_idx = normalized_tab_index(settings);
             if (tab_idx >= max_tabs)
@@ -5015,35 +4671,28 @@ private:
             {
                 if (active_tab_id == 0)
                 {
-                    // With side lyrics on, the player lives in the left part of the island and
-                    // the rest of this branch (which uses `rect`) lays out exactly as before.
                     const D2D1_RECT_F full_island_rect = rect;
                     const D2D1_RECT_F rect =
                         D2D1::RectF(full_island_rect.left, full_island_rect.top,
                                     full_island_rect.right - side_lyrics_extra, full_island_rect.bottom);
-                    // Source switch envelope for everything that changes with the source.
                     float swap_alpha = 1.0f, swap_dx = 0.0f;
                     update_source_swap(state, now, &swap_alpha, &swap_dx);
 
-                    // Art, text and spectrum slide + fade as one group (closed in 13c).
                     const bool content_grouped = begin_swap_group(swap_alpha, swap_dx);
                     if (swap_alpha > 0.003f)
                     {
-                        // Expanded Apple DI media: large square art on left, text center.
                         const float art_size = media_layout::k_art_size;
                         D2D1_RECT_F art_rect =
                             D2D1::RectF(rect.left + media_layout::art_inset_x, rect.top + media_layout::art_inset_y,
                                         rect.left + media_layout::art_inset_x + art_size,
                                         rect.top + media_layout::art_inset_y + art_size);
-                        // Until the morph has finished, the shared art pass at the bottom of
-                        // DrawMedia owns the cover, so it is never drawn twice.
+                        // Until the morph finishes, the shared art pass owns the cover.
                         if (art_morph >= 1.0f)
                         {
                             draw_album_art_flip(state.media, expanded_art_rect, now, expanded_art_radius,
                                                 immersive_mix < 0.01f);
                         }
 
-                        // Immersive: title / artist / spectrum / source line cross-fade out.
                         const bool normal_faded = begin_immersive_fade(1.0f - immersive_mix);
                         if (immersive_mix < 0.999f)
                         {
@@ -5056,7 +4705,6 @@ private:
                             const float text_left = art_rect.right + 18.0f;
                             const float text_right = wave_rect.left - 16.0f;
 
-                            // Title — bold, prominent.
                             D2D1_RECT_F title_rect =
                                 D2D1::RectF(text_left, rect.top + 34.0f, text_right, rect.top + 54.0f);
                             const std::wstring title_text =
@@ -5068,7 +4716,6 @@ private:
                                                   42.0f, marquee_title_cache_);
                             }
 
-                            // Artist — muted below title.
                             D2D1_RECT_F artist_rect =
                                 D2D1::RectF(text_left, rect.top + 54.0f, text_right, rect.top + 74.0f);
                             muted_brush_->SetOpacity(0.80f);
@@ -5111,19 +4758,16 @@ private:
                                 }
                             }
 
-                            // Source line, under the artist (or under the album when there is one).
                             const float src_line_top = rect.top + (state.media.album_title.empty() ? 70.0f : 85.0f);
                             draw_source_line(state.media,
                                              D2D1::RectF(text_left, src_line_top, text_right, src_line_top + 14.0f),
                                              now);
-                        } // end of `if (immersiveMix < 0.999f)`
+                        }
                         end_immersive_fade(normal_faded);
                         draw_immersive_lyrics_view(state, rect, settings, now, immersive_mix);
-                    } // end of `if (swapAlpha > 0.003f)` opened in 13b
+                    }
                     end_swap_group(content_grouped);
 
-                    // Immersive lyrics: draw the transport block a little smaller so the
-                    // lyrics get the room. Restored after the lyrics button below.
                     D2D1_MATRIX_3X2_F player_zone_old_transform;
                     target_->GetTransform(&player_zone_old_transform);
                     if (immersive_mix > 0.001f)
@@ -5136,10 +4780,8 @@ private:
                             player_zone_old_transform);
                     }
 
-                    // Scrubber + time labels fade (no slide).
                     const bool timeline_grouped = begin_swap_group(swap_alpha, 0.0f);
 
-                    // Timeline (Scrubber)
                     const float scrubber_y = rect.top + media_layout::k_scrubber_y;
                     double current_position = state.media.position_ticks / 10000000.0;
                     double duration = state.media.end_ticks / 10000000.0;
@@ -5205,9 +4847,6 @@ private:
                         small_text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
                     }
 
-                    // The scrubber uses the shared accent track, so it matches the
-                    // volume, battery and timer bars exactly. The bar thickens while
-                    // dragging, which is the standard cue that it is grabbable.
                     if (settings.progress_style != ProgressStyle::Slim)
                     {
                         draw_styled_progress(settings.progress_style, bar_left, bar_right, scrubber_y, progress,
@@ -5226,7 +4865,6 @@ private:
                         const float thumb_x = bar_left + scrub_w;
                         const float thumb_r = is_dragging_this_bar ? 6.5f : 4.5f;
 
-                        // Halo first so the thumb sits on top of it.
                         if (is_dragging_this_bar)
                         {
                             ComPtr<ID2D1SolidColorBrush> thumb_halo;
@@ -5240,8 +4878,6 @@ private:
                             }
                         }
 
-                        // A white thumb with an accent ring reads more precisely against
-                        // album art than a solid accent dot.
                         ComPtr<ID2D1SolidColorBrush> thumb_fill;
                         if (SUCCEEDED(
                                 target_->CreateSolidColorBrush(D2D1::ColorF(1.0f, 1.0f, 1.0f, 0.98f), &thumb_fill)) &&
@@ -5257,12 +4893,11 @@ private:
                             target_->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(thumb_x, scrubber_y), thumb_r, thumb_r),
                                                  thumb_ring.Get(), 1.6f);
                         }
-                    } // end Slim style
+                    }
 
                     end_swap_group(timeline_grouped);
 
-                    // Controls. Positions come from MediaLayout so the hit test in
-                    // OverlayWndProc stays in lockstep with what is drawn here.
+                    // Controls: positions come from media_layout, the same values the hit test uses.
                     const float cy = rect.top + media_layout::controls_y;
                     const float cx = (rect.left + rect.right) * 0.5f;
                     draw_media_controls(state.media.playing, D2D1::Point2F(cx - media_layout::control_spacing, cy),
@@ -5316,7 +4951,7 @@ private:
                 {
                     draw_notification_center_dashboard(state, rect, 1.0f);
                 }
-            }; // end drawTabContent
+            };
 
             draw_tab_transition(0, tab_idx, active_tabs, rect, now, draw_tab_content);
             draw_tab_pagination(rect, max_tabs);
@@ -5337,8 +4972,6 @@ private:
 
             const float cy = (rect.top + rect.bottom) * 0.5f;
 
-            // Optional clock section on the left. Zero wide when the option is
-            // off, so the cover sits exactly where it always did.
             MediaPillMetrics pill_metrics;
             if (settings.media_pill_clock && idle_text_format_)
             {
@@ -5346,8 +4979,6 @@ private:
             }
             const float clock_section = pill_metrics.section_width;
 
-            // The cover itself is drawn by the shared art pass at the end of
-            // DrawMedia; this rect is only used to place the lyrics next to it.
             const D2D1_RECT_F art_rect = collapsed_art_rect;
 
             float shift_x = 0.0f;
@@ -5380,8 +5011,6 @@ private:
                 }
             }
 
-            // Lyrics between the album art and the visualiser. Fades in as the
-            // pill widens, so there is no pop while the spring is still moving.
             if (collapsed_lyrics_active(state, settings))
             {
                 const float lyrics_alpha = smooth_step01(((rect.right - rect.left) - 175.0f) / 60.0f);
@@ -5395,9 +5024,6 @@ private:
                 }
             }
 
-            // Clock + divider on the left, same face, size and time format as the
-            // idle strip. On hover the collapsed layer fades out and the normal
-            // player shows.
             if (clock_section > 0.0f)
             {
                 SYSTEMTIME local = {};
@@ -5430,11 +5056,8 @@ private:
             target_->PopLayer();
         }
 
-        // ── Shared album art pass ────────────────────────────────────────────
-        // Drawn once, outside both cross-fading layers, at full opacity, so the cover
-        // morphs smoothly in position, size and corner radius while the island
-        // resizes. Once fully expanded, the expanded layer takes over (flip animation,
-        // source badge). Alpha is eased so switching tabs can't make it pop in.
+        // Shared album art pass: drawn once outside both cross-fading layers, so the cover morphs smoothly
+        // while the island resizes.
         {
             const bool tray_drag = g_tray_drag_over.load(std::memory_order_relaxed);
             const bool on_media_tab = normalized_tab_index(settings) == 0;
@@ -5443,8 +5066,6 @@ private:
             const bool recent = art_outer_last_ >= 0.0 && (now - art_outer_last_) < 0.25;
             const float dt_art = recent ? clamp(static_cast<float>(now - art_outer_last_), 0.001f, 0.05f) : 0.016f;
             art_outer_last_ = now;
-            // Off the Media tab the art has no business following a slow ease; it
-            // fades exactly with the collapsed pill's contents.
             if (!recent || art_morph >= 1.0f || !on_media_tab)
             {
                 art_outer_alpha_ = target_alpha;
@@ -5454,9 +5075,6 @@ private:
                 art_outer_alpha_ += (target_alpha - art_outer_alpha_) * (1.0f - std::exp(-dt_art / 0.06f));
             }
 
-            // While the island is hiding, the art follows the pill: it shrinks
-            // toward the pill's centre and fades, instead of staying 32px and
-            // sticking out until the window stops painting.
             float hide_s = 1.0f;
             if (island_hiding_)
             {
@@ -5464,9 +5082,7 @@ private:
                 const float cur_w = rect.right - rect.left;
                 hide_s = smooth_step01(std::min(height / collapsed_pill_height, cur_w / need_w));
             }
-            // On the Media tab the cover morphs circle -> square. On any other tab it
-            // stays a small circle on the collapsed pill and never flies into the
-            // expanded layout, so it can't show up on top of the lyrics.
+            // On the media tab the cover morphs circle -> square; on other tabs it stays a small circle.
             const D2D1_RECT_F art_base_rect = on_media_tab ? morph_art_rect : collapsed_art_rect;
             const float art_base_radius = on_media_tab ? morph_art_radius : collapsed_art_size * 0.5f;
 
@@ -5507,16 +5123,11 @@ private:
         }
     }
 
-    // ═══ Immersive lyrics (Modules.MediaTabLyrics) ═══════════════════════════
-    // Cross-fades the 380x184 media card into a lyrics-focused view: small cover
-    // circle, one-line header, spring-scrolled lyric lines, accent glow behind.
-    // Scrubber, controls and source dock are untouched.
+    // Immersive lyrics (Modules.MediaTabLyrics): cross-fades the media card into a lyrics view. Scrubber,
+    // controls and source dock stay.
 
-    // Eased 0..1 mix between normal player and lyrics view. Always 0 when the option
-    // is off, and the view resets whenever the island collapses.
     float update_immersive_mix(const Settings& settings, float height, double now)
     {
-        // Option off: the feature is fully inert, and the saved choice is cleared.
         if (!settings.media_tab_lyrics)
         {
             if (g_immersive_lyrics.load(std::memory_order_relaxed))
@@ -5530,8 +5141,7 @@ private:
 
         const float target = g_immersive_lyrics.load(std::memory_order_relaxed) ? 1.0f : 0.0f;
 
-        // Collapsed: keep the choice, and pre-set the mix so the next expand opens
-        // straight into the same view (no fade, no flash of the normal player).
+        // Collapsed: keep the choice, so the next expand opens straight into the same view.
         if (height < 52.0f)
         {
             immersive_mix_lin_ = target;
@@ -5591,7 +5201,6 @@ private:
         }
     }
 
-    // Speech-bubble button. Lights up in the accent colour while the lyrics view is open.
     void draw_immersive_lyrics_button(D2D1_RECT_F rect, float mix)
     {
         if (!ensure_round_join_style())
@@ -5625,12 +5234,10 @@ private:
         }
         accent_brush_->SetOpacity(opacity);
         target_->DrawRoundedRectangle(rr, accent_brush_.Get(), sw, st);
-        // Tail
         target_->DrawLine(D2D1::Point2F(c.x - 4.5f, body.bottom), D2D1::Point2F(c.x - 4.5f, c.y + 7.2f),
                           accent_brush_.Get(), sw, st);
         target_->DrawLine(D2D1::Point2F(c.x - 4.5f, c.y + 7.2f), D2D1::Point2F(c.x - 0.8f, body.bottom),
                           accent_brush_.Get(), sw, st);
-        // Text lines
         target_->DrawLine(D2D1::Point2F(c.x - 3.8f, c.y - 3.4f), D2D1::Point2F(c.x + 3.8f, c.y - 3.4f),
                           accent_brush_.Get(), 1.2f, st);
         target_->DrawLine(D2D1::Point2F(c.x - 3.8f, c.y - 0.2f), D2D1::Point2F(c.x + 1.4f, c.y - 0.2f),
@@ -5696,7 +5303,7 @@ private:
                                fade_layer);
         }
 
-        // ── Accent glow behind the lyrics, breathing gently with the audio level ──
+        // Accent glow behind the lyrics
         {
             float level = 0.0f;
             if (settings.spectrum_style == SpectrumStyle::Bars)
@@ -5726,7 +5333,7 @@ private:
             }
         }
 
-        // ── One-line header: "Title · Artist" next to the small cover circle ──
+        // One-line header: "Title · Artist" next to the small cover circle
         {
             const float text_left = rect.left + immersive_layout::header_text_left;
             const float text_right = rect.right - immersive_layout::header_right_pad;
@@ -5741,7 +5348,7 @@ private:
                               small_text_format_.Get(), text_brush_.Get(), now, 30.0f, marquee_immersive_cache_);
         }
 
-        // ── Lyrics ──
+        // Lyrics
         target_->PushAxisAlignedClip(D2D1::RectF(rect.left + 18.0f, zone_top, rect.right - 18.0f, zone_bottom),
                                      D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
 
@@ -5772,7 +5379,6 @@ private:
         {
             ensure_immersive_format(settings);
 
-            // Same position math as the Lyrics tab, including the sync offset.
             double pos_sec = state.media.position_ticks / 10000000.0;
             if (state.media.playing && state.media.last_updated_ticks > 0)
             {
@@ -5857,8 +5463,6 @@ private:
                 {
                     return 1.0f + (neighbour - 1.0f) * smooth_step01(ad);
                 }
-                // Past the neighbours: fade fully out instead of leaving ghost lines
-                // crammed against the zone edge.
                 return neighbour * (1.0f - smooth_step01((ad - 1.0f) / 0.45f));
             };
             auto offset_for = [&](float d)
@@ -5916,7 +5520,6 @@ private:
 
                 if (settings.karaoke_lyrics && i == idx && idx >= 0)
                 {
-                    // Dim base, then a soft-edged bright wipe following the song.
                     muted_brush_->SetOpacity(alpha * (0.62f + 0.38f * (1.0f - focus)));
                     target_->DrawTextLayout(origin, l.layout.Get(), muted_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
 
@@ -5973,8 +5576,6 @@ private:
         muted_brush_->SetOpacity(0.75f);
     }
 
-    // Builds a wrapped lyric line for the media-tab lyrics panel, shrinking the font
-    // until it fits maxHeight (down to about 10px).
     void build_side_lyric_line(CollapsedLyricLine& out, const std::wstring& text, float width, float max_height,
                                const Settings& settings)
     {
@@ -6036,9 +5637,7 @@ private:
         }
     }
 
-    // Lyrics side panel for the expanded media tab. `area` is the strip to the right of
-    // the normal player. Previous / next lines are dimmed, the current line is large and
-    // wrapped, and it slides in when the line changes.
+    // Lyrics side panel for the expanded media tab (the strip right of the player).
     void draw_media_side_lyrics(const SharedState& state, D2D1_RECT_F area, const Settings& settings, double now)
     {
         const float area_w = area.right - area.left;
@@ -6047,7 +5646,6 @@ private:
             return;
         }
 
-        // Fades in as the island widens, so nothing pops while the spring is moving.
         const float reveal = smooth_step01((area_w - 6.0f) / (media_layout::side_lyrics_width * 0.55f));
         if (reveal <= 0.01f)
         {
@@ -6075,7 +5673,6 @@ private:
             target_->PushAxisAlignedClip(area, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
         }
 
-        // Thin separator between the player and the lyrics.
         if (ID2D1SolidColorBrush* divider =
                 acquire_brush(with_alpha(material_.hairline, material_.hairline.a * settings_opacity_)))
         {
@@ -6110,7 +5707,6 @@ private:
         }
         else
         {
-            // Same position math as the Lyrics tab, including the lookahead nudge.
             double pos_sec = state.media.position_ticks / 10000000.0;
             if (state.media.playing && state.media.last_updated_ticks > 0)
             {
@@ -6169,11 +5765,10 @@ private:
                 build_side_lyric_line(side_lyric_cur_, text, text_w, mid_h, settings);
             }
 
-            // Ease-out-cubic transition.
             const float t = clamp(static_cast<float>((now - side_lyric_anim_start_) / anim_sec), 0.0f, 1.0f);
             if (t < 1.0f)
             {
-                g_layout_dirty = true; // keep frames coming until it settles
+                g_layout_dirty = true;
             }
             const float inv = 1.0f - t;
             const float e = 1.0f - inv * inv * inv;
@@ -6203,7 +5798,6 @@ private:
             target_->PushAxisAlignedClip(D2D1::RectF(area.left, area.top + 40.0f, area.right, area.bottom - 40.0f),
                                          D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
 
-            // Outgoing line rises and fades slightly faster than the new one arrives.
             if (t < 1.0f && side_lyric_prev_.layout)
             {
                 const CollapsedLyricLine& p = side_lyric_prev_;
@@ -6237,7 +5831,6 @@ private:
         muted_brush_->SetOpacity(0.75f);
     }
 
-    // Builds the cached layout for one lyric line.
     void build_collapsed_lyric_line(CollapsedLyricLine& out, const std::wstring& text, IDWriteTextFormat* fmt)
     {
         out.text = text;
@@ -6248,8 +5841,6 @@ private:
                                                         40.0f, &out.layout)) &&
             out.layout)
         {
-            // Other draw code flips the shared format's alignment temporarily;
-            // pin it here so positioning below never depends on that.
             out.layout->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
             out.layout->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
             DWRITE_TEXT_METRICS tm{};
@@ -6259,8 +5850,7 @@ private:
         }
     }
 
-    // Draws the current synced lyric line inside `area`. When the line changes,
-    // the old one slides up and fades out while the new one rises in from below.
+    // Current synced lyric line; on a change the old one slides up and out, the new one rises in.
     void draw_collapsed_lyrics(const SharedState& state, D2D1_RECT_F area, double now, float alpha)
     {
         g_last_lyrics_view_time.store(now, std::memory_order_relaxed);
@@ -6277,9 +5867,7 @@ private:
 
         const auto& lines = state.lyrics.lines;
 
-        // Lyrics only count if they belong to the track that is playing right now.
-        // This also stops the previous song's lyrics showing while the lyrics
-        // thread has not noticed the track change yet.
+        // Lyrics count only when they belong to the track playing right now.
         const bool lyrics_usable = state.lyrics.has_data && state.lyrics.synced && !lines.empty() &&
                                    state.lyrics.matched_title == state.media.title &&
                                    state.lyrics.matched_artist == state.media.artist;
@@ -6288,7 +5876,6 @@ private:
         int64_t pos_ms = 0;
         if (lyrics_usable)
         {
-            // Same position math as the Lyrics tab, including the lookahead nudge.
             double pos_sec = state.media.position_ticks / 10000000.0;
             if (state.media.playing && state.media.last_updated_ticks > 0)
             {
@@ -6318,9 +5905,6 @@ private:
             idx = lo - 1;
         }
 
-        // The media title is only a fallback for when there are no usable lyrics
-        // (still loading, not found, unsynced). Once lyrics are usable, the intro
-        // and instrumental gaps show the note glyph, as before.
         constexpr int title_key = -3; // distinct from idx == -1 (before the first line)
         const bool show_title = !lyrics_usable;
         const int show_idx = show_title ? title_key : idx;
@@ -6335,7 +5919,6 @@ private:
             fallback = loc(L"Media");
         }
 
-        // Rebuild layouts only when what is shown actually changed.
         const bool track_changed =
             state.media.title != collapsed_lyric_title_ || state.media.artist != collapsed_lyric_artist_;
         const bool fallback_text_changed = show_title && collapsed_lyric_cur_.text != fallback;
@@ -6343,7 +5926,6 @@ private:
         {
             if (track_changed || collapsed_lyric_idx_ == -2)
             {
-                // New track or first draw: snap, no animation.
                 collapsed_lyric_prev_ = CollapsedLyricLine{};
                 collapsed_lyric_anim_start_ = now - 10.0;
             }
@@ -6367,7 +5949,6 @@ private:
             return;
         }
 
-        // Quick ease-out-cubic transition (~0.30s).
         constexpr double anim_sec = 0.30;
         constexpr float slide_px = 13.0f;
         const float t = clamp(static_cast<float>((now - collapsed_lyric_anim_start_) / anim_sec), 0.0f, 1.0f);
@@ -6377,7 +5958,6 @@ private:
         const float cy = (area.top + area.bottom) * 0.5f;
         target_->PushAxisAlignedClip(area, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
 
-        // Outgoing line: rises and fades a bit faster than the new one arrives.
         if (t < 1.0f && collapsed_lyric_prev_.layout)
         {
             const CollapsedLyricLine& p = collapsed_lyric_prev_;
@@ -6396,7 +5976,6 @@ private:
                                     D2D1_DRAW_TEXT_OPTIONS_NONE);
         }
 
-        // Incoming / current line.
         {
             const CollapsedLyricLine& c = collapsed_lyric_cur_;
             float x = area.left + (avail_w - c.width) * 0.5f; // centred when it fits
@@ -6406,13 +5985,11 @@ private:
             {
                 if (c.is_title)
                 {
-                    // Long title: scroll it in a loop, like the other marquees.
                     title_cycle = c.width + 38.0f;
                     x = area.left - std::fmod(static_cast<float>(now) * 30.0f, title_cycle);
                 }
                 else if (show_idx >= 0)
                 {
-                    // Long lyric: start at the left edge and pan across as it is sung.
                     const int64_t start_ms = lines[show_idx].time_ms;
                     int64_t end_ms = start_ms + 4000;
                     if (show_idx + 1 < static_cast<int>(lines.size()))
@@ -6445,7 +6022,7 @@ private:
         text_brush_->SetOpacity(0.96f);
     }
 
-    // ── Source switch animation + source dock ────────────────────────────────
+    // Source switch animation and source dock
     enum
     {
         KSwapNone = 0,
@@ -6454,15 +6031,13 @@ private:
         KSwapIn
     };
 
-    // Out: old content slides away and fades. Hold: nothing drawn while the media
-    // thread switches sessions. In: new content slides in. The request is only sent
-    // once Out has finished, so old and new content are never visible together.
+    // Out: old content slides away. Hold: nothing drawn while the media thread switches. In: new content
+    // slides in. The request is sent after Out, so old and new are never visible together.
     void update_source_swap(const SharedState& state, double now, float* alpha, float* dx)
     {
         *alpha = 1.0f;
         *dx = 0.0f;
 
-        // Media tab was off screen for a while: don't resume mid-animation.
         if (swap_phase_ != KSwapNone && swap_last_update_ >= 0.0 && now - swap_last_update_ > 0.5)
         {
             if (swap_phase_ == KSwapOut)
@@ -6474,7 +6049,7 @@ private:
         swap_last_update_ = now;
 
         if (!expanded_anim_ && swap_phase_ != KSwapNone)
-        { // animation switched off mid-swap
+        {
             if (swap_phase_ == KSwapOut)
             {
                 request_media_source(swap_target_);
@@ -6482,7 +6057,6 @@ private:
             swap_phase_ = KSwapNone;
         }
 
-        // New request. One that arrives during slide-in waits for it to finish.
         const unsigned seq = g_switch_seq.load();
         if (seq != swap_seen_seq_ && swap_phase_ != KSwapIn)
         {
@@ -6505,7 +6079,7 @@ private:
             {
                 request_media_source(swap_target_); // retarget while nothing is visible
                 swap_start_ = now;
-            } // kSwapOut: just retargeted
+            }
         }
 
         switch (swap_phase_)
@@ -6562,8 +6136,7 @@ private:
         }
     }
 
-    // The title smoke, art flip, artist/album swap and spectrum ripple all key off "was
-    // this drawn a moment ago". Forget that so the new source simply appears.
+    // Forget "drawn a moment ago" so the new source simply appears.
     void cancel_media_change_anims()
     {
         title_anim_active_ = false;
@@ -6581,7 +6154,6 @@ private:
         spec_last_drawn_ = -1.0;
     }
 
-    // Fades (and optionally shifts) everything drawn until EndSwapGroup.
     bool begin_swap_group(float alpha, float dx)
     {
         if (alpha >= 0.999f && std::fabs(dx) < 0.01f)
@@ -6654,7 +6226,6 @@ private:
             return;
         }
 
-        // During a switch the ring already points at the source being switched to.
         int shown_idx = live_idx;
         if (swap_phase_ != KSwapNone && !swap_target_.empty())
         {
@@ -6688,7 +6259,6 @@ private:
             target_slot = 0;
         }
 
-        // ── Animation state ──────────────────────────────────────────────────
         const bool fresh =
             dock_init_ && dock_last_drawn_ >= 0.0 && (now - dock_last_drawn_) < 0.25 && dock_slot_count_ == slots.count;
         const float dt = fresh ? clamp(static_cast<float>(now - dock_last_drawn_), 0.001f, 0.05f) : 0.016f;
@@ -6742,7 +6312,7 @@ private:
             }
 
             const float press_target = (i == pressed) ? 1.0f : 0.0f;
-            const float tau = press_target > dock_press_[i] ? 0.025f : 0.075f; // same feel as mediaBtnPress_
+            const float tau = press_target > dock_press_[i] ? 0.025f : 0.075f;
             dock_press_[i] += (press_target - dock_press_[i]) * (1.0f - std::exp(-dt / tau));
             if (std::fabs(press_target - dock_press_[i]) < 0.004f)
             {
@@ -6758,7 +6328,6 @@ private:
             g_layout_dirty = true;
         }
 
-        // ── Drawing ──────────────────────────────────────────────────────────
         const float cy = rect.top + media_layout::controls_y;
         const float x0 = rect.left + media_layout::dock_left;
         const D2D1_RECT_F pill =
@@ -6766,11 +6335,9 @@ private:
                         cy + media_layout::k_dock_height * 0.5f);
         draw_card(pill, media_layout::k_dock_height * 0.5f);
 
-        // The pill's real colour (raised over the island base), used for the dot's ring.
         const D2D1_COLOR_F pill_bg =
             mix_color(with_alpha(material_.base, 1.0f), with_alpha(material_.raised, 1.0f), material_.raised.a);
 
-        // Active indicator: slides between slots.
         const float stride = media_layout::dock_slot + media_layout::dock_gap;
         const float ind_cx =
             rect.left + media_layout::dock_slot_left(0) + dock_ind_pos_ * stride + media_layout::dock_slot * 0.5f;
@@ -6829,7 +6396,7 @@ private:
                 }
 
                 if (src.playing)
-                { // 7px green dot, bottom-right, 1.5px ring in the pill colour
+                {
                     const D2D1_POINT_2F d = D2D1::Point2F(c.x + 9.5f, c.y + 9.5f);
                     ComPtr<ID2D1SolidColorBrush> ring, dot;
                     if (SUCCEEDED(target_->CreateSolidColorBrush(pill_bg, &ring)) && ring)
@@ -6875,8 +6442,7 @@ private:
             }
         }
 
-        // Play/pause morph. Animates only if the button was on screen a moment
-        // ago; otherwise (island was collapsed, first draw) it snaps to the state.
+        // Play/pause morph: animates only if the button was on screen a moment ago.
         {
             constexpr double morph_duration = 0.34;
             const bool recently_drawn = play_morph_last_drawn_ >= 0.0 && (now - play_morph_last_drawn_) < 0.25;
@@ -6910,7 +6476,6 @@ private:
             }
         }
 
-        // Depth-swap: start on a new click, then advance with wall-clock time.
         constexpr double skip_duration = 0.46;
         const unsigned trig[2] = {g_skip_trigger_prev.load(), g_skip_trigger_next.load()};
         for (int i = 0; i < 2; ++i)
@@ -6920,8 +6485,6 @@ private:
                 skip_seen_trigger_[i] = trig[i];
                 last_skip_click_at_ = now;
                 last_skip_dir_ = (i == 0) ? -1.0f : 1.0f;
-                // Ignore a re-click while the swap is still in its first half so
-                // the motion never snaps back; the command is sent regardless.
                 if (expanded_anim_ && (skip_anim_start_[i] < 0.0 || (now - skip_anim_start_[i]) / skip_duration >= 0.5))
                 {
                     skip_anim_start_[i] = now;
@@ -6953,7 +6516,7 @@ private:
         }
     }
 
-    // ── Skip icon: two rounded triangles + "depth swap" animation ────────────
+    // Skip icon: two rounded triangles with a depth swap animation
     static constexpr float skip_tri_w = 0.626f; // triangle width / height
     static constexpr float skip_pitch = 0.451f; // front-left minus back-left, / height
 
@@ -7028,8 +6591,7 @@ private:
             return false;
         }
 
-        // The back triangle is cut by a slightly enlarged copy of the front one,
-        // leaving a clean gap that works on translucent backgrounds too.
+        // The back triangle is cut by an enlarged copy of the front one (works on translucent backgrounds).
         ComPtr<ID2D1TransformedGeometry> grown;
         if (FAILED(d2d_factory_->CreateTransformedGeometry(
                 front.Get(), D2D1::Matrix3x2F::Scale(1.16f, 1.16f, D2D1::Point2F(pitch + w / 3.0f, 0.0f)), &grown)) ||
@@ -7063,19 +6625,18 @@ private:
     }
 
     static float skip_smooth(float x)
-    { // smoothstep 0..1
+    {
         x = clamp(x, 0.0f, 1.0f);
         return x * x * (3.0f - 2.0f * x);
     }
 
     static float skip_ease_in_out(float x)
-    { // easeInOutCubic
+    {
         x = clamp(x, 0.0f, 1.0f);
         return x < 0.5f ? 4.0f * x * x * x : 1.0f - std::pow(-2.0f * x + 2.0f, 3.0f) / 2.0f;
     }
 
-    // forward = true -> "next" (>>), false -> "previous" (<<, mirrored).
-    // p < 0 = resting state, otherwise animation progress 0..1.
+    // forward = next (>>), else previous (<<). p < 0 = resting, otherwise progress 0..1.
     void draw_skip_icon(D2D1_POINT_2F center, bool forward, float p, float opacity, float press)
     {
         if (!ensure_skip_geometry())
@@ -7255,9 +6816,7 @@ private:
         accent_brush_->SetOpacity(1.0f);
     }
 
-    // ── Play/pause morph ─────────────────────────────────────────────────────
-    // Both icons are two quads with matching vertices: the pause bars become the
-    // two halves of the play triangle (the right half collapses into the tip).
+    // Play/pause morph: both icons are two quads with matching vertices.
     static constexpr float play_pause_corner = 1.5f;
 
     struct PlayPauseShapes
@@ -7273,7 +6832,6 @@ private:
             PlayPauseShapes s = {};
             const float rr = play_pause_corner;
             const float bx0 = 2.1f, bx1 = 6.5f, by = 7.5f;
-            // Left bar, then right bar: TL, TR, BR, BL.
             s.pause[0] = D2D1::Point2F(-bx1 + rr, -by + rr);
             s.pause[1] = D2D1::Point2F(-bx0 - rr, -by + rr);
             s.pause[2] = D2D1::Point2F(-bx0 - rr, by - rr);
@@ -7283,7 +6841,6 @@ private:
             s.pause[6] = D2D1::Point2F(bx1 - rr, by - rr);
             s.pause[7] = D2D1::Point2F(bx0 + rr, by - rr);
 
-            // Triangle (optically centred), split by a shared edge T-U.
             const D2D1_POINT_2F a = D2D1::Point2F(-5.5f, -7.5f);
             const D2D1_POINT_2F b = D2D1::Point2F(-5.5f, 7.5f);
             const D2D1_POINT_2F c = D2D1::Point2F(7.5f, 0.0f);
@@ -7375,8 +6932,7 @@ private:
         D2D1_MATRIX_3X2_F old_transform;
         target_->GetTransform(&old_transform);
 
-        // Everything is drawn opaque inside a layer that carries the icon opacity,
-        // so the overlap between fill, stroke and the two halves never double-blends.
+        // Drawn opaque inside a layer carrying the opacity, so overlaps never double-blend.
         ComPtr<ID2D1Layer> layer;
         const bool layered = SUCCEEDED(target_->CreateLayer(nullptr, &layer)) && layer;
         if (layered)
@@ -7406,24 +6962,19 @@ private:
         accent_brush_->SetOpacity(1.0f);
     }
 
-    // ── Song-title change animation ──────────────────────────────────────────
-    // Scripts whose characters shape/reorder together can't be animated one
-    // glyph at a time, so those titles simply fall back to the plain redraw.
+    // Song title change animation. Scripts that shape glyphs together fall back to a plain redraw.
     static bool title_needs_shaping(wchar_t c)
     {
         return (c >= 0x0300 && c <= 0x036F) || (c >= 0x0590 && c <= 0x0DFF) || (c >= 0x0E00 && c <= 0x0EFF) ||
                c == 0x200D;
     }
 
-    // Same formula DrawMarqueeText uses for the title (speed 42), so the hand-off
-    // back to the normal marquee at the end of the animation doesn't jump.
+    // Same formula as draw_marquee_text, so the hand-off at the end does not jump.
     static float title_scroll_offset(const TitleScroll& sc, double now)
     {
         return sc.scrolls ? std::fmod(static_cast<float>(now) * 42.0f, sc.cycle) : 0.0f;
     }
 
-    // allLayouts = false keeps only the glyphs visible right now (the outgoing
-    // title is frozen, so nothing else of it will ever be seen).
     bool build_title_glyphs(const std::wstring& text, float wrap_height, float available, double now, bool all_layouts,
                             std::vector<TitleGlyph>& out, TitleScroll& scroll)
     {
@@ -7493,8 +7044,7 @@ private:
         return !out.empty();
     }
 
-    // Longest common subsequence of identical, visible glyphs; ties prefer the
-    // pairs that travel the least. Order is preserved, so matched letters never cross.
+    // Longest common subsequence of identical visible glyphs; ties prefer the shortest travel.
     static void match_title_glyphs(std::vector<TitleGlyph>& a, std::vector<TitleGlyph>& b)
     {
         const size_t n = a.size(), m = b.size();
@@ -7563,9 +7113,7 @@ private:
         title_anim_active_ = true;
     }
 
-    // t: 0 = solid, 1 = gone. Rises, sways, stretches upward and thins out; extra
-    // translucent copies trail above it so the edge looks soft instead of cut.
-    // Used in reverse (t counting down, smaller amp) to make letters condense in.
+    // t: 0 = solid, 1 = gone. Reversed (t counting down) makes letters condense in.
     void draw_smoke_glyph(const TitleGlyph& g, D2D1_POINT_2F origin, float t, float amp, ID2D1Brush* brush,
                           float base_opacity)
     {
@@ -7589,7 +7137,7 @@ private:
         const float sx = 1.0f + 0.55f * t * amp;
         const float sy = 1.0f + 1.40f * t * amp;
         const float alpha = std::pow(1.0f - t, 1.6f) * base_opacity;
-        const float soft = skip_smooth(t / 0.25f); // soft copies fade in as it starts to dissolve
+        const float soft = skip_smooth(t / 0.25f);
         const float spread = t * 3.2f * amp;
         const D2D1_POINT_2F pivot = D2D1::Point2F(origin.x + g.w * 0.5f, origin.y + g.h * 0.82f);
 
@@ -7612,13 +7160,10 @@ private:
         brush->SetOpacity(base_opacity);
     }
 
-    // Returns true when it drew the title itself (animation running); false means
-    // the caller should draw the title the normal way.
+    // True when it drew the title itself (animation running).
     bool draw_title_transition(const std::wstring& text, D2D1_RECT_F rect, ID2D1Brush* brush, double now,
                                bool real_title)
     {
-        // The title is only drawn while the expanded media card is visible, so a
-        // long gap means the old title was never on screen: just snap.
         const bool recently_drawn = title_last_drawn_ >= 0.0 && (now - title_last_drawn_) < 0.25;
         title_last_drawn_ = now;
 
@@ -7664,8 +7209,6 @@ private:
             D2D1::RectF(rect.left - 4.0f, rect.top - 20.0f, rect.right + 4.0f, rect.bottom + 6.0f),
             D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
 
-        // Old letters with no partner: dissolve into smoke, left to right. The old
-        // title is frozen at the spot where it was when the track changed.
         const float old_span = std::max(std::min(title_old_scroll_.width, avail), 1.0f);
         for (const TitleGlyph& g : title_old_)
         {
@@ -7678,8 +7221,6 @@ private:
             draw_smoke_glyph(g, D2D1::Point2F(rect.left + g.sx, rect.top), t, 1.0f, brush, base_opacity);
         }
 
-        // Letters present in both titles: glide to their new position (which keeps
-        // scrolling if the new title is a marquee).
         brush->SetOpacity(base_opacity);
         for (const TitleGlyph& g : title_old_)
         {
@@ -7696,8 +7237,6 @@ private:
                                     D2D1_DRAW_TEXT_OPTIONS_NONE);
         }
 
-        // New letters with no partner: condense out of the smoke. A scrolling title
-        // is drawn at its live marquee position, including the wrapped copy.
         const float new_span = std::max(std::min(title_new_scroll_.width, avail), 1.0f);
         for (const TitleGlyph& g : title_new_)
         {
@@ -7728,9 +7267,8 @@ private:
         return true;
     }
 
-    // ── Progress bar styles (Wavy / Squiggle / Bar) ──────────────────────────
-    // Slim is the original bar and keeps its own code path in DrawMedia. The
-    // hit test is untouched: every shape here stays inside the scrubber's hit area.
+    // Progress bar styles (Wavy, Squiggle, Bar). Slim keeps its own path in draw_media. Every shape stays
+    // inside the scrubber hit area.
     void draw_styled_progress(ProgressStyle style, float bar_left, float bar_right, float cy, float progress,
                               bool dragging, bool playing, double now)
     {
@@ -7753,7 +7291,6 @@ private:
         }
         ensure_round_join_style();
 
-        // Wave strength eases toward 0 when paused and back to 1 when playing.
         {
             const bool fresh = progress_last_time_ >= 0.0 && (now - progress_last_time_) < 0.25;
             const float target = playing ? 1.0f : 0.0f;
@@ -7789,7 +7326,6 @@ private:
 
         if (style == ProgressStyle::Bar)
         {
-            // Thick rounded bar split by a vertical line thumb, with a dot at the end.
             const float half = dragging ? 4.5f : 4.0f;
             const float gap = dragging ? 5.0f : 4.0f;
             const float fill_right = thumb_x - gap;
@@ -7816,8 +7352,6 @@ private:
             return;
         }
 
-        // Wavy and Squiggle: a travelling sine wave up to the thumb, a thin flat
-        // line after it. Squiggle is shorter, shallower and about half the speed.
         const bool wavy = (style == ProgressStyle::Wavy);
         const float a = (wavy ? 3.2f : 1.8f) * amp;
         const float lambda = wavy ? 26.0f : 15.0f;
@@ -7825,7 +7359,7 @@ private:
         const float stroke_w = wavy ? 3.4f : 3.0f;
         const float k = 6.2831853f / lambda;
         const float phase = static_cast<float>(std::fmod(now * freq, 1.0) * 6.2831853);
-        const float end_taper = wavy ? 16.0f : 10.0f; // flattens into the thumb
+        const float end_taper = wavy ? 16.0f : 10.0f;
 
         if (thumb_x - bar_left > 1.5f)
         {
@@ -7899,9 +7433,7 @@ private:
         }
     }
 
-    // ── Artist / album: gentle swap ──────────────────────────────────────────
-    // The old line drifts up and fades while the new one rises into place. Only
-    // runs when the line was already on screen; otherwise the text just appears.
+    // Artist and album lines: the old line drifts up and fades, the new one rises in.
     void draw_swap_marquee(SwapTextState& st, const std::wstring& text, D2D1_RECT_F rect, IDWriteTextFormat* format,
                            ID2D1Brush* brush, double now, float speed, MarqueeLayoutCache& cache, float delay)
     {
@@ -7955,10 +7487,7 @@ private:
         g_layout_dirty = true;
     }
 
-    // ── Album art: flip ──────────────────────────────────────────────────────
-    // The decoder assigns a fresh generation on every poll during the post-change
-    // settle window even when the image is identical, so the flip is keyed on a
-    // hash of the pixels instead and only fires when the picture really changed.
+    // Album art flip. Keyed on a pixel hash: the decoder issues new generations for identical images.
     uint64_t art_content_hash(const MediaSnapshot& media)
     {
         if (!media.art)
@@ -8037,7 +7566,6 @@ private:
         }
         else if (hash != art_flip_hash_)
         {
-            // Mid-flip changes just retarget the face shown after the turn.
             if (expanded_anim_ && art_flip_start_ < 0.0 && hash != 0)
             {
                 art_flip_old_ = art_bitmap_; // still the previous cover: not rebuilt yet
@@ -8085,7 +7613,6 @@ private:
             draw_album_art(media, rect, now, radius, draw_badge);
         }
 
-        // Darken the face as it turns away, for a sense of depth.
         ComPtr<ID2D1SolidColorBrush> shade;
         if (SUCCEEDED(target_->CreateSolidColorBrush(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.35f * (1.0f - c)), &shade)) &&
             shade)
@@ -8095,11 +7622,8 @@ private:
         target_->SetTransform(old_transform);
     }
 
-    // ── Album art (collapsed pill): record drop ──────────────────────────────
-    // A track change plays as a record swap: the old disc spins up and is thrown
-    // away while the new one drops in from above, spinning fast, then springs onto
-    // the pill and slows to rest. Skipping backwards spins the other way. Same
-    // cover, new track: a short press-and-rebound with the ring and glint.
+    // Collapsed pill album art: a track change plays as a record swap (old disc thrown away, new one drops
+    // in spinning); the same cover with a new track does a short press and rebound.
     void ensure_art_bitmap(const MediaSnapshot& media)
     {
         if (!media.art)
@@ -8117,9 +7641,6 @@ private:
         }
     }
 
-    // One disc: scaled about its centre, the picture spun inside a fixed round
-    // mask. `lag` is how far the angle moved over the last few ms; it drives the
-    // ghost copies drawn on top of the disc.
     void draw_art_disc(ID2D1Bitmap* bitmap, D2D1_RECT_F rect, float radius, float scale, float angle, float lag,
                        float alpha)
     {
@@ -8178,8 +7699,6 @@ private:
         target_->SetTransform(base);
     }
 
-    // Accent ring leaving the rim + a soft glint sweeping across the disc.
-    // ringP / sheenP: <0 or >1 = not running, otherwise progress 0..1.
     void draw_art_landing_fx(D2D1_RECT_F rect, float radius, float ring_p, float sheen_p, float dir)
     {
         const D2D1_POINT_2F c = D2D1::Point2F((rect.left + rect.right) * 0.5f, (rect.top + rect.bottom) * 0.5f);
@@ -8238,7 +7757,6 @@ private:
         const uint64_t hash = art_content_hash(media);
         if (!pill_art_init_ || !recently_drawn || !pill_cover_anim_)
         {
-            // First frame, the pill was off screen, or the animation is turned off: snap.
             pill_art_init_ = true;
             pill_art_hash_ = hash;
             pill_title_ = media.title;
@@ -8257,11 +7775,9 @@ private:
 
             if (hash != pill_art_hash_)
             {
-                // The picture really changed (the decoder re-issues generations
-                // for identical covers, hence the hash).
                 if (pill_art_start_ < 0.0 && hash != 0)
                 {
-                    pill_art_old_ = pill_art_last_; // what was on screen last frame; may be empty
+                    pill_art_old_ = pill_art_last_;
                     pill_art_start_ = now;
                     pill_art_pulse_ = false;
                     pill_art_dir_ = dir;
@@ -8275,8 +7791,6 @@ private:
             {
                 const bool had_title = !pill_title_.empty();
                 pill_title_ = media.title;
-                // Only arm the pulse if no drop is running or just finished; the
-                // metadata often arrives before the new cover does.
                 if (had_title && !media.title.empty() && pill_art_start_ < 0.0 && (now - pill_art_full_at_) > 1.6)
                 {
                     pill_title_pending_at_ = now;
@@ -8290,7 +7804,6 @@ private:
                 }
                 else if (now - pill_title_pending_at_ >= title_wait)
                 {
-                    // No new cover showed up: same album, so do the gentle pulse.
                     pill_title_pending_at_ = -1.0;
                     pill_art_old_.Reset();
                     pill_art_start_ = now;
@@ -8330,7 +7843,6 @@ private:
 
             if (!pill_art_pulse_)
             {
-                // Old disc: spins up and is thrown away behind the new one.
                 if (pill_art_old_)
                 {
                     const float u = clamp(p / 0.40f, 0.0f, 1.0f);
@@ -8342,7 +7854,6 @@ private:
                                       dir * 150.0f * (k - kp), 1.0f - skip_smooth(u / 0.9f));
                     }
                 }
-                // New disc: drops in big and fast-spinning, springs down, slows to rest.
                 if (p > 0.14f)
                 {
                     const float u = clamp((p - 0.14f) / 0.86f, 0.0f, 1.0f);
@@ -8357,7 +7868,6 @@ private:
             }
             else
             {
-                // Same cover: press-and-rebound in place.
                 auto wob = [](float x)
                 {
                     return std::exp(-5.5f * x) * std::sin(11.0f * x);
@@ -8379,13 +7889,11 @@ private:
         }
     }
 
-    // ── Audio spectrum styles ────────────────────────────────────────────────
-    // DrawSpectrum is the single entry point used by the collapsed pill, the
-    // expanded player and the Lyrics tab. It owns the track-change detection and
-    // hands the animation clock to the selected style via specT_/specDir_.
+    // Audio spectrum styles. draw_spectrum is the single entry point; it detects track changes and hands
+    // the animation Clock to the selected style through spec_t_ / spec_dir_.
     float spec_band_range(const SharedState& state, float from, float to) const
     {
-        // Average of the analyzer bands covering [from, to) in 0..kSpectrumBands.
+        // Average of the analyzer bands covering [from, to) in 0..k_spectrum_bands.
         int a = std::clamp(static_cast<int>(std::floor(from)), 0, spectrum_bands - 1);
         int b = std::clamp(static_cast<int>(std::ceil(to)), a + 1, spectrum_bands);
         float sum = 0.0f;
@@ -8433,7 +7941,6 @@ private:
                 {
                     spec_dir_ = last_skip_dir_;
                 }
-                // Led: the old peaks rain down as the scanline reboots the matrix.
                 for (float& v : spec_peak_vel_)
                 {
                     v = 0.0f;
@@ -8460,7 +7967,6 @@ private:
             }
         }
 
-        // Low-end energy drives the orb's pulse and a beat "kick" envelope.
         const float bass = spec_band_range(state, 0.0f, 4.0f);
         spec_bass_slow_ += (bass - spec_bass_slow_) * (1.0f - std::exp(-dt / 0.45f));
         const float beat = std::max(0.0f, bass - spec_bass_slow_ - 0.04f);
@@ -8485,21 +7991,19 @@ private:
         }
     }
 
-    // ── Pulse Orb ────────────────────────────────────────────────────────────
+    // Pulse Orb
     void draw_spectrum_orb(const SharedState& state, D2D1_RECT_F rect)
     {
         const float w = rect.right - rect.left, h = rect.bottom - rect.top;
         const D2D1_POINT_2F c = D2D1::Point2F((rect.left + rect.right) * 0.5f, (rect.top + rect.bottom) * 0.5f);
         const float r = std::min(w, h) * 0.5f + 1.0f; // outer reach
         const float r0 = r * 0.40f;                   // core radius at rest
-        // Fewer, thinner spokes on a small orb so they never merge into a solid disc.
         const int k_spokes = r < 14.0f ? 16 : 24;
         const int half = k_spokes / 2;
         constexpr float two_pi = 6.28318531f;
 
         const float t = spec_t_;
-        // Spokes are fixed (bass at the bottom, mirrored left/right) so the shape always
-        // reads as a spectrum; only the track-change detonation spins the orb.
+        // Spokes are fixed (bass at the bottom, mirrored); only the track-change burst spins the orb.
         float len_scale = 1.0f, core_scale = 1.0f, ring_shrink = 0.0f, spin = 0.0f;
         float burst_alpha = 0.0f, burst_r = 0.0f;
         if (t >= 0.0f)
@@ -8530,18 +8034,16 @@ private:
         ensure_round_join_style();
         const float stroke_w = clamp(two_pi * (base_r + 1.0f) / static_cast<float>(k_spokes) * 0.62f, 1.0f, r * 0.16f);
 
-        // Thin shell ring just inside the spokes: breathes with the bass (no filled background).
         accent_brush_->SetOpacity(0.25f + 0.35f * spec_bass_ + 0.25f * spec_kick_);
         const float shell_r = base_r * (0.90f + 0.18f * bass_pulse);
         target_->DrawEllipse(D2D1::Ellipse(c, shell_r, shell_r), accent_brush_.Get(), 0.8f);
 
         for (int k = 0; k < k_spokes; ++k)
         {
-            const int m = k < half ? k : k_spokes - 1 - k; // mirrored 0..half-1
+            const int m = k < half ? k : k_spokes - 1 - k;
             const float lo = static_cast<float>(m) * spectrum_bands / half;
             float v = spec_band_range(state, lo, lo + static_cast<float>(spectrum_bands) / half);
             v = clamp(v * 1.1f, 0.04f, 1.0f);
-            // Each spoke trails the detonation slightly so the burst reads as a wave.
             float ls = len_scale;
             if (t >= 0.28f)
             {
@@ -8549,20 +8051,17 @@ private:
                 ls = 1.0f - std::exp(-6.0f * u) * std::cos(10.0f * u);
             }
             const float len = (r - base_r - 1.5f) * (0.10f + 0.90f * v) * clamp(ls, 0.0f, 1.45f);
-            // k = 0 and k = kSpokes-1 sit either side of the bottom (bass), highs meet at the top.
             const float a = spin + 1.5707963f + two_pi * (static_cast<float>(k) + 0.5f) / k_spokes;
             const float ca = std::cos(a), sa = std::sin(a);
             const float l = std::max(len, 0.6f);
             const D2D1_POINT_2F p0 = D2D1::Point2F(c.x + ca * (base_r + 1.0f), c.y + sa * (base_r + 1.0f));
             const D2D1_POINT_2F p1 = D2D1::Point2F(c.x + ca * (base_r + 1.0f + l), c.y + sa * (base_r + 1.0f + l));
-            // Soft glow underlay, then the spoke itself.
             accent_brush_->SetOpacity(0.10f + 0.14f * v);
             target_->DrawLine(p0, p1, accent_brush_.Get(), stroke_w * 2.0f, round_join_style_.Get());
             accent_brush_->SetOpacity(0.45f + 0.55f * v);
             target_->DrawLine(p0, p1, accent_brush_.Get(), stroke_w, round_join_style_.Get());
         }
 
-        // Core.
         accent_brush_->SetOpacity(0.95f);
         const float core_r = std::max(0.8f, base_r * 0.58f * core_scale * (1.0f + bass_pulse));
         target_->FillEllipse(D2D1::Ellipse(c, core_r, core_r), accent_brush_.Get());
@@ -8583,7 +8082,7 @@ private:
         accent_brush_->SetOpacity(1.0f);
     }
 
-    // ── Plasma Thread ────────────────────────────────────────────────────────
+    // Plasma Thread
     void draw_spectrum_plasma(const SharedState& state, D2D1_RECT_F rect)
     {
         constexpr int k_pts = 34;
@@ -8597,7 +8096,6 @@ private:
         ComPtr<ID2D1SolidColorBrush> hot;
         target_->CreateSolidColorBrush(mix_color(material_.accent, D2D1::ColorF(1, 1, 1, 1), 0.6f), &hot);
 
-        // Front position (normalised, already mirrored for "previous").
         const float front = t < 0.15f ? -0.4f : -0.4f + 1.9f * skip_ease_in_out((t - 0.15f) / 0.78f);
 
         for (int strand = 0; strand < 2; ++strand)
@@ -8608,7 +8106,7 @@ private:
                 const float xn = static_cast<float>(i) / (k_pts - 1);
                 const float xd = dir >= 0.0f ? xn : 1.0f - xn; // distance along the sweep
                 // max(): sin(pi) is slightly negative in float and pow(neg, 0.7) is NaN.
-                float env = std::pow(std::max(0.0f, std::sin(3.14159265f * xn)), 0.7f); // pinned at both ends
+                float env = std::pow(std::max(0.0f, std::sin(3.14159265f * xn)), 0.7f);
                 float band = spec_band_range(state, xn * (spectrum_bands - 1), xn * (spectrum_bands - 1) + 1.5f);
                 band = clamp(0.10f + 0.95f * band + 0.25f * spec_kick_, 0.0f, 1.25f);
 
@@ -8650,7 +8148,6 @@ private:
                 continue;
             }
 
-            // Glow underlay, body, hot core.
             accent_brush_->SetOpacity(strand ? 0.16f : 0.22f);
             target_->DrawGeometry(path.Get(), accent_brush_.Get(), 4.2f, round_join_style_.Get());
             accent_brush_->SetOpacity(strand ? 0.62f : 0.95f);
@@ -8662,7 +8159,6 @@ private:
             }
         }
 
-        // Spark riding the wave front during the re-ignite.
         if (t >= 0.15f && hot)
         {
             const float xd = clamp(front, 0.0f, 1.0f);
@@ -8680,8 +8176,7 @@ private:
         accent_brush_->SetOpacity(1.0f);
     }
 
-    // ── Peak Matrix ──────────────────────────────────────────────────────────
-    // Stacked LED cells per column with gravity-driven falling peak caps.
+    // Peak Matrix: LED cells per column with gravity-driven falling peak caps.
     void draw_spectrum_led(const SharedState& state, D2D1_RECT_F rect, float dt)
     {
         const float w = rect.right - rect.left, h = rect.bottom - rect.top;
@@ -8697,21 +8192,17 @@ private:
         ComPtr<ID2D1SolidColorBrush> hot;
         target_->CreateSolidColorBrush(mix_color(material_.accent, D2D1::ColorF(1, 1, 1, 1), 0.7f), &hot);
 
-        // Scan position in column units, mirrored for "previous".
         const float travel = static_cast<float>(cols) + 4.0f;
         const float scan = t < 0.0f ? -10.0f : -1.5f + travel * skip_ease_in_out(t / 0.82f);
 
         for (int c = 0; c < cols; ++c)
         {
             const int slot = dir >= 0.0f ? c : cols - 1 - c; // order the scan reaches this column
-            // Same source as Classic Bars: each column reads the level history, newest on the
-            // right, so every column rises and falls with the music (no frequency tilt).
             const size_t wf_size = state.waveform.size();
             const size_t wf_offset = static_cast<size_t>(cols - c) * 3;
             const size_t wf_src = (state.waveform_write + wf_size * 2 - wf_offset) % wf_size;
             float v = clamp(state.waveform[wf_src], 0.03f, 1.0f);
 
-            // Falling peak cap with gravity; a hit snaps it up.
             float& pk = spec_peak_[c];
             float& pv = spec_peak_vel_[c];
             if (v >= pk)
@@ -8731,16 +8222,16 @@ private:
                 const float d = scan - static_cast<float>(slot); // >0: scanline already passed
                 if (d < 0.0f)
                 {
-                    col_alpha = 0.35f; // old song, about to be wiped
+                    col_alpha = 0.35f;
                 }
                 else
                 {
-                    flash = clamp(1.0f - d / 3.2f, 0.0f, 1.0f); // glowing tail behind the scanline
+                    flash = clamp(1.0f - d / 3.2f, 0.0f, 1.0f);
                     col_alpha = 0.35f + 0.65f * skip_smooth(d / 1.2f);
                     if (d < 1.6f)
                     {
                         pk = std::min(pk, 0.0f + v);
-                    } // peaks reset as the line passes
+                    }
                 }
             }
 
@@ -8755,7 +8246,6 @@ private:
                 const float topness = rows > 1 ? static_cast<float>(r) / (rows - 1) : 0.0f;
                 if (flash > 0.0f)
                 {
-                    // Whole column ignites, fading from the bottom up as the tail dies.
                     ID2D1SolidColorBrush* b = (hot && flash > 0.7f && r >= rows / 2) ? hot.Get() : accent_brush_.Get();
                     b->SetOpacity(clamp(0.25f + 0.75f * flash, 0.0f, 1.0f) * (0.6f + 0.4f * (1.0f - topness)));
                     target_->FillRoundedRectangle(D2D1::RoundedRect(cell, rr, rr), b);
@@ -8780,7 +8270,7 @@ private:
         accent_brush_->SetOpacity(1.0f);
     }
 
-    // ── Brightness banner (shares the Volume banner's look) ──────────────────
+    // Level banner (volume and brightness)
     void draw_level_banner(D2D1_RECT_F rect, const wchar_t* glyph, const std::wstring& label, const wchar_t* value,
                            float pct, bool drained)
     {
@@ -8935,7 +8425,6 @@ private:
         }
     }
 
-    // Draws a bitmap filling a rounded-rect badge with a small inset for polish.
     void draw_rounded_bitmap_pixels(const BitmapPixels& pixels, D2D1_RECT_F badge, float corner_radius,
                                     ComPtr<ID2D1Bitmap>& cache, uint64_t& cached_generation, float opacity = 1.0f)
     {
@@ -8944,7 +8433,6 @@ private:
             return;
         }
 
-        // 2px inset so the icon has clean edges inside the badge.
         const float pad = 2.0f;
         D2D1_RECT_F icon_rect = D2D1::RectF(badge.left + pad, badge.top + pad, badge.right - pad, badge.bottom - pad);
         const float inner_r = std::max(0.0f, corner_radius - pad);
@@ -8967,9 +8455,7 @@ private:
         }
     }
 
-    // Like DrawRoundedBitmapPixels, but center-crops (cover-fit) instead of
-    // stretching, so a non-square clipboard image isn't squashed into the
-    // square badge.
+    // Like draw_rounded_bitmap_pixels, but cover-fit (center crop) instead of stretching.
     void draw_cover_fit_bitmap_pixels(const BitmapPixels& pixels, D2D1_RECT_F badge, float corner_radius,
                                       ComPtr<ID2D1Bitmap>& cache, uint64_t& cached_generation, float opacity = 1.0f)
     {
@@ -9068,10 +8554,8 @@ private:
         }
 
         const float wrap_height = rect.bottom - rect.top;
-        // Only rebuild the layout when text/format/height actually changed.
-        // Scroll offset is applied via the translated draw origin below, so
-        // it never invalidates the cache — this is what lets the marquee
-        // scroll every frame without calling CreateTextLayout every frame.
+        // The layout is rebuilt only when text, format or height change; the scroll offset is applied
+        // through the draw origin, so the marquee never rebuilds per frame.
         if (cache.text != text || cache.format != format || std::fabs(cache.wrap_width - wrap_height) > 0.01f ||
             !cache.layout)
         {
@@ -9302,13 +8786,11 @@ private:
         const float progress = remaining / ttl;
 
         const float cy = (rect.top + rect.bottom) * 0.5f;
-        // Apple DI: app icon is a large iOS-style rounded square.
         const float icon_sz = (rect.bottom - rect.top) - 16.0f;
         D2D1_RECT_F badge =
             D2D1::RectF(rect.left + 14, cy - icon_sz * 0.5f, rect.left + 14 + icon_sz, cy + icon_sz * 0.5f);
-        const float br = icon_sz * 0.35f; // Softer iOS superellipse-like squircle.
+        const float br = icon_sz * 0.35f;
 
-        // Icon background plate.
         ComPtr<ID2D1SolidColorBrush> plate_brush;
         target_->CreateSolidColorBrush(material_.raised_strong, &plate_brush);
         target_->FillRoundedRectangle(D2D1::RoundedRect(badge, br, br), plate_brush.Get());
@@ -9318,7 +8800,6 @@ private:
             draw_rounded_bitmap_pixels(*state.notification.icon, badge, br, notification_icon_bitmap_,
                                        notification_icon_generation_, 1.0f);
 
-            // Draw a red dot (badge) at the top-right of the app icon
             ComPtr<ID2D1SolidColorBrush> badge_color;
             target_->CreateSolidColorBrush(D2D1::ColorF(1.0f, 0.23f, 0.18f, 1.0f), &badge_color);
 
@@ -9392,7 +8873,7 @@ private:
         const float badge_sz = (rect.bottom - rect.top) - 16.0f;
         D2D1_RECT_F badge =
             D2D1::RectF(rect.left + 14, cy - badge_sz * 0.5f, rect.left + 14 + badge_sz, cy + badge_sz * 0.5f);
-        const float br = badge_sz * 0.35f; // Softer squircle corners
+        const float br = badge_sz * 0.35f;
 
         ComPtr<ID2D1SolidColorBrush> badge_bg;
         target_->CreateSolidColorBrush(material_.raised_strong, &badge_bg);
@@ -9436,11 +8917,9 @@ private:
         text_brush_->SetOpacity(0.90f);
 
         D2D1_RECT_F track = D2D1::RectF(tx, cy + 7.0f, rect.right - 14, cy + 12.0f);
-        // Shared accent track, so the volume bar matches the media scrubber.
         const float pct = clamp(state.volume.display_percent / 100.0f, 0.0f, 1.0f);
         if (muted)
         {
-            // Muted still shows the level, just drained of colour.
             ComPtr<ID2D1SolidColorBrush> track_brush;
             if (SUCCEEDED(target_->CreateSolidColorBrush(material_.raised_strong, &track_brush)) && track_brush)
             {
@@ -9586,29 +9065,25 @@ private:
             is_on = state.caps_lock.caps_on;
         }
 
-        // Draw central bold keycap glyph, vertically and horizontally centered
         text_brush_->SetOpacity(0.95f);
         target_->DrawTextW(glyph, static_cast<UINT32>(wcslen(glyph)), clock_format_.Get(), badge, text_brush_.Get(),
                            D2D1_DRAW_TEXT_OPTIONS_CLIP);
 
-        // Draw physical glowing status LED inside the keycap at top-right with padding
         ComPtr<ID2D1SolidColorBrush> led_brush;
-        D2D1_COLOR_F led_color = is_on ? D2D1::ColorF(0.19f, 0.83f, 0.38f, 1.0f) // Green glowing LED for ON
-                                       : D2D1::ColorF(1.0f, 1.0f, 1.0f, 0.22f);  // Dim white for OFF
+        D2D1_COLOR_F led_color =
+            is_on ? D2D1::ColorF(0.19f, 0.83f, 0.38f, 1.0f) : D2D1::ColorF(1.0f, 1.0f, 1.0f, 0.22f);
         target_->CreateSolidColorBrush(led_color, &led_brush);
 
         const float led_r = 2.2f;
         D2D1_POINT_2F led_center = D2D1::Point2F(badge.right - 5.5f, badge.top + 5.5f);
         target_->FillEllipse(D2D1::Ellipse(led_center, led_r, led_r), led_brush.Get());
 
-        // Draw label text ("Caps Lock" / "Num Lock") - increased font size and vertically centered
         const float tx = badge.right + 14.0f;
         D2D1_RECT_F label_rect = D2D1::RectF(tx, cy - 9.0f, rect.right - 46.0f, cy + 11.0f);
         text_brush_->SetOpacity(0.95f);
         target_->DrawTextW(label.c_str(), static_cast<UINT32>(label.size()), text_format_.Get(), label_rect,
                            text_brush_.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
 
-        // Draw status string (ON/OFF) - increased font size and vertically centered
         std::wstring status = is_on ? loc(L"On") : loc(L"Off");
         D2D1_RECT_F status_rect = D2D1::RectF(rect.right - 44.0f, cy - 9.0f, rect.right - 14.0f, cy + 11.0f);
         if (is_on)
@@ -9634,7 +9109,6 @@ private:
         const float cy = (rect.top + rect.bottom) * 0.5f;
         const bool connected = (state.device.event_type == DeviceEventType::Connected);
 
-        // Badge circle with colored dot
         const float badge_sz = (rect.bottom - rect.top) - 16.0f;
         D2D1_RECT_F badge =
             D2D1::RectF(rect.left + 14, cy - badge_sz * 0.5f, rect.left + 14 + badge_sz, cy + badge_sz * 0.5f);
@@ -9902,11 +9376,9 @@ private:
         text_brush_->SetOpacity(0.90f);
     }
 
-    // ── Quick Lookup card ────────────────────────────────────────────────────
+    // Quick lookup card
 public:
-    // Content-space height the Lookup card needs for the current result. Called
-    // from the render loop (like MeasureIdleStrip) so the island animates to
-    // exactly the size DrawLookup will paint.
+    // Content height the lookup card needs, so the island animates to exactly what draw_lookup paints.
     float measure_lookup_card(const SharedState& state, const Settings& settings)
     {
         const LookupSnapshot& lk = state.lookup;
@@ -9925,7 +9397,6 @@ public:
     }
 
 private:
-    // Body / example text after being fitted to its line cap, plus measured heights.
     struct LookupFit
     {
         std::wstring key;
@@ -9936,7 +9407,6 @@ private:
         bool valid = false;
     };
 
-    // Title / subtitle rows grow with the Text size setting (never shrink).
     float lookup_grow(const Settings& settings) const
     {
         return std::max(1.0f, clamp(settings.text_scale, 0.7f, 1.6f));
@@ -9992,8 +9462,6 @@ private:
         lookup_format_family_ = settings.font_family;
     }
 
-    // Wraps `text` to `width`; if it needs more than maxLines, cuts it at the end of
-    // the last allowed line and ends it with an ellipsis. Reports the final height.
     std::wstring fit_text_to_lines(const std::wstring& text, IDWriteTextFormat* fmt, float width, int max_lines,
                                    float* out_height)
     {
@@ -10035,7 +9503,6 @@ private:
         }
         const float one_line = line_count > 0 ? height / static_cast<float>(line_count) : 0.0f;
 
-        // Where does the last allowed line end?
         size_t keep = text.size();
         {
             ComPtr<IDWriteTextLayout> layout;
@@ -10087,8 +9554,7 @@ private:
         return L"\u2026";
     }
 
-    // Cached: the text only changes when a new result arrives, so the layouts are
-    // built once per result instead of once per frame.
+    // Cached per result, not per frame.
     const LookupFit& ensure_lookup_fit(const LookupSnapshot& lk, const Settings& settings)
     {
         ensure_lookup_formats(settings);
@@ -10109,7 +9575,6 @@ private:
         return lookup_fit_;
     }
 
-    // ── Quick Lookup panel ───────────────────────────────────────────────────
     ComPtr<IDWriteTextLayout> make_line_layout(const std::wstring& text, IDWriteTextFormat* fmt, float max_width,
                                                DWRITE_TEXT_METRICS* metrics, bool ellipsis = false)
     {
@@ -10155,7 +9620,7 @@ private:
         return round_stroke_.Get();
     }
 
-    // kind: 0 magnifier, 1 history clock, 2 clipboard, 3 return arrow.
+    // kind: 0 magnifier, 1 history Clock, 2 clipboard, 3 return arrow.
     void draw_lookup_glyph(D2D1_POINT_2F c, float s, int kind, ID2D1Brush* brush)
     {
         ID2D1StrokeStyle* round = round_stroke();
@@ -10201,7 +9666,7 @@ private:
                 break;
             }
             default:
-            { // return arrow
+            {
                 const D2D1_POINT_2F tip = p(c.x - 0.36f * s, c.y + 0.08f * s);
                 target_->DrawLine(p(c.x + 0.34f * s, c.y - 0.28f * s), p(c.x + 0.34f * s, c.y + 0.08f * s), brush,
                                   stroke, round);
@@ -10213,7 +9678,6 @@ private:
         }
     }
 
-    // The search box: accent magnifier, text with a real caret, key hint on the right.
     void draw_lookup_field(D2D1_RECT_F rect, double now)
     {
         const LookupUiState& ui = g_lookup_ui;
@@ -10227,7 +9691,6 @@ private:
         draw_lookup_glyph(D2D1::Point2F(field.left + 19.0f, mid_y), 16.0f, 0, accent_brush_.Get());
         accent_brush_->SetOpacity(1.0f);
 
-        // Key hint chip: "Esc" while empty, the return arrow once there is text.
         const D2D1_RECT_F chip = D2D1::RectF(field.right - 44.0f, mid_y - 10.0f, field.right - 12.0f, mid_y + 10.0f);
         ComPtr<ID2D1SolidColorBrush> chip_fill;
         if (SUCCEEDED(target_->CreateSolidColorBrush(material_.hairline, &chip_fill)) && chip_fill)
@@ -10279,7 +9742,7 @@ private:
             layout->HitTestTextPosition(caret_idx, FALSE, &caret_x, &caret_y, &hm);
             if (caret_x > area_w - 6.0f)
             {
-                scroll = caret_x - (area_w - 6.0f); // keep the caret in view
+                scroll = caret_x - (area_w - 6.0f);
             }
 
             const float ox = area_left - scroll;
@@ -10312,7 +9775,6 @@ private:
         muted_brush_->SetOpacity(0.75f);
     }
 
-    // Clipboard suggestion + recents (box empty) or Look up + matching recents (typing).
     void draw_lookup_rows(D2D1_RECT_F rect, const std::vector<LookupRow>& rows, bool header)
     {
         const LookupUiState& ui = g_lookup_ui;
@@ -10382,7 +9844,7 @@ private:
                                            : row.label;
 
             DWRITE_TEXT_METRICS lm{};
-            make_line_layout(label, text_format_.Get(), 4096.0f, &lm); // natural width
+            make_line_layout(label, text_format_.Get(), 4096.0f, &lm);
             const float label_w =
                 std::min(lm.widthIncludingTrailingWhitespace, area_w * (row.detail.empty() ? 1.0f : 0.62f));
             if (auto label_layout = make_line_layout(label, text_format_.Get(), label_w + 0.5f, &lm, true))
@@ -10422,7 +9884,6 @@ private:
         text_brush_->SetOpacity(0.96f);
     }
 
-    // "Looking up..." / "No result found" under the box.
     void draw_lookup_status(D2D1_RECT_F rect, const LookupSnapshot& lk)
     {
         const float left = rect.left + lookup_layout::k_pad_x + 4.0f;
@@ -10438,7 +9899,6 @@ private:
         }
     }
 
-    // The definition / summary card under the box (the old "Found" layout, shifted down).
     void draw_lookup_result(const SharedState& state, D2D1_RECT_F rect, const Settings& settings)
     {
         const LookupSnapshot& lk = state.lookup;
@@ -10518,14 +9978,13 @@ private:
             return;
         }
 
-        // Hit tests (clicks, hover, cursor) map through this rect.
         publish_content_geometry(rect);
 
         const float need = measure_lookup_card(state, settings);
         const float alpha = smooth_step01((h - need * 0.55f) / (need * 0.45f));
         if (alpha <= 0.01f)
         {
-            return; // island still too small; content fades in as it opens
+            return;
         }
 
         ComPtr<ID2D1Geometry> mask = create_island_mask_geometry(rect, content_island_radius(h), settings.notch_style);
@@ -10593,7 +10052,6 @@ private:
         target_->CreateSolidColorBrush(material_.raised_strong, &badge_bg);
         target_->FillRoundedRectangle(D2D1::RoundedRect(badge, br, br), badge_bg.Get());
 
-        // Draw battery vector icon
         const float bx = badge.left + badge_sz * 0.25f;
         const float by = cy - badge_sz * 0.22f;
         const float bw = badge_sz * 0.45f;
@@ -10604,11 +10062,9 @@ private:
         target_->CreateSolidColorBrush(D2D1::ColorF(1, 1, 1, 0.85f), &bat_border);
         target_->DrawRoundedRectangle(D2D1::RoundedRect(bat_rect, 2, 2), bat_border.Get(), 1.5f);
 
-        // Battery Terminal (Nub)
         D2D1_RECT_F nub_rect = D2D1::RectF(bat_rect.right, cy - 3, bat_rect.right + 2.5f, cy + 3);
         target_->FillRectangle(nub_rect, bat_border.Get());
 
-        // Battery Fill
         const float pct = clamp(state.battery.percent / 100.0f, 0.0f, 1.0f);
         D2D1_RECT_F fill_rect =
             D2D1::RectF(bat_rect.left + 2, bat_rect.top + 2, bat_rect.left + 2 + (bw - 4) * pct, bat_rect.bottom - 2);
@@ -10616,19 +10072,18 @@ private:
         ComPtr<ID2D1SolidColorBrush> bat_fill;
         if (state.battery.low)
         {
-            target_->CreateSolidColorBrush(D2D1::ColorF(1.0f, 0.23f, 0.18f, 1.0f), &bat_fill); // Red
+            target_->CreateSolidColorBrush(D2D1::ColorF(1.0f, 0.23f, 0.18f, 1.0f), &bat_fill);
         }
         else if (state.battery.charging)
         {
-            target_->CreateSolidColorBrush(D2D1::ColorF(0.19f, 0.83f, 0.38f, 1.0f), &bat_fill); // Green
+            target_->CreateSolidColorBrush(D2D1::ColorF(0.19f, 0.83f, 0.38f, 1.0f), &bat_fill);
         }
         else
         {
-            target_->CreateSolidColorBrush(D2D1::ColorF(1, 1, 1, 0.95f), &bat_fill); // White
+            target_->CreateSolidColorBrush(D2D1::ColorF(1, 1, 1, 0.95f), &bat_fill);
         }
         target_->FillRoundedRectangle(D2D1::RoundedRect(fill_rect, 1, 1), bat_fill.Get());
 
-        // Text Labels
         const float tx = badge.right + 14;
         D2D1_RECT_F label_rect = D2D1::RectF(tx, cy - 16.0f, rect.right - 14.0f, cy - 1.0f);
         muted_brush_->SetOpacity(0.50f);
@@ -10707,14 +10162,12 @@ private:
     int bitmap_cap_w_ = 0; // allocated size of the DIB (>= logical size)
     int bitmap_cap_h_ = 0;
 
-    // Fixed-stage bookkeeping (see Render)
     POINT last_origin_ = {0, 0};
     RECT last_bounds_ = {0, 0, 0, 0};
     BYTE last_alpha_ = 0;
     bool stage_valid_ = false;
     double last_full_paint_ = -1e9;
 
-    // Pills drawn this frame, in client px, for the DWM backdrop windows (#59).
     D2D1_RECT_F pill_rects_[dwm_backdrop::max_pills] = {};
     float pill_radii_[dwm_backdrop::max_pills] = {};
     int pill_count_ = 0;
@@ -10777,10 +10230,10 @@ private:
     std::array<uint64_t, notification_center::max_apps> notification_center_generations_{};
     std::size_t notification_center_next_slot_ = 0;
 
-    // ── Lyrics tab state ─────────────────────────────────────────────────────
+    // Lyrics state
     KaraokeLayoutCache karaoke_cache_;
 
-    // ── Collapsed lyrics state ───────────────────────────────────────────────
+    // Collapsed lyrics state
     CollapsedLyricLine collapsed_lyric_cur_;
     CollapsedLyricLine collapsed_lyric_prev_;
     int collapsed_lyric_idx_ = -2; // -2 = nothing built yet (forces a snap)
@@ -10788,7 +10241,7 @@ private:
     std::wstring collapsed_lyric_artist_;
     double collapsed_lyric_anim_start_ = -10.0;
 
-    // ── Media-tab lyrics panel state ─────────────────────────────────────────
+    // Media tab lyrics panel state
     CollapsedLyricLine side_lyric_cur_;
     CollapsedLyricLine side_lyric_prev_;
     int side_lyric_idx_ = -2; // -2 = nothing built yet (forces a snap)
@@ -10799,7 +10252,7 @@ private:
     double side_lyric_anim_start_ = -10.0;
     double side_lyric_last_drawn_ = -1.0;
 
-    // ── Immersive lyrics state ───────────────────────────────────────────────
+    // Immersive lyrics state
     float immersive_mix_lin_ = 0.0f;
     double immersive_mix_last_ = -1.0;
     double imm_last_drawn_ = -1.0;
@@ -10813,17 +10266,14 @@ private:
     std::wstring imm_fmt_family_;
     MarqueeLayoutCache marquee_immersive_cache_;
     LinearGradientSlot imm_karaoke_grad_;
-    float hover_scale_ = 1.0f;        // pill scale set by Render(); gives the resting expanded size
-    float island_size_last_w_ = 0.0f; // island resize tracking (see DrawMedia)
+    float hover_scale_ = 1.0f; // pill scale set by render(); gives the resting expanded size
+    float island_size_last_w_ = 0.0f;
     float island_size_last_h_ = 0.0f;
     double island_size_moved_at_ = -1e9;
     bool island_settled_ = true; // false while the island is still springing to a new size
     float settings_opacity_ = 0.96f;
     D2D1_COLOR_F pill_bg_color_ = D2D1::ColorF(0.031f, 0.031f, 0.039f, 1.0f);
-    // Design tokens for the current frame, rebuilt by EnsureBrushes.
     MaterialTokens material_{};
-    // Accent color lerp: smoothly transition between successive sampled accents
-    // so track changes don't produce a jarring instant color pop.
     D2D1_COLOR_F current_accent_ = D2D1::ColorF(0x4cc9f0);
     double last_accent_time_ = -1.0; // -1 = not yet set (will snap on first frame)
     float media_btn_press_[3] = {0.0f, 0.0f, 0.0f};
@@ -10842,7 +10292,7 @@ private:
     double play_morph_last_drawn_ = -1.0;
     bool play_morph_init_ = false;
     ComPtr<ID2D1StrokeStyle> round_join_style_;
-    std::vector<TitleGlyph> title_old_; // title change: shared letters slide, the rest dissolve
+    std::vector<TitleGlyph> title_old_;
     std::vector<TitleGlyph> title_new_;
     std::wstring title_shown_;
     bool title_shown_placeholder_ = false;
@@ -10855,41 +10305,41 @@ private:
     TitleScroll title_new_scroll_;
     SwapTextState swap_artist_;
     SwapTextState swap_album_;
-    ComPtr<ID2D1Bitmap> art_flip_old_; // album art flip
+    ComPtr<ID2D1Bitmap> art_flip_old_;
     double art_flip_start_ = -1.0;
     double art_flip_last_drawn_ = -1.0;
     uint64_t art_flip_hash_ = 0;
     uint64_t art_hash_gen_ = 0;
     uint64_t art_hash_value_ = 0;
     bool art_flip_init_ = false;
-    ComPtr<ID2D1Bitmap> pill_art_old_;  // pill cover change: outgoing disc during a drop
-    ComPtr<ID2D1Bitmap> pill_art_last_; // bitmap drawn in the previous pill frame
-    double pill_art_start_ = -1.0;      // -1 = idle
+    ComPtr<ID2D1Bitmap> pill_art_old_;
+    ComPtr<ID2D1Bitmap> pill_art_last_;
+    double pill_art_start_ = -1.0; // -1 = idle
     double pill_art_last_drawn_ = -1.0;
-    double pill_art_full_at_ = -1.0; // when the last full drop started
-    double art_outer_last_ = -1.0;   // shared art pass: last frame it ran
-    float art_outer_alpha_ = 1.0f;   // shared art pass: eased opacity
-    bool upkeep_pending_ = false;    // z-order upkeep requested, throttled in Render()
-    double last_upkeep_at_ = -1e9;   // last time ApplyOverlayZOrder actually ran
-    bool island_hiding_ = false;     // target size is 0 (auto-hide / fullscreen): art shrinks with the pill
-    float art_morph_lin_ = 0.0f;     // art circle->square progress (linear, before easing)
+    double pill_art_full_at_ = -1.0;
+    double art_outer_last_ = -1.0;
+    float art_outer_alpha_ = 1.0f;
+    bool upkeep_pending_ = false;
+    double last_upkeep_at_ = -1e9;
+    bool island_hiding_ = false; // target size is 0 (auto-hide / fullscreen): art shrinks with the pill
+    float art_morph_lin_ = 0.0f;
     double art_morph_last_ = -1.0;
-    float art_badge_alpha_ = 1.0f; // source badge opacity on the expanded art
+    float art_badge_alpha_ = 1.0f;
     double pill_title_pending_at_ = -1.0;
     uint64_t pill_art_hash_ = 0;
     std::wstring pill_title_;
     float pill_art_dir_ = 1.0f;   // +1 clockwise (next), -1 counter-clockwise (previous)
     bool pill_art_pulse_ = false; // same cover, new track
     bool pill_art_init_ = false;
-    bool expanded_anim_ = false;   // Settings::expandedMediaAnim, latched per frame
-    bool pill_cover_anim_ = false; // Settings::pillCoverAnim, latched per frame
+    bool expanded_anim_ = false;
+    bool pill_cover_anim_ = false;
     float indicator_mix_ = 0.0f;
     double indicator_last_drawn_ = -1.0;
-    bool spec_init_ = false; // audio spectrum state
+    bool spec_init_ = false;
     double spec_last_drawn_ = -1.0;
-    double spec_start_ = -1.0; // -1 = no track-change animation running
+    double spec_start_ = -1.0;
     size_t spec_key_ = 0;
-    float spec_t_ = -1.0f; // 0..1 animation progress, <0 when idle
+    float spec_t_ = -1.0f;
     float spec_dir_ = 1.0f;
     float spec_phase_ = 0.0f;
     float spec_bass_ = 0.0f;
@@ -10897,11 +10347,11 @@ private:
     float spec_kick_ = 0.0f;
     float spec_peak_[spectrum_bands] = {};
     float spec_peak_vel_[spectrum_bands] = {};
-    float progress_amp_ = 1.0f; // wavy/squiggle bar: wave strength, eases to 0 while paused
+    float progress_amp_ = 1.0f;
     double progress_last_time_ = -1.0;
 
-    // ── Source switch + dock ────────────────────────────────────────────────
-    int swap_phase_ = 0; // kSwapNone
+    // Source switch and dock
+    int swap_phase_ = 0;
     double swap_start_ = 0.0;
     double swap_last_update_ = -1.0;
     float swap_dir_ = 1.0f;
@@ -10922,25 +10372,25 @@ private:
     uint64_t dock_icon_gen_[media_layout::dock_max_slots] = {};
     MarqueeLayoutCache marquee_source_cache_;
 
-    // ── Tab transition state ────────────────────────────────────────────────
-    int tab_context_ = -1; // 0 = media view, 1 = idle view (ids mean different things)
+    // Tab transition state
+    int tab_context_ = -1;
     int tab_count_ = 0;
-    bool tab_init_ = false; // false = next draw snaps to the selected tab
+    bool tab_init_ = false;
     bool tab_animating_ = false;
-    float tab_pos_ = 0.0f; // continuous position the spring moves
+    float tab_pos_ = 0.0f;
     float tab_target_ = 0.0f;
     float tab_vel_ = 0.0f;
-    float tab_dir_ = 1.0f; // +1 = last move went forward, -1 = backward
+    float tab_dir_ = 1.0f;
     double tab_last_drawn_ = -1.0;
-    ComPtr<ID2D1Layer> tab_layer_; // reused layer for the tab fade
+    ComPtr<ID2D1Layer> tab_layer_;
 
-    // ── Cached resources (see "Cached Direct2D resources") ──────────────────
+    // Cached resources (see "Cached Direct2D resources")
     std::vector<ComPtr<ID2D1SolidColorBrush>> brush_pool_;
     size_t brush_pool_used_ = 0;
     std::vector<ComPtr<ID2D1Layer>> layer_pool_;
     size_t layer_pool_used_ = 0;
-    ComPtr<ID2D1SolidColorBrush> raised_brush_;        // DrawCard fill
-    ComPtr<ID2D1SolidColorBrush> raised_strong_brush_; // active card, badges, tracks
+    ComPtr<ID2D1SolidColorBrush> raised_brush_;
+    ComPtr<ID2D1SolidColorBrush> raised_strong_brush_;
     LinearGradientSlot depth_grad_;
     LinearGradientSlot track_grad_;
     RadialGradientSlot bloom_grad_;
@@ -11003,8 +10453,7 @@ Activity activity_for_kind(IslandKind kind, const Settings& settings, const Shar
             activity.height = 42.0f;
             break;
         case IslandKind::Lookup:
-            // Width is fixed; the real height is measured per result by
-            // Renderer::MeasureLookupCard in the render loop. This is only a seed.
+            // Seed only: the render loop measures the real height (measure_lookup_card).
             activity.width = lookup_layout::k_width;
             activity.height = 42.0f;
             break;
@@ -11017,12 +10466,7 @@ Activity activity_for_kind(IslandKind kind, const Settings& settings, const Shar
             }
             else
             {
-                // Seed only. The real collapsed width is measured from the clock
-                // and weather strings by Renderer::MeasureIdleStrip and applied in
-                // the render loop -- this function has no DWrite access. A fixed
-                // width here was the whole bug behind windhawk-mods#5086: dead
-                // air around a short "9:41", and clipping on "10:41:32 PM" once
-                // Text size reached 140.
+                // Seed only: the render loop measures the real collapsed width (measure_idle_strip).
                 activity.width = settings.weather ? 170.0f : 96.0f;
                 activity.height = idle_strip_layout::k_height;
             }
@@ -11049,9 +10493,6 @@ std::vector<IslandKind> choose_activities(const SharedState& state, const Settin
     {
         activities.push_back(IslandKind::Clipboard);
     }
-    // settings.capsLock is checked here, like every other module above and below.
-    // Leaving it out was what made the Caps Lock toggle not actually work: the
-    // handler gate stopped the nudge but the pill was still selected and drawn.
     if (settings.caps_lock && state.caps_lock.active && now < state.caps_lock.expires_at)
     {
         activities.push_back(IslandKind::CapsLock);
@@ -11204,29 +10645,13 @@ DWORD WINAPI render_thread_proc(void*)
         return 0;
     }
 
-    // Restore the File Tray from disk. Done here because the shell icons need the
-    // COM apartment this thread already initialised.
+    // Restore the File Tray here: the shell icons need this thread's COM apartment.
     load_file_tray();
 
-    // A 1ms timer resolution costs power, so it is requested only while the island
-    // is actually animating. It used to be requested once here and released at
-    // shutdown, so a parked or idle island held it for the mod's whole lifetime.
-    //
-    // Since Windows 10 2004 this affects only the calling process's timers rather
-    // than the system clock globally, but the power cost is the reason to scope it
-    // either way.
-    //
-    // The flag is only set when timeBeginPeriod actually succeeded, so the
-    // begin/end pairs stay balanced -- these calls are reference counted per
-    // process, and an unmatched timeEndPeriod would decrement someone else's
-    // request.
+    // 1 ms timer resolution costs power, so it is held only while the island animates. The flag is set
+    // only when timeBeginPeriod succeeded, so begin/end stay balanced.
     bool high_res_timer = false;
 
-    // How long the resolution is held after animation stops. Long enough to ride
-    // out the gaps between 60Hz content frames and brief pauses between spring
-    // animations without flapping, short enough that a settled island gives it back
-    // promptly. A plain local rather than a static, so an unload/reload cycle cannot
-    // carry a stale timestamp across.
     constexpr double high_res_timer_hold_sec = 0.5;
     double last_animating_at = -1.0;
 
@@ -11294,38 +10719,26 @@ DWORD WINAPI render_thread_proc(void*)
 
         if (g_manually_hidden.load())
         {
-            // Manual hide always takes precedence over — and invalidates —
-            // any auto-park bookkeeping, since the window's shown/hidden
-            // state is now fully owned by the manual toggle. Without this,
-            // toggling manual-hide off after having been auto-parked would
-            // leave g_autoHiddenParked stale-true and the window stuck
-            // hidden.
+            // Manual hide owns the window state, so auto-park bookkeeping is cleared.
             g_auto_hidden_parked = false;
             was_auto_hidden_parked = false;
 
             if (!was_manually_hidden)
             {
-                // Just hid: drop to zero-CPU parking immediately, no
-                // lingering render/animation work this frame.
                 ShowWindow(hwnd, SW_HIDE);
                 dwm_backdrop::hide_all();
                 g_audio_capture_needed.store(false, std::memory_order_relaxed);
                 was_manually_hidden = true;
             }
             previous_frame = std::chrono::steady_clock::now();
-            // Fully parked: no polling, no timer wakeups — only the stop
-            // event or a posted/queued message (hotkey, settings change,
-            // clipboard update, etc.) wakes this thread while hidden. Nothing
-            // is being paced, so give the system timer resolution back.
+            // Fully parked: only the stop event or a message wakes this thread; no timers.
             set_high_res_timer(false);
             MsgWaitForMultipleObjects(1, &g_stop_event, FALSE, INFINITE, QS_ALLINPUT);
             next_frame_target = std::chrono::steady_clock::now();
             continue;
         }
 
-        // Sits ahead of the parked branch below on purpose: that branch can block
-        // for up to 1.5s, and the mouse thread needs to hear about a transition
-        // before that, not after.
+        // Before the parked branch on purpose: that branch can block for up to 1.5 s.
         {
             static bool prev_parked_for_hook = false;
             const bool parked_now = g_auto_hidden_parked.load(std::memory_order_relaxed);
@@ -11345,7 +10758,6 @@ DWORD WINAPI render_thread_proc(void*)
             else
             {
                 previous_frame = std::chrono::steady_clock::now();
-                // Auto-parked, so nothing is animating; same reasoning as above.
                 set_high_res_timer(false);
                 if (parked_for_fullscreen)
                 {
@@ -11373,10 +10785,6 @@ DWORD WINAPI render_thread_proc(void*)
 
         if (was_manually_hidden)
         {
-            // Just un-hid. Show now; springs get snapped straight to their
-            // freshly-computed targets further down this same iteration so
-            // there's no stale pop-in animation from wherever they were
-            // left off before hiding.
             was_manually_hidden = false;
             just_unhidden = true;
             ShowWindow(hwnd, SW_SHOWNOACTIVATE);
@@ -11388,10 +10796,6 @@ DWORD WINAPI render_thread_proc(void*)
 
         if (was_auto_hidden_parked && !g_auto_hidden_parked.load())
         {
-            // Something woke us (mouse near the island, a transient alert,
-            // the hotkey, fullscreen ending, etc.) — reveal and let this
-            // frame's normal logic decide whether to actually stay visible
-            // or immediately re-collapse and re-park.
             was_auto_hidden_parked = false;
             just_unhidden = true;
             ShowWindow(hwnd, SW_SHOWNOACTIVATE);
@@ -11402,12 +10806,9 @@ DWORD WINAPI render_thread_proc(void*)
         }
 
         const double now = now_seconds();
-        // True while a tab transition is genuinely being painted. The registry /
-        // device polls below run on this thread and can take several ms, which
-        // shows up as a hitch mid-animation, so they wait for the spring to settle.
+        // The registry and device polls below can take several ms, so they wait for tab animations to settle.
         const bool tab_busy = g_tab_animating.load(std::memory_order_relaxed) &&
                               (now - g_tab_last_paint_at.load(std::memory_order_relaxed)) < 0.25;
-        // The island itself is resizing (spring state from the previous frame).
         const bool spring_busy = std::fabs(width_spring.value - width_spring.target) > 0.5f ||
                                  std::fabs(height_spring.value - height_spring.target) > 0.5f ||
                                  std::fabs(width_spring.velocity) > 0.5f || std::fabs(height_spring.velocity) > 0.5f;
@@ -11487,8 +10888,6 @@ DWORD WINAPI render_thread_proc(void*)
             trigger_nudge();
         }
 
-        // Quick Lookup: hand keyboard focus back once the panel has timed out or the
-        // module was switched off in settings.
         if (g_lookup_ui.open &&
             (!g_settings.quick_lookup || !snapshot.lookup.active || now >= snapshot.lookup.expires_at))
         {
@@ -11520,8 +10919,7 @@ DWORD WINAPI render_thread_proc(void*)
         POINT cursor = {};
         GetCursorPos(&cursor);
 
-        // Pill rectangle in screen space, from the same layout Render() uses. The window
-        // is a big fixed stage now, so its own rect says nothing about where the pill is.
+        // Pill rectangle in screen space, from the same layout render uses (the window is a fixed stage).
         const bool flush_top_now = g_settings.notch_style || g_settings.border_merged_mode;
         const StageLayout hover_stage = compute_stage_layout(g_settings, width_spring.value, height_spring.value);
         const float hover_top =
@@ -11543,8 +10941,7 @@ DWORD WINAPI render_thread_proc(void*)
             hover = PtInRect(&dock_rect, cursor) != FALSE;
         }
 
-        // A file drag hovering over the island counts as hover, so it expands onto
-        // the File Tray even with "Expand on hover" turned off.
+        // A file drag over the island counts as hover, so it expands onto the File Tray.
         if (g_tray_drag_over.load(std::memory_order_relaxed))
         {
             hover = true;
@@ -11567,12 +10964,8 @@ DWORD WINAPI render_thread_proc(void*)
             g_hovered_media_button = -1;
             needs_render = true;
         }
-        // Fixes windhawk-mods#4738: active playback used to count as a continuous
-        // event, so the island stayed visible for as long as anything was playing
-        // and kept resetting the auto-hide timer. Only the 5s window after a
-        // *title* change is transient now, so the pill behaves like the clipboard
-        // and battery alerts -- it surfaces, then hides again while playback
-        // continues in the background.
+        // Only the 5 s after a title change is transient, so the pill surfaces and then auto-hides again
+        // while playback continues.
         const bool recent_track_change = g_settings.media_auto_expand && !media_expand_blocked(snapshot.media) &&
                                          primary.kind == IslandKind::Media && snapshot.media.playing &&
                                          !snapshot.media.title.empty() && (now - snapshot.media.title_changed_at < 5.0);
@@ -11645,9 +11038,6 @@ DWORD WINAPI render_thread_proc(void*)
             const bool new_fullscreen = g_settings.auto_hide_fullscreen && is_foreground_fullscreen(hwnd);
             if (is_fullscreen && !new_fullscreen)
             {
-                // Fullscreen ended — re-arm so the next fullscreen session
-                // hides again even if the hotkey was used to reveal the
-                // island this time.
                 g_fullscreen_override_visible = false;
             }
             is_fullscreen = new_fullscreen;
@@ -11655,9 +11045,7 @@ DWORD WINAPI render_thread_proc(void*)
             last_fullscreen_check = now;
         }
 
-        // Reclaim the top of the z-order if another always-on-top window has
-        // been raised over the island. Cheap and rate-limited, and skipped
-        // while the island is hidden or suppressed so it cannot un-hide itself.
+        // Reclaim the top of the z-order (rate-limited, skipped while hidden).
         static double last_topmost_check = 0.0;
         if (!is_fullscreen && !g_manually_hidden.load() && !g_auto_hidden_parked.load() &&
             now - last_topmost_check > 1.0)
@@ -11672,14 +11060,8 @@ DWORD WINAPI render_thread_proc(void*)
             snapshot.system.camera_active && g_settings.privacy_dots && g_settings.privacy_dots_cam;
         const bool privacy_active = mic_indicator_active || cam_indicator_active;
 
-        // Whether any surface that actually draws CPU / RAM / disk / GPU / network
-        // figures is on screen: the in-game overlay, or the idle dashboard's
-        // Hardware Monitor tab while expanded (hovered or pinned) and scrolled into
-        // view.
-        //
-        // Hoisted out of the poll block below because two decisions need it: whether
-        // to sample the expensive GPU and network counters at all, and whether a
-        // change in those numbers is worth repainting for.
+        // Any surface showing CPU, RAM, disk, GPU or network figures: decides both sampling the expensive
+        // counters and repainting on their changes.
         const int metric_tab_idx = normalized_tab_index(g_settings);
         const bool on_hardware_monitor_tab = (metric_tab_idx == hardware_monitor_tab_index(g_settings));
         const bool hw_monitor_visible = (primary.kind == IslandKind::Idle || primary.kind == IslandKind::Media) &&
@@ -11702,7 +11084,7 @@ DWORD WINAPI render_thread_proc(void*)
             update_system_snapshot(need_gpu_stats, need_net_stats);
             if (!g_endpoint_volume)
             {
-                g_volume_endpoint_stale = true; // no audio device yet, or binding failed
+                g_volume_endpoint_stale = true;
             }
             next_system_poll = now + 1.0;
         }
@@ -11716,11 +11098,6 @@ DWORD WINAPI render_thread_proc(void*)
             }
             else if (primary.width > 0.0f)
             {
-                // Collapsed: size the strip to the text it will actually render
-                // (windhawk-mods#5086). ActivityForKind's 96/170px was wrong both
-                // ways -- dead air around a short "9:41", and clipping on
-                // "10:41:32 PM" at larger Text size.
-                // The > 0 guard preserves ActivityForKind's fully-hidden case.
                 primary.width =
                     renderer.measure_idle_strip(snapshot, g_settings, now).total_width * g_settings.size_scale;
             }
@@ -11728,11 +11105,6 @@ DWORD WINAPI render_thread_proc(void*)
         if (!is_fullscreen && primary.kind == IslandKind::Idle &&
             (g_settings.game_overlay || g_game_overlay_pinned.load()))
         {
-            // Width follows the metrics actually enabled (#25) so switching some
-            // off shrinks the strip instead of leaving empty space, and compact
-            // mode narrows it enough to sit neatly in the taskbar area. Both the
-            // size and the painting come from GameOverlayLayout, so the strip
-            // cannot end up sized for a card width DrawGameOverlay no longer uses.
             const int metric_count =
                 (g_settings.game_overlay_show_cpu ? 1 : 0) + (g_settings.game_overlay_show_ram ? 1 : 0) +
                 (g_settings.game_overlay_show_gpu ? 1 : 0) + (g_settings.game_overlay_show_disk ? 1 : 0);
@@ -11748,17 +11120,14 @@ DWORD WINAPI render_thread_proc(void*)
             {
                 primary.width = media_layout::expanded_width * g_settings.size_scale;
                 primary.height = media_layout::expanded_height * g_settings.size_scale;
-                // (Immersive lyrics: the island keeps its normal 380px width.)
             }
             else
             {
-                // Optional clock section on the left of the collapsed pill.
                 const float clock_section = g_settings.media_pill_clock
                                                 ? renderer.measure_media_pill(snapshot, g_settings).section_width
                                                 : 0.0f;
                 if (collapsed_lyrics_active(snapshot, g_settings))
                 {
-                    // Collapsed but carrying lyrics: wider pill, same height.
                     primary.width = (collapsed_lyrics_width + clock_section) * g_settings.size_scale;
                 }
                 else if (g_settings.media_pill_clock)
@@ -11774,10 +11143,9 @@ DWORD WINAPI render_thread_proc(void*)
 
         if (primary.kind == IslandKind::Lookup)
         {
-            secondary.reset(); // the panel stands alone (see HandleLookupClick)
+            secondary.reset();
             if (primary.width > 1.0f)
             {
-                // The Lookup card is sized to its (wrapped, line-capped) content.
                 const Settings lookup_settings = get_settings_copy();
                 primary.height = renderer.measure_lookup_card(snapshot, lookup_settings) * lookup_settings.size_scale;
             }
@@ -11828,17 +11196,17 @@ DWORD WINAPI render_thread_proc(void*)
         if (g_settings.animation_style == AnimationStyle::Smooth)
         {
             style_stiffness_mult = 1.0f;
-            style_damping_mult = 1.35f; // Critically damped, no bounciness
+            style_damping_mult = 1.35f;
         }
         else if (g_settings.animation_style == AnimationStyle::Bouncy)
         {
             style_stiffness_mult = 1.1f;
-            style_damping_mult = 0.70f; // Underdamped, lively elasticity
+            style_damping_mult = 0.70f;
         }
         else if (g_settings.animation_style == AnimationStyle::Snappy)
         {
             style_stiffness_mult = 1.5f;
-            style_damping_mult = 1.25f; // High stiffness and quick settle
+            style_damping_mult = 1.25f;
         }
 
         const float speed = g_settings.animation_speed;
@@ -11884,7 +11252,6 @@ DWORD WINAPI render_thread_proc(void*)
 
         nudge_spring.step(dt * speed, 280.0f * style_stiffness_mult, 24.0f * style_damping_mult);
 
-        // Tracks the live level while the flyout is closed, so opening it doesn't sweep from a stale value.
         if (snapshot.volume.active)
         {
             volume_bar_spring.target = static_cast<float>(snapshot.volume.percent);
@@ -11893,7 +11260,6 @@ DWORD WINAPI render_thread_proc(void*)
         {
             volume_bar_spring.reset(static_cast<float>(snapshot.system.volume_percent));
         }
-        // Fixed, overdamped constants: the animation style must not make the bar overshoot.
         volume_bar_spring.step(dt * speed, 520.0f, 46.0f);
         snapshot.volume.display_percent = volume_bar_spring.value;
 
@@ -11905,15 +11271,12 @@ DWORD WINAPI render_thread_proc(void*)
         const bool dragging_or_hover =
             hover || ((GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0 && PtInRect(&pill_rect, cursor));
 
-        // Ctrl+hover see-through: holding Ctrl while hovering makes the island
-        // transparent and click-through in ANY state, so clicks pass through
-        // to windows underneath. Releasing Ctrl or moving away restores it.
+        // Ctrl+hover: the island turns see-through and click-through until Ctrl is released.
         const bool ctrl_held = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
         const bool ctrl_hover_ct = hover && ctrl_held && !g_lookup_ui.open;
 
         set_click_through(hwnd, (primary.kind == IslandKind::Idle && !dragging_or_hover && !pinned) || ctrl_hover_ct);
 
-        // Check if animating structurally
         if (std::abs(width_spring.velocity) > 0.01f || std::abs(width_spring.target - width_spring.value) > 0.01f ||
             std::abs(height_spring.velocity) > 0.01f || std::abs(height_spring.target - height_spring.value) > 0.01f ||
             std::abs(nudge_spring.velocity) > 0.01f || std::abs(nudge_spring.target - nudge_spring.value) > 0.01f ||
@@ -11923,7 +11286,6 @@ DWORD WINAPI render_thread_proc(void*)
             needs_render = true;
         }
 
-        // Active Monitor Tracking & dynamic DPI scaling
         {
             HMONITOR current_anchor = nullptr;
             get_anchor_work_rect(&current_anchor);
@@ -11947,7 +11309,6 @@ DWORD WINAPI render_thread_proc(void*)
             }
         }
 
-        // Quick Lookup panel: caret blink, and keeps the published hit-test geometry fresh.
         if (g_lookup_ui.open && primary.kind == IslandKind::Lookup)
         {
             static double s_last_lookup_paint = 0.0;
@@ -11958,9 +11319,7 @@ DWORD WINAPI render_thread_proc(void*)
             }
         }
 
-        // A tab transition keeps painting until its spring settles. It used to
-        // request that through g_layoutDirty, which also made Render() run
-        // SetWindowPos / backdrop-region upkeep on every frame of the animation.
+        // A tab transition keeps painting until its spring settles (without layout upkeep every frame).
         if (g_tab_animating.load(std::memory_order_relaxed))
         {
             if (tab_busy)
@@ -11969,19 +11328,15 @@ DWORD WINAPI render_thread_proc(void*)
             }
             else
             {
-                // The tab view stopped drawing mid-motion (island collapsed or an
-                // alert took over); don't keep the loop spinning for it.
                 g_tab_animating.store(false, std::memory_order_relaxed);
             }
         }
 
-        // Check if layout was explicitly invalidated
         if (g_layout_dirty.load())
         {
             needs_render = true;
         }
 
-        // Hover or pinned state changes visual elements slightly
         static bool prev_hover = false;
         static bool prev_pinned = false;
         if (hover != prev_hover || pinned != prev_pinned)
@@ -11991,47 +11346,14 @@ DWORD WINAPI render_thread_proc(void*)
             prev_pinned = pinned;
         }
 
-        // Activities that animate continuously: the waveform bars, the marquee
-        // scroll and the battery pulse. These still only want ~60Hz -- they look no
-        // different above it, and they should not piggyback on whatever high Target
-        // FPS the user picked for structural resize animation.
-        //
-        // The rate limit lives in the pacer at the bottom of the loop, not here.
-        // This used to gate needsRender behind a 1/60s (16.667ms) timer and then
-        // fall through to the flat 16ms idle wait, which cannot satisfy it: 16ms is
-        // shorter than the gate, so the next pass failed the check and waited a
-        // second time. The result was a paint roughly every 32ms -- about 31fps
-        // instead of 60, which is what made playing media look choppy.
-        // Media only counts as continuous while something on it is actually moving.
-        //
-        // ChooseActivities selects the Media pill for any *available* SMTC session,
-        // playing or not, so keying off the kind alone meant a paused Spotify or a
-        // browser tab with a paused video -- which can sit there for hours, since
-        // browsers keep the session alive -- held the island at a 60fps render loop
-        // and 1ms timer resolution indefinitely. Nothing on it moves in that state:
-        // the collapsed pill draws the album art plus a row of flat bars, taking the
-        // !playing branch that skips DrawWaveform entirely.
-        //
-        // Paused media now falls back to the ordinary change detection above (title
-        // and art generation, springs, hover), so the timer is released 0.5s after
-        // the last paint.
-        //
-        // The marquees are expanded-only, hence the hover/pinned terms. No need to
-        // include recentTrackChange: it already requires snapshot.media.playing, so
-        // it cannot be true while paused.
-        // Checks the secondary pill too. The island can show two pills side by side,
-        // so a playing media pill sitting next to a running timer or a progress ring
-        // is the secondary one -- and looking only at primary left its waveform
-        // frozen.
+        // Continuous animation (playing media bars, marquees, battery pulse) wants ~60 Hz; the pacer at the
+        // bottom enforces the rate. Paused media is not continuous. The secondary pill counts too.
         const bool media_shown =
             primary.kind == IslandKind::Media || (secondary && secondary->kind == IslandKind::Media);
         const bool media_animating = media_shown && (snapshot.media.playing || is_hover_expanded || pinned);
 
-        // Transient alert pills. All expire within a few seconds, so treating them as
-        // continuous cannot run away.
-        //
-        // Device, Bluetooth and Do Not Disturb are here only when the countdown bar
-        // is switched on, since that bar is the one thing on them that moves.
+        // Transient alert pills expire within seconds. Device, Bluetooth and DND count only with the
+        // countdown bar on.
         const auto is_transient_pill = [](IslandKind kind)
         {
             return kind == IslandKind::BatteryLow || kind == IslandKind::Clipboard || kind == IslandKind::Notification;
@@ -12051,13 +11373,11 @@ DWORD WINAPI render_thread_proc(void*)
             needs_render = true;
         }
 
-        // Privacy dots
         if (snapshot.system.mic_active || snapshot.system.camera_active)
         {
             needs_render = true;
         }
 
-        // Idle dashboard clock changes once a minute
         static SYSTEMTIME prev_time = {};
         const bool clock_on_screen =
             primary.kind == IslandKind::Idle || (primary.kind == IslandKind::Media && g_settings.media_pill_clock);
@@ -12072,22 +11392,8 @@ DWORD WINAPI render_thread_proc(void*)
             }
         }
 
-        // Text that ticks once a second: the focus timer countdown and, when Show
-        // seconds is on, the clock.
-        //
-        // Both used to ride on a side effect. The system poll refreshed CPU load
-        // every second and the change detection compared it unconditionally, so the
-        // whole island repainted about once a second whether anything visible had
-        // changed or not. Gating those metric comparisons on visibility removed that,
-        // which left DrawTimer recomputing its m:ss from NowSeconds() on a surface
-        // nothing marked dirty -- a 25 minute session sat at 25:00 until some
-        // unrelated event forced a paint -- and left the seconds clock updating once
-        // a minute despite its own setting promising every second.
-        //
-        // Keyed to the displayed value rather than to elapsed time, so each visible
-        // change paints exactly once. Deliberately not folded into
-        // continuousAnimation: these need one frame per second, not the 1ms timer
-        // resolution that continuous animation asks for.
+        // Text that ticks once a second (focus timer, Clock with seconds): repaint exactly when the shown
+        // value changes, without asking for continuous pacing.
         int shown_second = -1;
         const bool timer_shown =
             primary.kind == IslandKind::Timer || (secondary && secondary->kind == IslandKind::Timer);
@@ -12108,7 +11414,6 @@ DWORD WINAPI render_thread_proc(void*)
             needs_render = true;
         }
 
-        // Compare data snapshot to detect changes
         static uint64_t prev_art_gen = 0;
         static uint64_t prev_src_icon_gen = 0;
         static uint64_t prev_notif_icon_gen = 0;
@@ -12125,21 +11430,13 @@ DWORD WINAPI render_thread_proc(void*)
         static std::wstring prev_media_title;
         static bool prev_playing = false;
 
-        // CPU / RAM / disk are compared only while a surface that draws them is on
-        // screen. UpdateSystemSnapshot refreshes them every second and CPU load
-        // essentially always differs between samples, so comparing them
-        // unconditionally repainted the whole island once a second for numbers that
-        // appear nowhere on the collapsed pill.
+        // CPU, RAM and disk are compared only while something shows them (CPU changes on every sample).
         const bool system_metrics_changed = system_metrics_visible && (snapshot.system.cpu_percent != prev_cpu ||
                                                                        snapshot.system.memory_percent != prev_ram ||
                                                                        snapshot.system.disk_free_percent != prev_disk);
 
         if (snapshot.media.art_generation != prev_art_gen ||
             snapshot.media.source_icon_generation != prev_src_icon_gen || snapshot.media.title != prev_media_title ||
-            // Play/pause has to be in here now that the metric tick no longer
-            // repaints every second as a side effect. Pausing while collapsed swaps
-            // the live waveform for the static bars, and without this the frozen
-            // last playing frame stayed up until some unrelated repaint came along.
             snapshot.media.playing != prev_playing || snapshot.notification.icon->generation != prev_notif_icon_gen ||
             snapshot.clipboard.app_icon->generation != prev_clip_icon_gen || system_metrics_changed ||
             snapshot.system.volume_percent != prev_vol || snapshot.system.volume_muted != prev_muted ||
@@ -12164,7 +11461,6 @@ DWORD WINAPI render_thread_proc(void*)
             prev_prog = snapshot.progress.percent;
         }
 
-        // Track whether Ctrl+hover click-through state changed so we re-render
         static bool prev_ctrl_hover_ct = false;
         if (ctrl_hover_ct != prev_ctrl_hover_ct)
         {
@@ -12174,8 +11470,6 @@ DWORD WINAPI render_thread_proc(void*)
 
         if (needs_render)
         {
-            // When Ctrl+hover click-through is active, reduce pill opacity so the
-            // island becomes visually see-through to match the pass-through behavior.
             Settings render_settings = get_settings_copy();
             if (ctrl_hover_ct)
             {
@@ -12187,7 +11481,6 @@ DWORD WINAPI render_thread_proc(void*)
                     is_hover_expanded || pinned || is_transient_alert || (width_spring.value > 260.0f);
                 render_settings.pill_opacity = is_expanded ? 0.98f : 0.88f;
             }
-            // No usable backdrop (old Windows / effects off): keep the solid background.
             if (render_settings.backdrop_material != BackdropMaterial::None && !dwm_backdrop::available())
             {
                 render_settings.backdrop_material = BackdropMaterial::None;
@@ -12196,9 +11489,7 @@ DWORD WINAPI render_thread_proc(void*)
                             nudge_spring.value, hover, pinned, now);
         }
 
-        // --- Zero-CPU parking for auto-hidden states (idle timeout / fullscreen) ---
-        // Only parks once the collapse animation has actually settled at 0,
-        // so the shrink still animates before we cut over to OS-hidden.
+        // Zero-CPU parking for auto-hide: only after the collapse animation settled at 0.
         const bool wants_auto_hidden_park =
             !g_manually_hidden.load() && !pinned && !is_hover_expanded && !is_transient_alert && !privacy_active &&
             (is_hidden || fullscreen_suppressed) && width_spring.value < 0.5f && height_spring.value < 0.5f &&
@@ -12231,13 +11522,8 @@ DWORD WINAPI render_thread_proc(void*)
         target_fps = clamp_int(target_fps, 30, 1000);
         double target_frame_ms = 1000.0 / static_cast<double>(target_fps);
 
-        // Structural animation -- the springs resizing or nudging the island -- is
-        // what benefits from a high Target FPS. Continuous content does not, so once
-        // the springs have settled the interval is relaxed to 60Hz and the precise
-        // pacer below hits it accurately.
-        //
-        // std::max, not a plain assignment: a user who deliberately set Target FPS
-        // to 40 should keep 40 rather than being pushed up to 60.
+        // High Target FPS only for spring motion; continuous content relaxes to 60 Hz (never above the user's
+        // lower setting).
         const bool springs_animating =
             std::fabs(width_spring.value - width_spring.target) > 0.5f ||
             std::fabs(height_spring.value - height_spring.target) > 0.5f || std::fabs(width_spring.velocity) > 0.5f ||
@@ -12252,21 +11538,7 @@ DWORD WINAPI render_thread_proc(void*)
             target_frame_ms = std::max(target_frame_ms, continuous_frame_ms);
         }
 
-        // Keyed to actual animation, not to repainting.
-        //
-        // A single repaint does not need 1ms pacing -- it needs one frame, which the
-        // pacer delivers fine at the default resolution. Only things that draw a
-        // *sequence* of frames care: continuous content and spring motion.
-        //
-        // Keying it to needsRender was wrong twice over. Per frame it thrashed,
-        // because needsRender alternates when 60Hz content runs under a higher
-        // Target FPS. And with the hold added, any one-off repaint still took the
-        // resolution for the full hold -- including the metric tick, which fired
-        // every second, so a plain idle island requested and released it once a
-        // second and held it roughly half the time with nothing moving at all.
-        //
-        // continuousAnimation and springsAnimating are exactly the two cases that
-        // want precise frame spacing, so they drive it directly.
+        // 1 ms timer resolution follows actual animation (continuous content or springs), not single repaints.
         if (continuous_animation || springs_animating)
         {
             last_animating_at = now;
@@ -12275,22 +11547,17 @@ DWORD WINAPI render_thread_proc(void*)
 
         if (!needs_render)
         {
-            // Nothing changed on screen, so poll at ~60Hz rather than the target
-            // frame rate. Accuracy does not matter here -- this is a poll interval,
-            // not frame pacing -- so it runs at whatever resolution is in effect.
+            // Nothing changed: poll at ~60 Hz.
             WaitForSingleObject(g_stop_event, 16);
             next_frame_target = std::chrono::steady_clock::now();
         }
         else if (springs_animating && g_settings.target_fps <= 0 && SUCCEEDED(DwmFlush()))
         {
-            // Auto FPS while the island is resizing: block until DWM's next
-            // composition so every frame lands exactly on a vsync. A timer drifts
-            // against the display's refresh and produces judder even at high fps.
+            // Auto FPS while resizing: wait for the next DWM composition so frames land on vsync.
             next_frame_target = std::chrono::steady_clock::now();
         }
         else
         {
-            // When animating, achieve ultra-smooth target refresh rate (e.g. 144Hz, 240Hz, 360Hz+).
             next_frame_target += std::chrono::duration_cast<std::chrono::steady_clock::duration>(
                 std::chrono::duration<double, std::milli>(target_frame_ms));
 
@@ -12300,11 +11567,9 @@ DWORD WINAPI render_thread_proc(void*)
                 double remaining_ms = std::chrono::duration<double, std::milli>(next_frame_target - now_time).count();
                 if (remaining_ms >= 1.5)
                 {
-                    // Sleep for the bulk of the remaining time using OS event wait (zero CPU usage)
                     WaitForSingleObject(g_stop_event, static_cast<DWORD>(remaining_ms - 0.5));
                 }
-                // Spinning only pays off for fast spring motion on high refresh rates.
-                // For 60Hz content a frame landing under 1ms late is invisible, so sleep only.
+                // Spinning pays off only for fast springs on high refresh rates.
                 if (springs_animating && target_frame_ms < 10.0)
                 {
                     while (std::chrono::steady_clock::now() < next_frame_target &&
@@ -12316,13 +11581,11 @@ DWORD WINAPI render_thread_proc(void*)
             }
             else
             {
-                // If we fell behind, reset target to avoid speed-up catch-up loop
                 next_frame_target = now_time;
             }
         }
     }
 
-    // Balances whichever state the loop exited in; a no-op if already released.
     set_high_res_timer(false);
 
     unbind_volume_endpoint();

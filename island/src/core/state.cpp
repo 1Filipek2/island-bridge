@@ -4,10 +4,6 @@
 
 namespace island
 {
-
-// Returns a private copy of the current settings. Callers then read from the
-// copy for the rest of the frame, which also means a settings change landing
-// mid-frame can't tear a single render across two configurations.
 Settings get_settings_copy()
 {
     std::lock_guard lock(g_settings_mutex);
@@ -16,16 +12,13 @@ Settings get_settings_copy()
 
 namespace
 {
-
 std::atomic<double> g_last_nudge_time = 0.0;
 
 }
 
 void trigger_nudge()
 {
-    // If we're parked (auto-hidden), any real event must wake us regardless
-    // of the normal throttle, or it'd never be seen until the next hook/
-    // hotkey/fullscreen-recheck wake.
+    // A parked (auto-hidden) island must wake on any real event, regardless of the throttle.
     const bool was_parked = g_auto_hidden_parked.exchange(false, std::memory_order_relaxed);
     const double now = now_seconds();
     const double previous = g_last_nudge_time.load();
