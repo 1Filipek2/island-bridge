@@ -154,7 +154,7 @@ float idle_dot_reserve(const IdleStripMetrics& metrics)
     {
         return 0.0f;
     }
-    return idle_strip_layout::k_privacy_reserve +
+    return idle_strip_layout::privacy_reserve +
            (metrics.has_privacy && metrics.has_unread ? notification_center::unread_dot_gap : 0.0f);
 }
 
@@ -573,7 +573,7 @@ public:
         metrics.has_privacy = (state.system.mic_active && settings.privacy_dots && settings.privacy_dots_mic) ||
                               (state.system.camera_active && settings.privacy_dots && settings.privacy_dots_cam);
 
-        float total = idle_strip_layout::k_pad_x * 2.0f + metrics.clock_width;
+        float total = idle_strip_layout::pad_x * 2.0f + metrics.clock_width;
         if (metrics.has_weather)
         {
             total += idle_strip_layout::slot_gap * 2.0f + idle_strip_layout::divider_width + metrics.weather_width;
@@ -582,7 +582,7 @@ public:
         total += idle_dot_reserve(metrics);
 
         total = std::ceil(total / idle_strip_layout::width_quantum) * idle_strip_layout::width_quantum;
-        metrics.total_width = clamp(total, idle_strip_layout::min_width, idle_strip_layout::k_max_width);
+        metrics.total_width = clamp(total, idle_strip_layout::min_width, idle_strip_layout::max_width);
         return metrics;
     }
 
@@ -637,7 +637,7 @@ private:
         {
             ComPtr<IDWriteTextLayout> layout;
             if (SUCCEEDED(dwrite_factory_->CreateTextLayout(text.c_str(), static_cast<UINT32>(text.size()), fmt,
-                                                            4096.0f, idle_strip_layout::k_height, &layout)) &&
+                                                            4096.0f, idle_strip_layout::height, &layout)) &&
                 layout)
             {
                 DWRITE_TEXT_METRICS tm = {};
@@ -1466,13 +1466,13 @@ private:
 
         const float bot_a = (strong ? 0.085f : 0.060f) * (material_.on_dark ? 1.0f : 0.55f) * settings_opacity_;
 
-        static const D2D1_GRADIENT_STOP k_stops[3] = {
+        static const D2D1_GRADIENT_STOP depth_stops[3] = {
             {0.0f, D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.0f)},
             {0.45f, D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.25f)},
             {1.0f, D2D1::ColorF(0.0f, 0.0f, 0.0f, 1.0f)},
         };
         ID2D1LinearGradientBrush* brush = use_linear_gradient(
-            depth_grad_, k_stops, 3, D2D1::Point2F(rect.left, rect.top), D2D1::Point2F(rect.left, rect.bottom));
+            depth_grad_, depth_stops, 3, D2D1::Point2F(rect.left, rect.top), D2D1::Point2F(rect.left, rect.bottom));
         if (!brush)
         {
             return;
@@ -2753,7 +2753,7 @@ private:
     // File Tray: a shelf for files dropped on the island, with the real Explorer icons.
     void draw_file_tray_dashboard(const SharedState& state, D2D1_RECT_F rect, const Settings& settings, float scale)
     {
-        const float pad_x = file_tray_layout::k_pad_x * scale;
+        const float pad_x = file_tray_layout::pad_x * scale;
 
         const D2D1_RECT_F header_rect =
             D2D1::RectF(rect.left + pad_x, rect.top + 18.0f * scale, rect.right - pad_x, rect.top + 38.0f * scale);
@@ -2793,8 +2793,8 @@ private:
         draw_tray_paste_button(paste_box, g_hovered_file_tray_action.load(std::memory_order_relaxed) == -3);
         draw_tray_bin_button(clear_box, total > 0, g_hovered_file_tray_action.load(std::memory_order_relaxed) == -2);
 
-        const float list_top = rect.top + file_tray_layout::k_list_top * scale;
-        const float list_bottom = rect.bottom - file_tray_layout::k_list_bottom_inset * scale;
+        const float list_top = rect.top + file_tray_layout::list_top * scale;
+        const float list_bottom = rect.bottom - file_tray_layout::list_bottom_inset * scale;
 
         if (state.file_tray_items.empty())
         {
@@ -2826,8 +2826,8 @@ private:
             return;
         }
 
-        const float row_h = file_tray_layout::k_row_height * scale;
-        const float row_gap = file_tray_layout::k_row_gap * scale;
+        const float row_h = file_tray_layout::row_height * scale;
+        const float row_gap = file_tray_layout::row_gap * scale;
         const int capacity = file_tray_layout::visible_row_capacity((rect.bottom - rect.top) / scale);
 
         int drawn = 0;
@@ -3957,8 +3957,8 @@ private:
             IDWriteTextFormat* idle_fmt = idle_text_format_ ? idle_text_format_.Get() : small_text_format_.Get();
 
             const float privacy_reserve = idle_dot_reserve(idle_metrics) * scale;
-            const float inner_left = rect.left + idle_strip_layout::k_pad_x * scale;
-            const float inner_right = rect.right - idle_strip_layout::k_pad_x * scale - privacy_reserve;
+            const float inner_left = rect.left + idle_strip_layout::pad_x * scale;
+            const float inner_right = rect.right - idle_strip_layout::pad_x * scale - privacy_reserve;
 
             float block_width = idle_metrics.clock_width;
             if (idle_metrics.has_weather)
@@ -4130,7 +4130,7 @@ private:
         (void)unused_scale;
         const float scale = 1.0f;
         const bool compact = g_settings.game_overlay_compact;
-        const game_overlay_layout::Metrics m = game_overlay_layout::For(compact);
+        const game_overlay_layout::Metrics m = game_overlay_layout::metrics_for(compact);
 
         const float card_top = rect.top + m.pad_y;
         const float card_bottom = rect.bottom - m.pad_y;
@@ -4318,11 +4318,11 @@ private:
         }
         tab_idx = clamp_int(tab_idx, 0, count - 1);
 
-        constexpr float k_stiffness = 250.0f; // higher = faster (settles in ~0.29s)
-        constexpr float k_damping = 31.0f;    // ~0.92 damping ratio: no visible overshoot
-        constexpr float travel_px = 34.0f;    // vertical gap between neighbouring tabs
-        constexpr float min_scale = 0.965f;   // size of a tab that is fully out of view
-        constexpr float fade_power = 1.4f;    // >1 thins the mid-point slightly so text never ghosts
+        constexpr float tab_stiffness = 250.0f; // higher = faster (settles in ~0.29s)
+        constexpr float tab_damping = 31.0f;    // ~0.92 damping ratio: no visible overshoot
+        constexpr float travel_px = 34.0f;      // vertical gap between neighbouring tabs
+        constexpr float min_scale = 0.965f;     // size of a tab that is fully out of view
+        constexpr float fade_power = 1.4f;      // >1 thins the mid-point slightly so text never ghosts
 
         float dt = static_cast<float>(now - tab_last_drawn_);
         tab_last_drawn_ = now;
@@ -4354,7 +4354,7 @@ private:
             while (remaining > 0.0f)
             {
                 const float h = std::min(remaining, 0.004f);
-                tab_vel_ += (-k_stiffness * (tab_pos_ - tab_target_) - k_damping * tab_vel_) * h;
+                tab_vel_ += (-tab_stiffness * (tab_pos_ - tab_target_) - tab_damping * tab_vel_) * h;
                 tab_pos_ += tab_vel_ * h;
 
                 const float max_tab_pos = static_cast<float>(count - 1);
@@ -4613,18 +4613,18 @@ private:
         };
         const D2D1_RECT_F normal_art_rect =
             D2D1::RectF(rect.left + media_layout::art_inset_x, rect.top + media_layout::art_inset_y,
-                        rect.left + media_layout::art_inset_x + media_layout::k_art_size,
-                        rect.top + media_layout::art_inset_y + media_layout::k_art_size);
+                        rect.left + media_layout::art_inset_x + media_layout::art_size,
+                        rect.top + media_layout::art_inset_y + media_layout::art_size);
         const D2D1_RECT_F immersive_art_rect =
             D2D1::RectF(rect.left + immersive_layout::art_left, rect.top + immersive_layout::art_top,
-                        rect.left + immersive_layout::art_left + immersive_layout::k_art_size,
-                        rect.top + immersive_layout::art_top + immersive_layout::k_art_size);
+                        rect.left + immersive_layout::art_left + immersive_layout::art_size,
+                        rect.top + immersive_layout::art_top + immersive_layout::art_size);
         const D2D1_RECT_F expanded_art_rect =
             D2D1::RectF(lerp_f(normal_art_rect.left, immersive_art_rect.left, immersive_mix),
                         lerp_f(normal_art_rect.top, immersive_art_rect.top, immersive_mix),
                         lerp_f(normal_art_rect.right, immersive_art_rect.right, immersive_mix),
                         lerp_f(normal_art_rect.bottom, immersive_art_rect.bottom, immersive_mix));
-        const float expanded_art_radius = lerp_f(16.0f, immersive_layout::k_art_size * 0.5f, immersive_mix);
+        const float expanded_art_radius = lerp_f(16.0f, immersive_layout::art_size * 0.5f, immersive_mix);
         const D2D1_RECT_F morph_art_rect =
             D2D1::RectF(lerp_f(collapsed_art_rect.left, expanded_art_rect.left, art_morph),
                         lerp_f(collapsed_art_rect.top, expanded_art_rect.top, art_morph),
@@ -4686,7 +4686,7 @@ private:
                     const bool content_grouped = begin_swap_group(swap_alpha, swap_dx);
                     if (swap_alpha > 0.003f)
                     {
-                        const float art_size = media_layout::k_art_size;
+                        const float art_size = media_layout::art_size;
                         D2D1_RECT_F art_rect =
                             D2D1::RectF(rect.left + media_layout::art_inset_x, rect.top + media_layout::art_inset_y,
                                         rect.left + media_layout::art_inset_x + art_size,
@@ -4787,7 +4787,7 @@ private:
 
                     const bool timeline_grouped = begin_swap_group(swap_alpha, 0.0f);
 
-                    const float scrubber_y = rect.top + media_layout::k_scrubber_y;
+                    const float scrubber_y = rect.top + media_layout::scrubber_y;
                     double current_position = state.media.position_ticks / 10000000.0;
                     double duration = state.media.end_ticks / 10000000.0;
                     if (state.media.playing && state.media.last_updated_ticks > 0)
@@ -5292,7 +5292,7 @@ private:
         const float zone_top = rect.top + immersive_layout::lyrics_top;
         const float zone_bottom = rect.top + immersive_layout::lyrics_bottom;
         const float cy = (zone_top + zone_bottom) * 0.5f;
-        const float avail_w = width - immersive_layout::k_pad_x * 2.0f;
+        const float avail_w = width - immersive_layout::pad_x * 2.0f;
 
         const bool fresh = imm_last_drawn_ >= 0.0 && (now - imm_last_drawn_) < 0.25;
         const float dt = fresh ? clamp(static_cast<float>(now - imm_last_drawn_), 0.001f, 0.05f) : 0.016f;
@@ -5342,7 +5342,7 @@ private:
         {
             const float text_left = rect.left + immersive_layout::header_text_left;
             const float text_right = rect.right - immersive_layout::header_right_pad;
-            const float mid_y = rect.top + immersive_layout::art_top + immersive_layout::k_art_size * 0.5f;
+            const float mid_y = rect.top + immersive_layout::art_top + immersive_layout::art_size * 0.5f;
             std::wstring head = state.media.title.empty() ? std::wstring(loc(L"Unknown")) : state.media.title;
             if (!state.media.artist.empty())
             {
@@ -5657,11 +5657,11 @@ private:
             return;
         }
 
-        constexpr float k_pad_x = 18.0f;
+        constexpr float lyrics_pad_x = 18.0f;
         constexpr float slide_px = 12.0f;
         constexpr double anim_sec = 0.30;
-        const float text_left = area.left + k_pad_x;
-        const float text_w = media_layout::side_lyrics_width - k_pad_x * 2.0f;
+        const float text_left = area.left + lyrics_pad_x;
+        const float text_w = media_layout::side_lyrics_width - lyrics_pad_x * 2.0f;
 
         const bool fresh = side_lyric_last_drawn_ >= 0.0 && (now - side_lyric_last_drawn_) < 0.25;
         side_lyric_last_drawn_ = now;
@@ -6336,9 +6336,9 @@ private:
         const float cy = rect.top + media_layout::controls_y;
         const float x0 = rect.left + media_layout::dock_left;
         const D2D1_RECT_F pill =
-            D2D1::RectF(x0, cy - media_layout::k_dock_height * 0.5f, x0 + media_layout::dock_width(slots.count),
-                        cy + media_layout::k_dock_height * 0.5f);
-        draw_card(pill, media_layout::k_dock_height * 0.5f);
+            D2D1::RectF(x0, cy - media_layout::dock_height * 0.5f, x0 + media_layout::dock_width(slots.count),
+                        cy + media_layout::dock_height * 0.5f);
+        draw_card(pill, media_layout::dock_height * 0.5f);
 
         const D2D1_COLOR_F pill_bg =
             mix_color(with_alpha(material_.base, 1.0f), with_alpha(material_.raised, 1.0f), material_.raised.a);
@@ -7442,7 +7442,7 @@ private:
     void draw_swap_marquee(SwapTextState& st, const std::wstring& text, D2D1_RECT_F rect, IDWriteTextFormat* format,
                            ID2D1Brush* brush, double now, float speed, MarqueeLayoutCache& cache, float delay)
     {
-        constexpr float k_dur = 0.38f;
+        constexpr float swap_duration = 0.38f;
         const bool recently_drawn = st.last_drawn >= 0.0 && (now - st.last_drawn) < 0.25;
         st.last_drawn = now;
 
@@ -7466,14 +7466,14 @@ private:
         }
 
         const float elapsed = st.start >= 0.0 ? static_cast<float>(now - st.start) : -1.0f;
-        if (elapsed < 0.0f || elapsed >= delay + k_dur)
+        if (elapsed < 0.0f || elapsed >= delay + swap_duration)
         {
             st.start = -1.0;
             draw_marquee_text(text, rect, format, brush, now, speed, cache);
             return;
         }
 
-        const float u = clamp((elapsed - delay) / k_dur, 0.0f, 1.0f);
+        const float u = clamp((elapsed - delay) / swap_duration, 0.0f, 1.0f);
         const float e = skip_ease_in_out(u);
         const float base = brush->GetOpacity();
         const float dy = 5.0f;
@@ -7898,7 +7898,7 @@ private:
     // the animation Clock to the selected style through spec_t_ / spec_dir_.
     float spec_band_range(const SharedState& state, float from, float to) const
     {
-        // Average of the analyzer bands covering [from, to) in 0..k_spectrum_bands.
+        // Average of the analyzer bands covering [from, to) in 0..spectrum_bands.
         int a = std::clamp(static_cast<int>(std::floor(from)), 0, spectrum_bands - 1);
         int b = std::clamp(static_cast<int>(std::ceil(to)), a + 1, spectrum_bands);
         float sum = 0.0f;
@@ -8003,8 +8003,8 @@ private:
         const D2D1_POINT_2F c = D2D1::Point2F((rect.left + rect.right) * 0.5f, (rect.top + rect.bottom) * 0.5f);
         const float r = std::min(w, h) * 0.5f + 1.0f; // outer reach
         const float r0 = r * 0.40f;                   // core radius at rest
-        const int k_spokes = r < 14.0f ? 16 : 24;
-        const int half = k_spokes / 2;
+        const int spoke_count = r < 14.0f ? 16 : 24;
+        const int half = spoke_count / 2;
         constexpr float two_pi = 6.28318531f;
 
         const float t = spec_t_;
@@ -8037,15 +8037,16 @@ private:
         const float bass_pulse = 0.18f * spec_bass_ + 0.22f * spec_kick_;
 
         ensure_round_join_style();
-        const float stroke_w = clamp(two_pi * (base_r + 1.0f) / static_cast<float>(k_spokes) * 0.62f, 1.0f, r * 0.16f);
+        const float stroke_w =
+            clamp(two_pi * (base_r + 1.0f) / static_cast<float>(spoke_count) * 0.62f, 1.0f, r * 0.16f);
 
         accent_brush_->SetOpacity(0.25f + 0.35f * spec_bass_ + 0.25f * spec_kick_);
         const float shell_r = base_r * (0.90f + 0.18f * bass_pulse);
         target_->DrawEllipse(D2D1::Ellipse(c, shell_r, shell_r), accent_brush_.Get(), 0.8f);
 
-        for (int k = 0; k < k_spokes; ++k)
+        for (int k = 0; k < spoke_count; ++k)
         {
-            const int m = k < half ? k : k_spokes - 1 - k;
+            const int m = k < half ? k : spoke_count - 1 - k;
             const float lo = static_cast<float>(m) * spectrum_bands / half;
             float v = spec_band_range(state, lo, lo + static_cast<float>(spectrum_bands) / half);
             v = clamp(v * 1.1f, 0.04f, 1.0f);
@@ -8056,7 +8057,7 @@ private:
                 ls = 1.0f - std::exp(-6.0f * u) * std::cos(10.0f * u);
             }
             const float len = (r - base_r - 1.5f) * (0.10f + 0.90f * v) * clamp(ls, 0.0f, 1.45f);
-            const float a = spin + 1.5707963f + two_pi * (static_cast<float>(k) + 0.5f) / k_spokes;
+            const float a = spin + 1.5707963f + two_pi * (static_cast<float>(k) + 0.5f) / spoke_count;
             const float ca = std::cos(a), sa = std::sin(a);
             const float l = std::max(len, 0.6f);
             const D2D1_POINT_2F p0 = D2D1::Point2F(c.x + ca * (base_r + 1.0f), c.y + sa * (base_r + 1.0f));
@@ -8090,7 +8091,7 @@ private:
     // Plasma Thread
     void draw_spectrum_plasma(const SharedState& state, D2D1_RECT_F rect)
     {
-        constexpr int k_pts = 34;
+        constexpr int arc_points = 34;
         const float w = rect.right - rect.left, h = rect.bottom - rect.top;
         const float cy = (rect.top + rect.bottom) * 0.5f;
         const float max_a = h * 0.46f;
@@ -8105,10 +8106,10 @@ private:
 
         for (int strand = 0; strand < 2; ++strand)
         {
-            D2D1_POINT_2F pts[k_pts];
-            for (int i = 0; i < k_pts; ++i)
+            D2D1_POINT_2F pts[arc_points];
+            for (int i = 0; i < arc_points; ++i)
             {
-                const float xn = static_cast<float>(i) / (k_pts - 1);
+                const float xn = static_cast<float>(i) / (arc_points - 1);
                 const float xd = dir >= 0.0f ? xn : 1.0f - xn; // distance along the sweep
                 // max(): sin(pi) is slightly negative in float and pow(neg, 0.7) is NaN.
                 float env = std::pow(std::max(0.0f, std::sin(3.14159265f * xn)), 0.7f);
@@ -8146,7 +8147,7 @@ private:
                 continue;
             }
             sink->BeginFigure(pts[0], D2D1_FIGURE_BEGIN_HOLLOW);
-            sink->AddLines(pts + 1, k_pts - 1);
+            sink->AddLines(pts + 1, arc_points - 1);
             sink->EndFigure(D2D1_FIGURE_END_OPEN);
             if (FAILED(sink->Close()))
             {
@@ -9397,7 +9398,7 @@ public:
         {
             const float card = lookup_card_height(lk, ensure_lookup_fit(lk, settings), lookup_grow(settings));
             return clamp(card + lookup_layout::field_h + lookup_layout::field_gap, lookup_layout::simple_height,
-                         lookup_layout::k_max_height);
+                         lookup_layout::max_height);
         }
         return lookup_layout::status_height();
     }
@@ -9425,10 +9426,10 @@ private:
         {
             inner += lookup_layout::example_gap + fit.example_h;
         }
-        const float h = lookup_layout::pad_top + lookup_layout::k_title_h * grow +
-                        (lk.subtitle.empty() ? 2.0f : lookup_layout::subtitle_h * grow) + lookup_layout::k_card_gap +
+        const float h = lookup_layout::pad_top + lookup_layout::title_h * grow +
+                        (lk.subtitle.empty() ? 2.0f : lookup_layout::subtitle_h * grow) + lookup_layout::card_gap +
                         inner + lookup_layout::card_pad * 2.0f + lookup_layout::pad_bottom;
-        return clamp(h, lookup_layout::simple_height, lookup_layout::k_max_height);
+        return clamp(h, lookup_layout::simple_height, lookup_layout::max_height);
     }
 
     void ensure_lookup_formats(const Settings& settings)
@@ -9569,7 +9570,7 @@ private:
         {
             return lookup_fit_;
         }
-        const float text_w = lookup_layout::k_width - lookup_layout::k_pad_x * 2.0f - lookup_layout::card_pad * 2.0f;
+        const float text_w = lookup_layout::width - lookup_layout::pad_x * 2.0f - lookup_layout::card_pad * 2.0f;
         LookupFit fit;
         fit.key = key;
         fit.body =
@@ -9687,8 +9688,8 @@ private:
     void draw_lookup_field(D2D1_RECT_F rect, double now)
     {
         const LookupUiState& ui = g_lookup_ui;
-        const D2D1_RECT_F field = D2D1::RectF(rect.left + lookup_layout::k_pad_x, rect.top + lookup_layout::field_top,
-                                              rect.right - lookup_layout::k_pad_x,
+        const D2D1_RECT_F field = D2D1::RectF(rect.left + lookup_layout::pad_x, rect.top + lookup_layout::field_top,
+                                              rect.right - lookup_layout::pad_x,
                                               rect.top + lookup_layout::field_top + lookup_layout::field_h);
         draw_card(field, 12.0f, true);
         const float mid_y = (field.top + field.bottom) * 0.5f;
@@ -9784,8 +9785,8 @@ private:
     void draw_lookup_rows(D2D1_RECT_F rect, const std::vector<LookupRow>& rows, bool header)
     {
         const LookupUiState& ui = g_lookup_ui;
-        const float left = rect.left + lookup_layout::k_pad_x;
-        const float right = rect.right - lookup_layout::k_pad_x;
+        const float left = rect.left + lookup_layout::pad_x;
+        const float right = rect.right - lookup_layout::pad_x;
         float y = rect.top + lookup_layout::below_field;
 
         if (rows.empty())
@@ -9826,9 +9827,9 @@ private:
         for (std::size_t i = 0; i < rows.size(); ++i)
         {
             const LookupRow& row = rows[i];
-            const D2D1_RECT_F rr = D2D1::RectF(left, y, right, y + lookup_layout::k_row_h);
+            const D2D1_RECT_F rr = D2D1::RectF(left, y, right, y + lookup_layout::row_h);
             const bool selected = static_cast<int>(i) == ui.selected;
-            const float mid_y = y + lookup_layout::k_row_h * 0.5f;
+            const float mid_y = y + lookup_layout::row_h * 0.5f;
             if (selected)
             {
                 draw_card(rr, 10.0f, false);
@@ -9885,15 +9886,15 @@ private:
                 draw_lookup_glyph(D2D1::Point2F(rr.right - 17.0f, mid_y), 12.0f, 3, muted_brush_.Get());
                 muted_brush_->SetOpacity(0.75f);
             }
-            y += lookup_layout::k_row_h + lookup_layout::k_row_gap;
+            y += lookup_layout::row_h + lookup_layout::row_gap;
         }
         text_brush_->SetOpacity(0.96f);
     }
 
     void draw_lookup_status(D2D1_RECT_F rect, const LookupSnapshot& lk)
     {
-        const float left = rect.left + lookup_layout::k_pad_x + 4.0f;
-        const float right = rect.right - lookup_layout::k_pad_x - 4.0f;
+        const float left = rect.left + lookup_layout::pad_x + 4.0f;
+        const float right = rect.right - lookup_layout::pad_x - 4.0f;
         const float y = rect.top + lookup_layout::below_field;
         const wchar_t* msg = lk.status == LookupStatus::Loading ? loc(L"Looking up...") : loc(L"No result found");
         DWRITE_TEXT_METRICS tm{};
@@ -9910,9 +9911,9 @@ private:
         const LookupSnapshot& lk = state.lookup;
         const LookupFit& fit = ensure_lookup_fit(lk, settings);
         const float grow = lookup_grow(settings);
-        const float title_h = lookup_layout::k_title_h * grow;
-        const float left = rect.left + lookup_layout::k_pad_x;
-        const float right = rect.right - lookup_layout::k_pad_x;
+        const float title_h = lookup_layout::title_h * grow;
+        const float left = rect.left + lookup_layout::pad_x;
+        const float right = rect.right - lookup_layout::pad_x;
         float y = rect.top + lookup_layout::below_field;
 
         constexpr float tag_w = 74.0f;
@@ -9945,7 +9946,7 @@ private:
         {
             y += 2.0f;
         }
-        y += lookup_layout::k_card_gap;
+        y += lookup_layout::card_gap;
 
         float inner = fit.body_h;
         if (!fit.example.empty())
@@ -10460,7 +10461,7 @@ Activity activity_for_kind(IslandKind kind, const Settings& settings, const Shar
             break;
         case IslandKind::Lookup:
             // Seed only: the render loop measures the real height (measure_lookup_card).
-            activity.width = lookup_layout::k_width;
+            activity.width = lookup_layout::width;
             activity.height = 42.0f;
             break;
         case IslandKind::Idle:
@@ -10474,7 +10475,7 @@ Activity activity_for_kind(IslandKind kind, const Settings& settings, const Shar
             {
                 // Seed only: the render loop measures the real collapsed width (measure_idle_strip).
                 activity.width = settings.weather ? 170.0f : 96.0f;
-                activity.height = idle_strip_layout::k_height;
+                activity.height = idle_strip_layout::height;
             }
             break;
     }
@@ -11118,7 +11119,7 @@ DWORD WINAPI render_thread_proc(void*)
             const bool compact = g_settings.game_overlay_compact;
             primary.width = game_overlay_layout::width(compact, g_settings.game_overlay_show_fps, metric_count) *
                             g_settings.size_scale;
-            primary.height = game_overlay_layout::For(compact).height * g_settings.size_scale;
+            primary.height = game_overlay_layout::metrics_for(compact).height * g_settings.size_scale;
         }
         const auto collapsed_media_width = [&](float fallback, bool allow_lyrics)
         {

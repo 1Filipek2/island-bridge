@@ -141,7 +141,7 @@ float media_scrub_fraction_from_content(const MediaContentPoint& raw_pt)
         return -1.0f;
     }
 
-    if (std::fabs(pt.y - media_layout::k_scrubber_y) > media_layout::scrub_hit_half_height ||
+    if (std::fabs(pt.y - media_layout::scrubber_y) > media_layout::scrub_hit_half_height ||
         pt.x < bar_left - media_layout::scrub_hit_pad_x || pt.x > bar_right + media_layout::scrub_hit_pad_x)
     {
         return -1.0f;
@@ -172,21 +172,21 @@ int file_tray_row_at_content_point(const MediaContentPoint& pt, int item_count)
     {
         return -1;
     }
-    if (pt.x < file_tray_layout::k_pad_x || pt.x > pt.width - file_tray_layout::k_pad_x)
+    if (pt.x < file_tray_layout::pad_x || pt.x > pt.width - file_tray_layout::pad_x)
     {
         return -1;
     }
 
-    const float list_bottom = pt.height - file_tray_layout::k_list_bottom_inset;
-    if (pt.y < file_tray_layout::k_list_top || pt.y > list_bottom)
+    const float list_bottom = pt.height - file_tray_layout::list_bottom_inset;
+    if (pt.y < file_tray_layout::list_top || pt.y > list_bottom)
     {
         return -1;
     }
 
-    const float stride = file_tray_layout::k_row_height + file_tray_layout::k_row_gap;
-    const int index = static_cast<int>((pt.y - file_tray_layout::k_list_top) / stride);
-    const float row_top = file_tray_layout::k_list_top + index * stride;
-    if (pt.y > row_top + file_tray_layout::k_row_height)
+    const float stride = file_tray_layout::row_height + file_tray_layout::row_gap;
+    const int index = static_cast<int>((pt.y - file_tray_layout::list_top) / stride);
+    const float row_top = file_tray_layout::list_top + index * stride;
+    if (pt.y > row_top + file_tray_layout::row_height)
     {
         return -1;
     }
@@ -205,12 +205,12 @@ bool file_tray_clear_hit_test(const MediaContentPoint& pt)
     {
         return false;
     }
-    constexpr float k_slop = 3.0f;
-    const float right = pt.width - file_tray_layout::k_pad_x;
+    constexpr float row_slop = 3.0f;
+    const float right = pt.width - file_tray_layout::pad_x;
     const float left = right - file_tray_layout::clear_btn_size;
     const float top = file_tray_layout::clear_btn_top;
     const float bottom = top + file_tray_layout::clear_btn_size;
-    return pt.x >= left - k_slop && pt.x <= right + k_slop && pt.y >= top - k_slop && pt.y <= bottom + k_slop;
+    return pt.x >= left - row_slop && pt.x <= right + row_slop && pt.y >= top - row_slop && pt.y <= bottom + row_slop;
 }
 
 bool file_tray_paste_hit_test(const MediaContentPoint& pt)
@@ -219,13 +219,13 @@ bool file_tray_paste_hit_test(const MediaContentPoint& pt)
     {
         return false;
     }
-    constexpr float k_slop = 3.0f;
+    constexpr float row_slop = 3.0f;
     const float right =
-        pt.width - file_tray_layout::k_pad_x - file_tray_layout::clear_btn_size - file_tray_layout::paste_btn_gap;
+        pt.width - file_tray_layout::pad_x - file_tray_layout::clear_btn_size - file_tray_layout::paste_btn_gap;
     const float left = right - file_tray_layout::clear_btn_size;
     const float top = file_tray_layout::clear_btn_top;
     const float bottom = top + file_tray_layout::clear_btn_size;
-    return pt.x >= left - k_slop && pt.x <= right + k_slop && pt.y >= top - k_slop && pt.y <= bottom + k_slop;
+    return pt.x >= left - row_slop && pt.x <= right + row_slop && pt.y >= top - row_slop && pt.y <= bottom + row_slop;
 }
 
 bool file_tray_remove_hit_test(const MediaContentPoint& pt, int row)
@@ -234,13 +234,13 @@ bool file_tray_remove_hit_test(const MediaContentPoint& pt, int row)
     {
         return false;
     }
-    constexpr float k_slop = 3.0f;
-    const float half = file_tray_layout::remove_btn_size * 0.5f + k_slop;
-    const float center_x = pt.width - file_tray_layout::k_pad_x - file_tray_layout::remove_btn_margin -
+    constexpr float row_slop = 3.0f;
+    const float half = file_tray_layout::remove_btn_size * 0.5f + row_slop;
+    const float center_x = pt.width - file_tray_layout::pad_x - file_tray_layout::remove_btn_margin -
                            file_tray_layout::remove_btn_size * 0.5f;
-    const float center_y = file_tray_layout::k_list_top +
-                           static_cast<float>(row) * (file_tray_layout::k_row_height + file_tray_layout::k_row_gap) +
-                           file_tray_layout::k_row_height * 0.5f;
+    const float center_y = file_tray_layout::list_top +
+                           static_cast<float>(row) * (file_tray_layout::row_height + file_tray_layout::row_gap) +
+                           file_tray_layout::row_height * 0.5f;
     return std::fabs(pt.x - center_x) <= half && std::fabs(pt.y - center_y) <= half;
 }
 
@@ -383,12 +383,11 @@ bool media_art_hit_test(const MediaContentPoint& pt)
     }
     if (g_immersive_mix_pub.load(std::memory_order_relaxed) > 0.5f)
     {
-        return pt.x >= immersive_layout::art_left &&
-               pt.x <= immersive_layout::art_left + immersive_layout::k_art_size && pt.y >= immersive_layout::art_top &&
-               pt.y <= immersive_layout::art_top + immersive_layout::k_art_size;
+        return pt.x >= immersive_layout::art_left && pt.x <= immersive_layout::art_left + immersive_layout::art_size &&
+               pt.y >= immersive_layout::art_top && pt.y <= immersive_layout::art_top + immersive_layout::art_size;
     }
-    return pt.x >= media_layout::art_inset_x && pt.x <= media_layout::art_inset_x + media_layout::k_art_size &&
-           pt.y >= media_layout::art_inset_y && pt.y <= media_layout::art_inset_y + media_layout::k_art_size;
+    return pt.x >= media_layout::art_inset_x && pt.x <= media_layout::art_inset_x + media_layout::art_size &&
+           pt.y >= media_layout::art_inset_y && pt.y <= media_layout::art_inset_y + media_layout::art_size;
 }
 
 bool media_lyrics_button_hit_test(const MediaContentPoint& raw_pt)
@@ -439,7 +438,7 @@ int media_source_dock_hit_test(const MediaContentPoint& raw_pt, int slot_count)
     {
         return -1;
     }
-    const float half_h = std::max(media_layout::dock_hit_min, media_layout::k_dock_height) * 0.5f;
+    const float half_h = std::max(media_layout::dock_hit_min, media_layout::dock_height) * 0.5f;
     if (std::fabs(pt.y - media_layout::controls_y) > half_h)
     {
         return -1;

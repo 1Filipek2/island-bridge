@@ -100,10 +100,11 @@ std::wstring media_source_display_name(const std::wstring& aumid)
 
 struct MediaSourceTracker
 {
-    std::unordered_map<std::wstring, bool> was_playing;     // playing state at the previous poll
-    std::unordered_map<std::wstring, std::uint64_t> started_seq; // when each source last STARTED playing (higher = newer)
+    std::unordered_map<std::wstring, bool> was_playing; // playing state at the previous poll
+    std::unordered_map<std::wstring, std::uint64_t>
+        started_seq; // when each source last STARTED playing (higher = newer)
     std::uint64_t seq_counter = 0;
-    std::wstring dock_override;          // temporary dock pick; empty = none
+    std::wstring dock_override;               // temporary dock pick; empty = none
     std::uint64_t dock_override_base_seq = 0; // any start newer than this ends the dock pick
     unsigned dock_override_rev_seen = 0;
     std::vector<std::wstring> order; // first seen = first in the dock
@@ -430,7 +431,8 @@ DWORD WINAPI media_thread_proc(void*)
                         {
                             const std::int64_t predicted_now =
                                 g_state.media.position_ticks +
-                                (static_cast<std::int64_t>(GetTickCount64()) - g_state.media.last_updated_ticks) * 10000;
+                                (static_cast<std::int64_t>(GetTickCount64()) - g_state.media.last_updated_ticks) *
+                                    10000;
 
                             if (np < predicted_now - jitter_tolerance_ticks)
                             {

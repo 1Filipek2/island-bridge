@@ -127,8 +127,9 @@ int find_nearest_weather_city(const std::vector<WeatherCityEntry>& cities)
             const double c_lon = std::wcstod(cities[i].longitude.c_str(), nullptr);
             const double d_lat = (c_lat - lat) * to_rad;
             const double d_lon = (c_lon - lon) * to_rad;
-            const double a = std::sin(d_lat / 2) * std::sin(d_lat / 2) +
-                             std::cos(lat * to_rad) * std::cos(c_lat * to_rad) * std::sin(d_lon / 2) * std::sin(d_lon / 2);
+            const double a = std::sin(d_lat / 2) * std::sin(d_lat / 2) + std::cos(lat * to_rad) *
+                                                                             std::cos(c_lat * to_rad) *
+                                                                             std::sin(d_lon / 2) * std::sin(d_lon / 2);
             if (best < 0 || a < best_distance)
             {
                 best = static_cast<int>(i);
@@ -249,7 +250,8 @@ std::wstring nearest_configured_name(const std::vector<WeatherCityEntry>& cities
     double best_km = 0.0;
     for (const WeatherCityEntry& city : cities)
     {
-        const geo::Point candidate{std::wcstod(city.latitude.c_str(), nullptr), std::wcstod(city.longitude.c_str(), nullptr)};
+        const geo::Point candidate{std::wcstod(city.latitude.c_str(), nullptr),
+                                   std::wcstod(city.longitude.c_str(), nullptr)};
         const double km = geo::distance_km(point, candidate);
         if (best.empty() || km < best_km)
         {
@@ -296,10 +298,10 @@ std::optional<WeatherCityEntry> locate_city(const std::vector<WeatherCityEntry>&
 
 std::wstring wind_degrees_to_compass(float degrees)
 {
-    static const wchar_t* const k_points[] = {L"N", L"NNE", L"NE", L"ENE", L"E", L"ESE", L"SE", L"SSE",
-                                              L"S", L"SSW", L"SW", L"WSW", L"W", L"WNW", L"NW", L"NNW"};
+    static const wchar_t* const compass_points[] = {L"N", L"NNE", L"NE", L"ENE", L"E", L"ESE", L"SE", L"SSE",
+                                                    L"S", L"SSW", L"SW", L"WSW", L"W", L"WNW", L"NW", L"NNW"};
     const int sector = static_cast<int>((std::fmod(degrees, 360.0f) + 360.0f + 11.25f) / 22.5f) % 16;
-    return k_points[sector];
+    return compass_points[sector];
 }
 
 // Reads only from the "current" object, so "current_units" is never mistaken for a reading.

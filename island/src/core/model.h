@@ -618,17 +618,17 @@ namespace island
 {
 namespace lookup_layout
 {
-constexpr float k_width = 380.0f;
-constexpr float k_pad_x = 16.0f;
+constexpr float width = 380.0f;
+constexpr float pad_x = 16.0f;
 constexpr float pad_top = 12.0f;
 constexpr float pad_bottom = 12.0f;
-constexpr float k_title_h = 20.0f;
+constexpr float title_h = 20.0f;
 constexpr float subtitle_h = 15.0f;
-constexpr float k_card_gap = 6.0f;
+constexpr float card_gap = 6.0f;
 constexpr float card_pad = 9.0f;
 constexpr float example_gap = 5.0f;
 constexpr float simple_height = 54.0f;
-constexpr float k_max_height = 300.0f;
+constexpr float max_height = 300.0f;
 constexpr int max_body_lines = 4;
 constexpr int max_example_lines = 2;
 
@@ -637,8 +637,8 @@ constexpr float field_h = 36.0f;
 constexpr float field_gap = 10.0f;
 constexpr float below_field = field_top + field_h + field_gap;
 constexpr float section_h = 18.0f;
-constexpr float k_row_h = 32.0f;
-constexpr float k_row_gap = 3.0f;
+constexpr float row_h = 32.0f;
+constexpr float row_gap = 3.0f;
 constexpr float status_h = 30.0f;
 constexpr int max_rows = 4;
 constexpr double caret_period = 1.0;
@@ -652,7 +652,7 @@ constexpr float rows_top(bool header)
 constexpr float search_height(int rows, bool header)
 {
     return rows <= 0 ? below_field + status_h + pad_bottom
-                     : rows_top(header) + rows * k_row_h + (rows - 1) * k_row_gap + pad_bottom;
+                     : rows_top(header) + rows * row_h + (rows - 1) * row_gap + pad_bottom;
 }
 
 constexpr float status_height()

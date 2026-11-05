@@ -92,7 +92,8 @@ std::vector<GitHubDay> parse_git_hub_calendar(const std::string& html)
         }
         const std::string target = html_attribute(html, cursor, tag_end, "for");
         int row = -1, column = -1;
-        if (target.rfind(id_prefix, 0) == 0 && parse_cell(std::string_view(target).substr(id_prefix.size()), row, column))
+        if (target.rfind(id_prefix, 0) == 0 &&
+            parse_cell(std::string_view(target).substr(id_prefix.size()), row, column))
         {
             counts[{row, column}] = std::atoi(html.c_str() + tag_end + 1);
         }

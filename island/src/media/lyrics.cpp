@@ -258,8 +258,8 @@ std::vector<LyricsLine> parse_synced_lyrics(const std::wstring& text)
                         lyric_text.erase(lyric_text.begin());
                     }
                     LyricsLine ll;
-                    ll.time_ms = static_cast<std::int64_t>(minutes) * 60000 + static_cast<std::int64_t>(seconds) * 1000 +
-                                 static_cast<std::int64_t>(hundredths) * 10;
+                    ll.time_ms = static_cast<std::int64_t>(minutes) * 60000 +
+                                 static_cast<std::int64_t>(seconds) * 1000 + static_cast<std::int64_t>(hundredths) * 10;
                     ll.text = std::move(lyric_text);
                     lines.push_back(std::move(ll));
                 }
@@ -316,12 +316,12 @@ std::wstring trim_lyrics_text(const std::wstring& s)
 
 bool has_lyrics_noise_word(const std::wstring& text)
 {
-    static const wchar_t* const k_noise[] = {
+    static const wchar_t* const noise_words[] = {
         L"feat",  L"ft.",   L"featuring", L"with ",  L"remaster", L"version",    L"edit",       L"mix",
         L"live",  L"from ", L"official",  L"video",  L"audio",    L"lyric",      L"explicit",   L"deluxe",
         L"bonus", L"mono",  L"stereo",    L"single", L"radio",    L"soundtrack", L"anniversary"};
     const std::wstring lower = to_lower_copy(text);
-    for (const wchar_t* w : k_noise)
+    for (const wchar_t* w : noise_words)
     {
         if (lower.find(w) != std::wstring::npos)
         {
@@ -709,7 +709,8 @@ DWORD WINAPI lyrics_thread_proc(void*)
             std::lock_guard lock(g_settings_mutex);
             lyrics_enabled = (g_settings.collapsed_lyrics || g_settings.media_tab_lyrics) && g_settings.media;
             disk_cache_on = g_settings.lyrics_cache && g_settings.lyrics_cache_max_mb > 0;
-            disk_cap_bytes = static_cast<std::uint64_t>(std::max(0, g_settings.lyrics_cache_max_mb)) * 1024ull * 1024ull;
+            disk_cap_bytes =
+                static_cast<std::uint64_t>(std::max(0, g_settings.lyrics_cache_max_mb)) * 1024ull * 1024ull;
         }
         lyrics_cache::IterationGuard cache_guard(disk_cache_on, disk_cap_bytes);
         const bool lyrics_view_visible =

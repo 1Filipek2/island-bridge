@@ -46,16 +46,16 @@ float sample_audio_amplitude(BYTE* data, UINT32 frames, WAVEFORMATEX* format)
 // (50 Hz .. 14 kHz) with attack/release and slow auto-gain. Audio thread only.
 struct SpectrumAnalyzer
 {
-    static constexpr std::size_t k_window = 1024;
+    static constexpr std::size_t window_samples = 1024;
     static constexpr std::size_t hop = 512;
 
     static constexpr int log2_window = 10;
 
-    float ring[k_window]{};
-    float window[k_window]{};
-    float tw_cos[k_window / 2]{};
-    float tw_sin[k_window / 2]{};
-    std::uint16_t bit_rev[k_window]{};
+    float ring[window_samples]{};
+    float window[window_samples]{};
+    float tw_cos[window_samples / 2]{};
+    float tw_sin[window_samples / 2]{};
+    std::uint16_t bit_rev[window_samples]{};
     int bin_lo[spectrum_bands]{}; // FFT bins covered by each band, [lo, hi)
     int bin_hi[spectrum_bands]{};
     float smooth[spectrum_bands]{};
@@ -73,17 +73,17 @@ struct SpectrumAnalyzer
         }
         if (!window_ready)
         {
-            for (std::size_t i = 0; i < k_window; ++i)
+            for (std::size_t i = 0; i < window_samples; ++i)
             {
-                window[i] = 0.5f - 0.5f * std::cos(6.2831853f * i / (k_window - 1));
+                window[i] = 0.5f - 0.5f * std::cos(6.2831853f * i / (window_samples - 1));
             }
-            for (std::size_t i = 0; i < k_window / 2; ++i)
+            for (std::size_t i = 0; i < window_samples / 2; ++i)
             {
-                const float a = -6.2831853f * static_cast<float>(i) / static_cast<float>(k_window);
+                const float a = -6.2831853f * static_cast<float>(i) / static_cast<float>(window_samples);
                 tw_cos[i] = std::cos(a);
                 tw_sin[i] = std::sin(a);
             }
-            for (std::size_t i = 0; i < k_window; ++i)
+            for (std::size_t i = 0; i < window_samples; ++i)
             {
                 std::size_t r = 0;
                 for (int bit = 0; bit < log2_window; ++bit)
@@ -106,8 +106,8 @@ struct SpectrumAnalyzer
         const float f_max = std::min(14000.0f, rate * 0.45f);
         const float ratio = std::pow(f_max / f_min, 1.0f / (spectrum_bands - 1));
         const float half_step = std::sqrt(ratio);
-        const float bin_hz = rate / k_window;
-        const int nyquist_bin = static_cast<int>(k_window / 2) - 1;
+        const float bin_hz = rate / window_samples;
+        const int nyquist_bin = static_cast<int>(window_samples / 2) - 1;
         for (int b = 0; b < spectrum_bands; ++b)
         {
             const float fc = f_min * std::pow(ratio, static_cast<float>(b));
@@ -124,7 +124,7 @@ struct SpectrumAnalyzer
 
     void fft(float* re, float* im) const
     {
-        for (std::size_t i = 0; i < k_window; ++i)
+        for (std::size_t i = 0; i < window_samples; ++i)
         {
             const std::size_t j = bit_rev[i];
             if (j > i)
@@ -133,10 +133,10 @@ struct SpectrumAnalyzer
                 std::swap(im[i], im[j]);
             }
         }
-        for (std::size_t len = 2; len <= k_window; len <<= 1)
+        for (std::size_t len = 2; len <= window_samples; len <<= 1)
         {
-            const std::size_t half = len >> 1, step = k_window / len;
-            for (std::size_t i = 0; i < k_window; i += len)
+            const std::size_t half = len >> 1, step = window_samples / len;
+            for (std::size_t i = 0; i < window_samples; i += len)
             {
                 for (std::size_t k = 0; k < half; ++k)
                 {
@@ -155,11 +155,11 @@ struct SpectrumAnalyzer
 
     void analyze()
     {
-        float re[k_window];
-        float im[k_window];
-        for (std::size_t i = 0; i < k_window; ++i)
+        float re[window_samples];
+        float im[window_samples];
+        for (std::size_t i = 0; i < window_samples; ++i)
         {
-            re[i] = ring[(write + i) % k_window] * window[i];
+            re[i] = ring[(write + i) % window_samples] * window[i];
             im[i] = 0.0f;
         }
         fft(re, im);
@@ -175,7 +175,7 @@ struct SpectrumAnalyzer
                 mx = std::max(mx, p);
             }
             const float power = 0.5f * (sum / static_cast<float>(bin_hi[b] - bin_lo[b])) + 0.5f * mx;
-            float amp = std::sqrt(power) * (4.0f / k_window);
+            float amp = std::sqrt(power) * (4.0f / window_samples);
             // Music has a steep spectral tilt; lift the highs so they stay visible.
             const float tilt = 1.0f + 2.2f * static_cast<float>(b) / (spectrum_bands - 1);
             amp *= tilt;
@@ -243,7 +243,7 @@ struct SpectrumAnalyzer
                 }
             }
             ring[write] = mono / ch;
-            write = (write + 1) % k_window;
+            write = (write + 1) % window_samples;
             if (++since_hop >= hop)
             {
                 since_hop = 0;

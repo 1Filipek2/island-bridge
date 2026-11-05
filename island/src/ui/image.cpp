@@ -193,8 +193,8 @@ bool decode_image_bytes_to_pixels(const std::vector<std::uint8_t>& bytes, Bitmap
                     {
                         continue;
                     }
-                    const std::size_t n_idx =
-                        (static_cast<std::size_t>(ni) << 8) | (static_cast<std::size_t>(nj) << 4) | static_cast<std::size_t>(nk);
+                    const std::size_t n_idx = (static_cast<std::size_t>(ni) << 8) |
+                                              (static_cast<std::size_t>(nj) << 4) | static_cast<std::size_t>(nk);
                     const Bucket& nb = buckets[n_idx];
                     if (nb.count == 0)
                     {

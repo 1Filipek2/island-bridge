@@ -95,7 +95,7 @@ constexpr int accent_enable_blur_behind = 3;
 constexpr int accent_enable_acrylic_blur_behind = 4;
 constexpr int wca_accent_policy = 19;
 constexpr int wca_transitions_forcedisabled = 3;
-constexpr wchar_t k_class_name[] = L"DynamicIslandBackdrop";
+constexpr wchar_t window_class_name[] = L"DynamicIslandBackdrop";
 
 struct Slot
 {
@@ -265,7 +265,7 @@ HWND create_backdrop_window(HWND owner)
         wc.lpfnWndProc = wnd_proc;
         wc.hInstance = inst;
         wc.hbrBackground = static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)); // black = clear for accent
-        wc.lpszClassName = k_class_name;
+        wc.lpszClassName = window_class_name;
         if (!RegisterClassExW(&wc) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS)
         {
             return nullptr;
@@ -279,7 +279,8 @@ HWND create_backdrop_window(HWND owner)
     {
         ex_style |= WS_EX_TOPMOST;
     }
-    HWND hwnd = CreateWindowExW(ex_style, k_class_name, L"", WS_POPUP, 0, 0, 16, 16, nullptr, nullptr, inst, nullptr);
+    HWND hwnd =
+        CreateWindowExW(ex_style, window_class_name, L"", WS_POPUP, 0, 0, 16, 16, nullptr, nullptr, inst, nullptr);
     if (!hwnd)
     {
         return nullptr;
@@ -326,7 +327,7 @@ void destroy_all()
     g_last_sync = {};
     if (g_class_registered)
     {
-        UnregisterClassW(k_class_name, GetModuleHandleW(nullptr));
+        UnregisterClassW(window_class_name, GetModuleHandleW(nullptr));
         g_class_registered = false;
     }
 }

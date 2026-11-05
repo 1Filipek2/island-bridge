@@ -21,7 +21,7 @@ UiLanguage language_from_tag(std::wstring_view tag)
         UiLanguage lang;
     };
 
-    static constexpr Entry k_tags[] = {
+    static constexpr Entry language_tags[] = {
         {L"en", UiLanguage::English},    {L"fr", UiLanguage::French},
         {L"es", UiLanguage::Spanish},    {L"de", UiLanguage::German},
         {L"pt", UiLanguage::Portuguese}, {L"it", UiLanguage::Italian},
@@ -33,7 +33,7 @@ UiLanguage language_from_tag(std::wstring_view tag)
     {
         return UiLanguage::English;
     }
-    for (const Entry& e : k_tags)
+    for (const Entry& e : language_tags)
     {
         // Prefix match so "pt-BR" / "zh-Hans-CN" resolve to their base language.
         if (_wcsnicmp(tag.data(), e.tag, 2) == 0)
@@ -112,7 +112,7 @@ const wchar_t* loc(const wchar_t* english)
     };
 
     // Columns: en, fr, es, de, pt, it, ru, tr, hi, zh, ja, ko
-    static const Row k_rows[] = {
+    static const Row translations[] = {
         {L"Media",
          {nullptr, L"Média", L"Multimedia", L"Medien", L"Mídia", L"Media", L"Медиа", L"Medya", L"मीडिया", L"媒体",
           L"メディア", L"미디어"}},
@@ -232,7 +232,7 @@ const wchar_t* loc(const wchar_t* english)
         return english;
     }
 
-    for (const Row& row : k_rows)
+    for (const Row& row : translations)
     {
         if (std::wcscmp(row.key, english) == 0)
         {

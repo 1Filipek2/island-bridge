@@ -12,7 +12,7 @@ constexpr float expanded_height = 184.0f;
 // Extra width on the right of the expanded media tab when lyrics in the media tab are on.
 constexpr float side_lyrics_width = 220.0f;
 
-constexpr float k_scrubber_y = 114.0f;
+constexpr float scrubber_y = 114.0f;
 constexpr float scrub_margin = 24.0f;
 constexpr float scrub_bar_left_inset = 48.0f;
 constexpr float scrub_bar_right_inset = 48.0f;
@@ -33,14 +33,14 @@ constexpr float control_hit_pad = 6.0f;
 
 constexpr float art_inset_x = 24.0f;
 constexpr float art_inset_y = 20.0f;
-constexpr float k_art_size = 64.0f;
+constexpr float art_size = 64.0f;
 
 // Below this content height the island is still the collapsed pill: no hit testing.
 constexpr float expanded_min_height = 60.0f;
 
 // Source dock
 constexpr float dock_left = 20.0f;
-constexpr float k_dock_height = 30.0f;
+constexpr float dock_height = 30.0f;
 constexpr float dock_slot = 26.0f;
 constexpr float dock_gap = 2.0f;
 constexpr float dock_pad = 2.0f;
@@ -79,13 +79,13 @@ constexpr float btn_hit_pad = 6.0f;
 
 constexpr float art_left = 38.0f;
 constexpr float art_top = 12.0f;
-constexpr float k_art_size = 26.0f;
-constexpr float header_text_left = art_left + k_art_size + 10.0f;
+constexpr float art_size = 26.0f;
+constexpr float header_text_left = art_left + art_size + 10.0f;
 constexpr float header_right_pad = 38.0f;
 
 constexpr float lyrics_top = 42.0f;
 constexpr float lyrics_bottom = 112.0f;
-constexpr float k_pad_x = 34.0f;
+constexpr float pad_x = 34.0f;
 constexpr float line_pitch = 25.0f;
 constexpr float outer_pitch = 14.0f;
 
@@ -112,11 +112,11 @@ namespace island
 {
 namespace file_tray_layout
 {
-constexpr float k_pad_x = 26.0f;
-constexpr float k_list_top = 46.0f;
-constexpr float k_list_bottom_inset = 16.0f;
-constexpr float k_row_height = 30.0f;
-constexpr float k_row_gap = 6.0f;
+constexpr float pad_x = 26.0f;
+constexpr float list_top = 46.0f;
+constexpr float list_bottom_inset = 16.0f;
+constexpr float row_height = 30.0f;
+constexpr float row_gap = 6.0f;
 
 constexpr float remove_btn_size = 18.0f;  // cut button at the right end of each row
 constexpr float remove_btn_margin = 7.0f; // gap between the cut button and the row's right edge
@@ -126,8 +126,8 @@ constexpr float paste_btn_gap = 4.0f;
 
 constexpr int visible_row_capacity(float content_height)
 {
-    const float span = content_height - k_list_bottom_inset - k_list_top + k_row_gap;
-    const int capacity = static_cast<int>(span / (k_row_height + k_row_gap));
+    const float span = content_height - list_bottom_inset - list_top + row_gap;
+    const int capacity = static_cast<int>(span / (row_height + row_gap));
     return capacity < 1 ? 1 : capacity;
 }
 
@@ -138,19 +138,19 @@ namespace island
 {
 namespace idle_strip_layout
 {
-constexpr float k_pad_x = 14.0f;
+constexpr float pad_x = 14.0f;
 constexpr float slot_gap = 9.0f; // Clock <-> divider <-> weather
 constexpr float divider_width = 1.0f;
 constexpr float divider_inset_y = 9.0f;
 
 // Room on the right for the mic/camera dot.
-constexpr float k_privacy_reserve = 18.0f;
+constexpr float privacy_reserve = 18.0f;
 
-constexpr float k_height = 36.0f;
+constexpr float height = 36.0f;
 
 // Below ~2x the height the stadium stops reading as a pill; the ceiling stops long strings from making a bar.
 constexpr float min_width = 72.0f;
-constexpr float k_max_width = 280.0f;
+constexpr float max_width = 280.0f;
 
 // Widths round up to this so sub-pixel text metrics cannot resize the window every frame.
 constexpr float width_quantum = 2.0f;
@@ -189,7 +189,7 @@ struct Metrics
     float height;
 };
 
-constexpr Metrics For(bool compact)
+constexpr Metrics metrics_for(bool compact)
 {
     return compact ? Metrics{10.0f, 9.0f, 62.0f, 6.0f, 74.0f, 7.0f, 9.0f, 56.0f}
                    : Metrics{12.0f, 11.0f, 74.0f, 7.0f, 88.0f, 8.0f, 10.0f, 68.0f};
@@ -199,7 +199,7 @@ constexpr float min_width = 140.0f;
 
 constexpr float width(bool compact, bool show_fps, int metric_count)
 {
-    const Metrics m = For(compact);
+    const Metrics m = metrics_for(compact);
     float w = m.pad_x * 2.0f;
     if (show_fps)
     {

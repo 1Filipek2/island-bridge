@@ -10,7 +10,7 @@ namespace
 constexpr std::int64_t found_ttl_sec = 90LL * 24 * 3600;    // found lyrics: refetched after 90 days
 constexpr std::int64_t not_found_ttl_sec = 3LL * 24 * 3600; // "not found": retried after 3 days
 constexpr std::size_t memory_capacity = 30;
-constexpr int loose_duration_tolerance_sec = 3;   // browsers disagree by a second or two
+constexpr int loose_duration_tolerance_sec = 3;        // browsers disagree by a second or two
 constexpr std::uint64_t max_entry_bytes = 1024 * 1024; // anything bigger is treated as corrupt
 constexpr double cleanup_min_interval_sec = 60.0;
 
@@ -130,7 +130,8 @@ std::wstring normalize_part(const std::wstring& in)
 
 namespace lyrics_cache
 {
-Keys build_keys(const std::wstring& title, const std::wstring& artist, const std::wstring& album, std::int64_t end_ticks)
+Keys build_keys(const std::wstring& title, const std::wstring& artist, const std::wstring& album,
+                std::int64_t end_ticks)
 {
     Keys k;
     k.duration_sec = end_ticks > 0 ? static_cast<int>(static_cast<double>(end_ticks) / 10000000.0 + 0.5) : 0;
@@ -684,7 +685,8 @@ void write_entry_to_disk(const Entry& e, const std::wstring& title, const std::w
 
     WIN32_FILE_ATTRIBUTE_DATA old = {};
     const bool had_old = GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &old) != 0;
-    const std::uint64_t old_size = had_old ? ((static_cast<std::uint64_t>(old.nFileSizeHigh) << 32) | old.nFileSizeLow) : 0;
+    const std::uint64_t old_size =
+        had_old ? ((static_cast<std::uint64_t>(old.nFileSizeHigh) << 32) | old.nFileSizeLow) : 0;
 
     if (!write_file_atomic(path, data))
     {

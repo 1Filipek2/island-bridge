@@ -229,15 +229,15 @@ void load_file_tray()
     }
     CloseHandle(h);
 
-    static const char k_header[] = "DIWFT 1\n";
-    if (!read_ok || data.compare(0, sizeof(k_header) - 1, k_header) != 0)
+    static const char file_header[] = "DIWFT 1\n";
+    if (!read_ok || data.compare(0, sizeof(file_header) - 1, file_header) != 0)
     {
         host::log(L"File Tray: saved list is unreadable; starting empty.");
         return;
     }
 
     std::vector<FileTrayItem> loaded;
-    std::size_t pos = sizeof(k_header) - 1;
+    std::size_t pos = sizeof(file_header) - 1;
     while (pos < data.size())
     {
         std::size_t end = data.find('\n', pos);
@@ -470,10 +470,10 @@ void add_text_to_file_tray(const std::wstring& raw_text)
     {
         return;
     }
-    constexpr std::size_t k_max_chars = 100000;
-    if (text.size() > k_max_chars)
+    constexpr std::size_t max_text_chars = 100000;
+    if (text.size() > max_text_chars)
     {
-        text.resize(k_max_chars);
+        text.resize(max_text_chars);
     }
 
     constexpr std::size_t preview_chars = 60;

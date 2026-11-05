@@ -78,13 +78,13 @@ namespace
 {
 inline bool lookup_field_hit_test(const MediaContentPoint& pt)
 {
-    return pt.valid && pt.x >= lookup_layout::k_pad_x && pt.x <= pt.width - lookup_layout::k_pad_x &&
+    return pt.valid && pt.x >= lookup_layout::pad_x && pt.x <= pt.width - lookup_layout::pad_x &&
            pt.y >= lookup_layout::field_top && pt.y <= lookup_layout::field_top + lookup_layout::field_h;
 }
 
 inline bool lookup_clear_hit_test(const MediaContentPoint& pt)
 {
-    return pt.valid && pt.x >= pt.width - lookup_layout::k_pad_x - 64.0f && pt.x <= pt.width - lookup_layout::k_pad_x &&
+    return pt.valid && pt.x >= pt.width - lookup_layout::pad_x - 64.0f && pt.x <= pt.width - lookup_layout::pad_x &&
            pt.y >= lookup_layout::below_field - 3.0f &&
            pt.y <= lookup_layout::below_field + lookup_layout::section_h + 3.0f;
 }
@@ -95,7 +95,7 @@ int lookup_row_at_content_point(const MediaContentPoint& pt, int row_count, bool
     {
         return -1;
     }
-    if (pt.x < lookup_layout::k_pad_x || pt.x > pt.width - lookup_layout::k_pad_x)
+    if (pt.x < lookup_layout::pad_x || pt.x > pt.width - lookup_layout::pad_x)
     {
         return -1;
     }
@@ -104,13 +104,13 @@ int lookup_row_at_content_point(const MediaContentPoint& pt, int row_count, bool
     {
         return -1;
     }
-    const float stride = lookup_layout::k_row_h + lookup_layout::k_row_gap;
+    const float stride = lookup_layout::row_h + lookup_layout::row_gap;
     const int index = static_cast<int>(y / stride);
     if (index >= row_count)
     {
         return -1;
     }
-    if (y - static_cast<float>(index) * stride > lookup_layout::k_row_h)
+    if (y - static_cast<float>(index) * stride > lookup_layout::row_h)
     {
         return -1;
     }
@@ -141,7 +141,7 @@ constexpr double result_seconds = panel_idle_seconds;
 constexpr double message_seconds = panel_idle_seconds;
 constexpr std::size_t recent_capacity = 12;
 constexpr double loading_timeout_seconds = 30.0; // upper bound for "Looking up..."
-constexpr std::size_t k_max_body_chars = 360;
+constexpr std::size_t max_body_chars = 360;
 constexpr std::size_t max_extract_sentences = 3;
 constexpr std::size_t max_extract_chars = 320;
 constexpr std::size_t cache_capacity = 40;
@@ -334,10 +334,10 @@ bool is_sentence_end(const std::wstring& t, std::size_t i)
     {
         return false; // initials: "J. R. R. Tolkien"
     }
-    static const wchar_t* const k_abbrev[] = {L"mr",  L"mrs", L"ms",  L"dr",  L"prof", L"st",  L"jr",     L"sr",
-                                              L"vs",  L"inc", L"ltd", L"co",  L"no",   L"ca",  L"approx", L"mt",
-                                              L"gen", L"col", L"lt",  L"sgt", L"rev",  L"fig", L"vol"};
-    for (const wchar_t* abbrev : k_abbrev)
+    static const wchar_t* const abbreviations[] = {L"mr",  L"mrs", L"ms",  L"dr",  L"prof", L"st",  L"jr",     L"sr",
+                                                   L"vs",  L"inc", L"ltd", L"co",  L"no",   L"ca",  L"approx", L"mt",
+                                                   L"gen", L"col", L"lt",  L"sgt", L"rev",  L"fig", L"vol"};
+    for (const wchar_t* abbrev : abbreviations)
     {
         if (word == abbrev)
         {
@@ -557,7 +557,7 @@ Outcome lookup_dictionary(const std::wstring& word, Result* out)
         }
         r.subtitle += pos;
     }
-    r.body = clip_to_chars(definition, k_max_body_chars);
+    r.body = clip_to_chars(definition, max_body_chars);
     const std::wstring example = collapse_whitespace(json_string_unescape(example_raw));
     if (!example.empty())
     {
@@ -828,7 +828,7 @@ bool parse_wiktionary_english(const std::string& body, const std::wstring& title
         }
         body_text += clip_to_chars(definitions[i], 170);
     }
-    r.body = clip_to_chars(body_text, k_max_body_chars);
+    r.body = clip_to_chars(body_text, max_body_chars);
 
     if (!example.empty())
     {
@@ -1399,7 +1399,8 @@ bool handle_lookup_key_down(HWND hwnd, WPARAM vk)
             }
             else if (ui.caret > 0)
             {
-                const std::size_t from = ctrl ? lookup_prev_word(ui.text, ui.caret) : lookup_step_back(ui.text, ui.caret);
+                const std::size_t from =
+                    ctrl ? lookup_prev_word(ui.text, ui.caret) : lookup_step_back(ui.text, ui.caret);
                 ui.text.erase(from, ui.caret - from);
                 ui.caret = from;
             }
