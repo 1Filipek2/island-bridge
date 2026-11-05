@@ -5,6 +5,7 @@ using IslandBridge.Core.Configuration;
 using IslandBridge.Core.Diagnostics;
 using IslandBridge.Core.Icons;
 using IslandBridge.Core.Island;
+using IslandBridge.Core.Island.Settings;
 using IslandBridge.Core.Notifications;
 using IslandBridge.Core.Startup;
 using IslandBridge.Core.Toasts;
@@ -115,6 +116,8 @@ internal sealed class AppHost : IAsyncDisposable
     public Localizer Localizer { get; }
 
     public AutostartRegistration Autostart { get; } = new();
+
+    public IslandSettingsStore IslandSettings { get; } = new();
 
     public string ExecutablePath { get; } = Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "IslandBridge.exe");
 

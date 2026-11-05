@@ -25,6 +25,11 @@
                 <Setter Property="Padding" Value="8,4,8,5" />
                 <Setter Property="HorizontalAlignment" Value="Stretch" />
             </Style>
+            <Style x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+                <Setter Property="Width" Value="34" />
+                <Setter Property="Height" Value="30" />
+                <Setter Property="Padding" Value="0" />
+            </Style>
             <Style x:Key="CaptionButton" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
                 <Setter Property="Width" Value="32" />
                 <Setter Property="Height" Value="28" />
@@ -62,8 +67,8 @@
             </StackPanel>
         </Grid>
 
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel Padding="16,0,16,12" Spacing="18">
+        <ScrollViewer x:Name="MainScroller" Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="MainContent" Padding="16,0,16,12" Spacing="14">
                 <InfoBar x:Name="HintBar" IsClosable="False" IsOpen="False" Padding="0" />
 
                 <StackPanel Spacing="6">
@@ -76,14 +81,6 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock x:Name="IgnoreSilentLabel" Style="{StaticResource RowLabel}" />
                         <ToggleSwitch x:Name="IgnoreSilentSwitch" Grid.Column="1" Toggled="OnIgnoreSilentToggled" />
-                    </Grid>
-                    <Grid ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="PreviewsLabel" Style="{StaticResource RowLabel}" />
-                        <ToggleSwitch x:Name="PreviewsSwitch" Grid.Column="1" Toggled="OnPreviewsToggled" />
                     </Grid>
                     <Grid ColumnSpacing="8">
                         <Grid.ColumnDefinitions>
@@ -114,21 +111,92 @@
 
                 <StackPanel Spacing="6">
                     <TextBlock x:Name="DeviceHeader" Style="{StaticResource SectionHeader}" />
-                    <TextBlock x:Name="DeviceName" FontSize="13" FontWeight="SemiBold" />
                     <Grid ColumnSpacing="4">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <Button x:Name="FindButton" Style="{StaticResource SmallButton}" Click="OnFindClick" />
-                        <Button x:Name="ReconnectButton" Grid.Column="1" Style="{StaticResource SmallButton}" Click="OnReconnectClick" />
-                        <Button x:Name="ForgetButton" Grid.Column="2" Style="{StaticResource SmallButton}" Click="OnForgetClick" />
+                        <TextBlock x:Name="DeviceName" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <Button x:Name="FindButton" Grid.Column="1" Style="{StaticResource IconButton}" Click="OnFindClick">
+                            <FontIcon Glyph="&#xE721;" FontSize="13" />
+                        </Button>
+                        <Button x:Name="ReconnectButton" Grid.Column="2" Style="{StaticResource IconButton}" Click="OnReconnectClick">
+                            <FontIcon Glyph="&#xE72C;" FontSize="13" />
+                        </Button>
+                        <Button x:Name="ForgetButton" Grid.Column="3" Style="{StaticResource IconButton}" Click="OnForgetClick">
+                            <FontIcon Glyph="&#xE74D;" FontSize="13" />
+                        </Button>
                     </Grid>
                     <ProgressBar x:Name="SearchProgress" IsIndeterminate="True" Visibility="Collapsed" />
                     <TextBlock x:Name="SearchStatus" FontSize="12" Opacity="0.75" TextWrapping="Wrap" Visibility="Collapsed" />
                     <StackPanel x:Name="Candidates" Spacing="4" />
                     <TextBlock x:Name="DeviceHelp" FontSize="12" Opacity="0.75" TextWrapping="Wrap" />
+                </StackPanel>
+
+                <Grid ColumnSpacing="6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="IslandSettingsButton" Grid.Column="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="10,8,8,9" Click="OnIslandSettingsClick">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE790;" FontSize="14" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1">
+                                <TextBlock x:Name="IslandSettingsText" FontSize="13" TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="IslandSettingsSummary" FontSize="11" Opacity="0.6" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="10" VerticalAlignment="Center" />
+                        </Grid>
+                    </Button>
+                    <Button x:Name="AppSettingsButton" Grid.Column="1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="10,8,8,9" Click="OnAppSettingsClick">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE713;" FontSize="14" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1">
+                                <TextBlock x:Name="AppSettingsText" FontSize="13" TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="AppSettingsSummary" FontSize="11" Opacity="0.6" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="10" VerticalAlignment="Center" />
+                        </Grid>
+                    </Button>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+
+        <ScrollViewer x:Name="SettingsScroller" Grid.Row="1" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+            <StackPanel Padding="16,0,16,12" Spacing="18">
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="SettingsBackButton" Padding="8,6,8,6" Click="OnSettingsBackClick">
+                        <FontIcon Glyph="&#xE72B;" FontSize="12" />
+                    </Button>
+                    <TextBlock x:Name="SettingsTitle" Grid.Column="1" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+                </Grid>
+
+                <StackPanel Spacing="6">
+                    <TextBlock x:Name="PrivacyHeader" Style="{StaticResource SectionHeader}" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="PreviewsLabel" Style="{StaticResource RowLabel}" />
+                        <ToggleSwitch x:Name="PreviewsSwitch" Grid.Column="1" Toggled="OnPreviewsToggled" />
+                    </Grid>
                 </StackPanel>
 
                 <StackPanel Spacing="6">
@@ -175,6 +243,8 @@
                 </Expander>
             </StackPanel>
         </ScrollViewer>
+
+        <ScrollViewer x:Name="IslandScroller" Grid.Row="1" VerticalScrollBarVisibility="Auto" Visibility="Collapsed" Padding="16,0,16,12" />
 
         <Grid Grid.Row="2" Padding="16,8,16,12" ColumnSpacing="8" BorderThickness="0,1,0,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
             <Grid.ColumnDefinitions>
