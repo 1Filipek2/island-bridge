@@ -69,7 +69,15 @@ add_library(island_modules OBJECT
     src/ui/icons.cpp
     src/ui/image.cpp
     src/ui/placement.cpp
-    src/ui/renderer.cpp
+    src/ui/render/alerts.cpp
+    src/ui/render/artwork.cpp
+    src/ui/render/cards.cpp
+    src/ui/render/dashboards.cpp
+    src/ui/render/frame.cpp
+    src/ui/render/lookup.cpp
+    src/ui/render/lyrics.cpp
+    src/ui/render/media.cpp
+    src/ui/render/thread.cpp
     src/ui/window.cpp
 )
 
