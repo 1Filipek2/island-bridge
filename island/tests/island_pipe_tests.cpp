@@ -1,4 +1,4 @@
-#include "island_pipe_under_test.h"
+#include "pipe/pipe_protocol.h"
 #include <cstdio>
 #include <random>
 
@@ -34,7 +34,7 @@ void check(bool condition, const char* name)
 
 int main()
 {
-    using namespace island_pipe;
+    using namespace island::island_pipe;
 
     const auto valid = encode(4, {"WhatsApp", "net.whatsapp.WhatsApp", "Alice", "", "Ahoj \xC4\x8D"});
     const auto parsed = parse_message(valid.data(), valid.size());

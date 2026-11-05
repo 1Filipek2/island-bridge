@@ -13,3 +13,4 @@ set "VERSION=%~2"
 if "%VERSION%"=="" set "VERSION=1.0.0-dev"
 cmake -S "%~dp0." -B "%~dp0out\build" -G Ninja -DCMAKE_BUILD_TYPE=%CONFIG% -DISLAND_VERSION=%VERSION% || exit /b 1
 cmake --build "%~dp0out\build" || exit /b 1
+if defined ISLAND_TEST ctest --test-dir "%~dp0out\build" --output-on-failure || exit /b 1

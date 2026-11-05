@@ -1,0 +1,19 @@
+#include "ui/image.h"
+
+namespace island
+{
+
+bool DecodeImageBytesToPixels(const std::vector<uint8_t>& bytes, BitmapPixels* pixels)
+{
+    if (bytes.size() < 2)
+    {
+        return false;
+    }
+
+    pixels->width = bytes[0];
+    pixels->height = bytes[1];
+    pixels->bgra.assign(static_cast<std::size_t>(pixels->width) * pixels->height * 4, 0);
+    return true;
+}
+
+}

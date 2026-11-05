@@ -1,9 +1,13 @@
-#include "island_pipe_stubs.h"
+#include "notifications/notification_center.h"
 #include <cstdio>
 #include <random>
 
 namespace
 {
+
+namespace notification_center = island::notification_center;
+using island::BitmapPixels;
+using island::PixelsRef;
 
 int failures = 0;
 
