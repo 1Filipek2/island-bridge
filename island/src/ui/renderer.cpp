@@ -323,11 +323,16 @@ public:
         }
 
         // Pixels that can change this frame: the pill with shadow and nudge slack, plus last frame's area.
+        // Split pills are laid out from their own widths, which can reach past the animated total.
+        const float split_gap = 12.0f * settings.size_scale;
+        const float drawn_width = secondary ? std::max(width, primary.width + split_gap + secondary->width) : width;
+        const float drawn_height = secondary ? std::max(height, std::max(primary.height, secondary->height)) : height;
+
         RECT bounds;
         bounds.left = std::max(0, static_cast<int>(std::floor(left - render_pad_x - 4.0f)));
         bounds.top = std::max(0, static_cast<int>(std::floor(top - render_pad_y - 12.0f)));
-        bounds.right = std::min(pixel_width, static_cast<int>(std::ceil(left + width + render_pad_x + 4.0f)));
-        bounds.bottom = std::min(pixel_height, static_cast<int>(std::ceil(top + height + render_pad_y + 12.0f)));
+        bounds.right = std::min(pixel_width, static_cast<int>(std::ceil(left + drawn_width + render_pad_x + 4.0f)));
+        bounds.bottom = std::min(pixel_height, static_cast<int>(std::ceil(top + drawn_height + render_pad_y + 12.0f)));
 
         RECT dirty = {0, 0, pixel_width, pixel_height};
         if (!full_paint)
@@ -377,7 +382,7 @@ public:
         {
             if (secondary)
             {
-                const float gap = 12.0f * settings.size_scale;
+                const float gap = split_gap;
                 const float max_h = std::max(primary.height, secondary->height);
                 // Notch and border-merged islands hang from the top edge.
                 const bool hang_from_top = settings.notch_style || settings.border_merged_mode;
@@ -11115,6 +11120,27 @@ DWORD WINAPI render_thread_proc(void*)
                             g_settings.size_scale;
             primary.height = game_overlay_layout::For(compact).height * g_settings.size_scale;
         }
+        const auto collapsed_media_width = [&](float fallback, bool allow_lyrics)
+        {
+            const float clock_section =
+                g_settings.media_pill_clock ? renderer.measure_media_pill(snapshot, g_settings).section_width : 0.0f;
+
+            if (allow_lyrics && collapsed_lyrics_active(snapshot, g_settings))
+            {
+                return (collapsed_lyrics_width + clock_section) * g_settings.size_scale;
+            }
+
+            if (!g_settings.media_pill_clock)
+            {
+                return fallback;
+            }
+
+            const float privacy_extra = snapshot.system.mic_active || snapshot.system.camera_active
+                                            ? media_pill_layout::privacy_extra_width
+                                            : 0.0f;
+            return (media_pill_layout::base_width + privacy_extra + clock_section) * g_settings.size_scale;
+        };
+
         if (primary.kind == IslandKind::Media)
         {
             if (!is_fullscreen && (is_hover_expanded || pinned || recent_track_change))
@@ -11124,22 +11150,13 @@ DWORD WINAPI render_thread_proc(void*)
             }
             else
             {
-                const float clock_section = g_settings.media_pill_clock
-                                                ? renderer.measure_media_pill(snapshot, g_settings).section_width
-                                                : 0.0f;
-                if (collapsed_lyrics_active(snapshot, g_settings))
-                {
-                    primary.width = (collapsed_lyrics_width + clock_section) * g_settings.size_scale;
-                }
-                else if (g_settings.media_pill_clock)
-                {
-                    const float privacy_extra = snapshot.system.mic_active || snapshot.system.camera_active
-                                                    ? media_pill_layout::privacy_extra_width
-                                                    : 0.0f;
-                    primary.width =
-                        (media_pill_layout::base_width + privacy_extra + clock_section) * g_settings.size_scale;
-                }
+                primary.width = collapsed_media_width(primary.width, true);
             }
+        }
+
+        if (secondary && secondary->kind == IslandKind::Media && secondary->width > 1.0f)
+        {
+            secondary->width = collapsed_media_width(secondary->width, false);
         }
 
         if (primary.kind == IslandKind::Lookup)
