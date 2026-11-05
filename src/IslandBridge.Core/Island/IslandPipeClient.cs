@@ -40,7 +40,7 @@ public sealed class IslandPipeClient : IAsyncDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(pipeName);
 
         _log = log;
-        _verifyServer = verifyServer ?? PipeServerVerifier.IsWindhawk;
+        _verifyServer = verifyServer ?? PipeServerVerifier.IsIsland;
         _pipeName = pipeName;
         _connectTimeout = connectTimeout ?? TimeSpan.FromMilliseconds(500);
     }

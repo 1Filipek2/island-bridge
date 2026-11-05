@@ -61,6 +61,8 @@ internal sealed class AppHost : IAsyncDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private readonly IslandPipeClient _island;
     private readonly Task _islandTask;
+    private readonly IslandSupervisor _islandProcess;
+    private readonly Task _islandProcessTask;
     private readonly ShellAppIconSource _iconSource;
     private readonly IconResolver _icons;
     private CancellationTokenSource? _toastCancellation;
@@ -90,6 +92,8 @@ internal sealed class AppHost : IAsyncDisposable
         _iconSource = new ShellAppIconSource(log);
         _icons = new IconResolver(new IconCache(paths.IconDirectory, _timeProvider, log), new ChainedIconSource(_iconSource, new BundledIconSource()), log);
         _islandTask = Task.Run(() => _island.RunAsync(_lifetime.Token));
+        _islandProcess = new IslandSupervisor(new IslandLauncher(), log);
+        _islandProcessTask = Task.Run(() => _islandProcess.RunAsync(_lifetime.Token));
     }
 
     public event EventHandler? StatusChanged;
@@ -413,6 +417,15 @@ internal sealed class AppHost : IAsyncDisposable
         }
         catch (OperationCanceledException)
         {
+        }
+
+        try
+        {
+            await _islandProcessTask.WaitAsync(IslandSupervisor.StopTimeout + TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            Log.Warn("island process shutdown timed out");
         }
 
         await _island.DisposeAsync().ConfigureAwait(false);
