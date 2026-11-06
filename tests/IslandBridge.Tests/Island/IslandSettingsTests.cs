@@ -21,12 +21,6 @@ public sealed partial class IslandSettingsTests : IDisposable
 
         foreach (var (name, (numeric, value)) in defaults)
         {
-            if (IslandSettingsCatalog.Retired.Contains(name))
-            {
-                Assert.False(catalog.ContainsKey(name), name);
-                continue;
-            }
-
             Assert.True(catalog.TryGetValue(name, out var setting), $"missing {name}");
             Assert.Equal(numeric, setting.IsNumeric);
             Assert.Equal(value, setting.DefaultValue);
@@ -156,10 +150,10 @@ public sealed partial class IslandSettingsTests : IDisposable
     [Fact]
     public void Cities_round_trip_in_the_island_format()
     {
-        Assert.True(WeatherCityList.TryParse("Trnava|48.37773|17.58603; New York|40.71278|-74.00597", out var cities));
+        Assert.True(WeatherCityList.TryParse("Oslo|59.91273|10.74609; New York|40.71278|-74.00597", out var cities));
         Assert.Equal(2, cities.Count);
         Assert.Equal(new WeatherCity("New York", 40.71278, -74.00597), cities[1]);
-        Assert.Equal("Trnava|48.37773|17.58603;New York|40.71278|-74.00597", WeatherCityList.Format(cities));
+        Assert.Equal("Oslo|59.91273|10.74609;New York|40.71278|-74.00597", WeatherCityList.Format(cities));
         Assert.True(WeatherCityList.TryParse(string.Empty, out var none));
         Assert.Empty(none);
     }

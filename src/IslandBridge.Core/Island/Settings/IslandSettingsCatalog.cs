@@ -12,8 +12,6 @@ public static partial class IslandSettingsCatalog
 
     public static IReadOnlyList<IslandSetting> All { get; } = Build();
 
-    public static IReadOnlyList<string> Retired { get; } = ["Modules.WindowsToastListener"];
-
     public static IslandSetting? Find(string name) => All.FirstOrDefault(setting => setting.Name == name);
 
     public static IEnumerable<IslandSetting> InGroup(IslandSettingGroup group) => All.Where(setting => setting.Group == group);
@@ -149,7 +147,7 @@ public static partial class IslandSettingsCatalog
             IslandSetting.Toggle("Modules.Clipboard", Alerts, true),
             IslandSetting.Toggle("Modules.BluetoothIndicator", Alerts, true),
             IslandSetting.Toggle("Modules.BluetoothShowBattery", Alerts, true, On("Modules.BluetoothIndicator")),
-            IslandSetting.Text("Modules.BluetoothAllowList", Alerts, "FreeBuds;DualSense", 512, enabledWhen: On("Modules.BluetoothIndicator")),
+            IslandSetting.Text("Modules.BluetoothAllowList", Alerts, string.Empty, 512, enabledWhen: On("Modules.BluetoothIndicator")),
 
             IslandSetting.Toggle("Indicators.PrivacyDots", Privacy, true),
             IslandSetting.Toggle("Indicators.PrivacyDotsMic", Privacy, true, On("Indicators.PrivacyDots")),
@@ -157,8 +155,8 @@ public static partial class IslandSettingsCatalog
             IslandSetting.Toggle("Indicators.PrivacyDotsCam", Privacy, true, On("Indicators.PrivacyDots")),
             IslandSetting.Color("Indicators.PrivacyDotsCamHex", Privacy, "#34C759", On("Indicators.PrivacyDotsCam")),
 
-            IslandSetting.Toggle("Modules.GitHubModule", Tabs, true),
-            IslandSetting.Text("Modules.GitHubUser", Tabs, "1Filipek2", 39, GitHubUser, On("Modules.GitHubModule")),
+            IslandSetting.Toggle("Modules.GitHubModule", Tabs, false),
+            IslandSetting.Text("Modules.GitHubUser", Tabs, string.Empty, 39, GitHubUser, On("Modules.GitHubModule")),
             IslandSetting.Toggle("Modules.HardwareMonitorModule", Tabs, true),
             IslandSetting.Toggle("Modules.TimerModule", Tabs, true),
             IslandSetting.Toggle("Modules.FileTrayModule", Tabs, false),

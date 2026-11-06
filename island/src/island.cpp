@@ -6,7 +6,6 @@
 #include "media/lyrics.h"
 #include "media/media.h"
 #include "notifications/dnd.h"
-#include "notifications/toast_listener.h"
 #include "pipe/pipe_server.h"
 #include "services/github.h"
 #include "services/weather.h"
@@ -43,7 +42,6 @@ bool start_threads()
     g_lyrics_thread = CreateThread(nullptr, 0, lyrics_thread_proc, nullptr, 0, nullptr);
     g_keyboard_thread = CreateThread(nullptr, 0, keyboard_thread_proc, nullptr, 0, &g_keyboard_thread_id);
     g_mouse_thread = CreateThread(nullptr, 0, mouse_thread_proc, nullptr, 0, &g_mouse_thread_id);
-    toast_listener::sync_thread();
     g_bluetooth_thread = CreateThread(nullptr, 0, bluetooth_thread_proc, nullptr, 0, nullptr);
     g_island_pipe_thread = CreateThread(nullptr, 0, island_pipe::thread_proc, nullptr, 0, nullptr);
     subscribe_dnd_notification();
@@ -67,9 +65,9 @@ void stop_threads()
         SetEvent(g_stop_event);
     }
 
-    HANDLE handles[] = {g_render_thread, g_media_thread,     g_audio_thread,        g_weather_thread,
-                        g_github_thread, g_lyrics_thread,    g_notification_thread, g_keyboard_thread,
-                        g_mouse_thread,  g_bluetooth_thread, g_island_pipe_thread};
+    HANDLE handles[] = {g_render_thread, g_media_thread,    g_audio_thread,     g_weather_thread,
+                        g_github_thread, g_lyrics_thread,   g_keyboard_thread,  g_mouse_thread,
+                        g_bluetooth_thread, g_island_pipe_thread};
     for (HANDLE handle : handles)
     {
         if (handle)
@@ -85,7 +83,6 @@ void stop_threads()
     g_weather_thread = nullptr;
     g_github_thread = nullptr;
     g_lyrics_thread = nullptr;
-    g_notification_thread = nullptr;
     g_keyboard_thread = nullptr;
     g_keyboard_thread_id = 0;
     g_mouse_thread = nullptr;
@@ -134,7 +131,6 @@ bool island_start()
 void island_settings_changed()
 {
     island::load_settings();
-    island::toast_listener::sync_thread();
 }
 
 void island_stop()

@@ -47,7 +47,6 @@ add_library(island_modules OBJECT
     src/notifications/capture.cpp
     src/notifications/dnd.cpp
     src/notifications/notification_center.cpp
-    src/notifications/toast_listener.cpp
     src/pipe/pipe_protocol.cpp
     src/pipe/pipe_server.cpp
     src/services/geo.cpp

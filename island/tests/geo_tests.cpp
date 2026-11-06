@@ -24,8 +24,8 @@ void check(bool condition, const char* name)
 void check_parsing()
 {
     const auto city = geo::parse_place_name(
-        R"({"place_id":1,"name":"x","address":{"city":"Trnava","county":"okres Trnava","country":"Slovensko"}})");
-    check(city && *city == L"Trnava", "city wins");
+        R"({"place_id":1,"name":"x","address":{"city":"Lyon","county":"Rhone","country":"France"}})");
+    check(city && *city == L"Lyon", "city wins");
 
     const auto town = geo::parse_place_name(R"({"address":{"county":"okres","town":"\u017dilina"}})");
     check(town && *town == L"\u017Dilina", "town with unicode escape");
@@ -60,33 +60,33 @@ void check_parsing()
 
 void check_points()
 {
-    check(geo::valid({48.37, 17.58}), "valid point");
+    check(geo::valid({45.76, 4.83}), "valid point");
     check(!geo::valid({0.0, 0.0}), "null island");
     check(!geo::valid({91.0, 0.0}), "latitude range");
     check(!geo::valid({0.0, -181.0}), "longitude range");
     check(!geo::valid({std::nan(""), 1.0}), "nan");
 
-    const geo::Point r = geo::rounded({48.37773, 17.58603});
-    check(std::fabs(r.latitude - 48.38) < 1e-9 && std::fabs(r.longitude - 17.59) < 1e-9, "rounded");
+    const geo::Point r = geo::rounded({45.76404, 4.83566});
+    check(std::fabs(r.latitude - 45.76) < 1e-9 && std::fabs(r.longitude - 4.84) < 1e-9, "rounded");
 
-    const double km = geo::distance_km({48.37773, 17.58603}, {49.06651, 18.92399});
-    check(km > 124.0 && km < 125.0, "trnava to martin");
+    const double km = geo::distance_km({45.76404, 4.83566}, {48.85661, 2.35222});
+    check(km > 391.0 && km < 392.0, "lyon to paris");
     check(geo::distance_km({48.0, 17.0}, {48.0, 17.0}) == 0.0, "zero distance");
 
-    check(geo::format_coordinate(48.38) == L"48.38", "format");
+    check(geo::format_coordinate(45.76) == L"45.76", "format");
     check(geo::format_coordinate(-0.5) == L"-0.50", "format negative");
 
-    check(geo::reverse_path({48.38, 17.59}, L"sk") ==
-              L"/reverse?format=jsonv2&zoom=10&addressdetails=1&lat=48.38&lon=17.59&accept-language=sk",
+    check(geo::reverse_path({45.76, 4.84}, L"fr") ==
+              L"/reverse?format=jsonv2&zoom=10&addressdetails=1&lat=45.76&lon=4.84&accept-language=fr",
           "reverse path");
-    check(geo::reverse_path({48.38, 17.59}, L"sk&x=1").ends_with(L"&accept-language=sk"), "language sanitized");
-    check(geo::reverse_path({48.38, 17.59}, L"").ends_with(L"&lon=17.59"), "no language");
+    check(geo::reverse_path({45.76, 4.84}, L"fr&x=1").ends_with(L"&accept-language=fr"), "language sanitized");
+    check(geo::reverse_path({45.76, 4.84}, L"").ends_with(L"&lon=4.84"), "no language");
 }
 
 void fuzz()
 {
     std::mt19937 random(1234);
-    const std::string seed = R"({"address":{"city":"Trnava","town":"x"},"a":[1,{"b":"c"}]})";
+    const std::string seed = R"({"address":{"city":"Lyon","town":"x"},"a":[1,{"b":"c"}]})";
 
     for (int i = 0; i < 200000; ++i)
     {

@@ -9,7 +9,7 @@ namespace host
 namespace
 {
 
-constexpr std::array<SettingDefault, 105> setting_table = {
+constexpr std::array<SettingDefault, 103> setting_table = {
     SettingDefault{L"Appearance.Position", SettingKind::Text, 0, L"top-center"},
     SettingDefault{L"Appearance.TargetMonitor", SettingKind::Text, 0, L"primary"},
     SettingDefault{L"Appearance.OffsetX", SettingKind::Number, 0, L""},
@@ -66,17 +66,16 @@ constexpr std::array<SettingDefault, 105> setting_table = {
     SettingDefault{L"Modules.Battery", SettingKind::Number, 1, L""},
     SettingDefault{L"Modules.BluetoothIndicator", SettingKind::Number, 1, L""},
     SettingDefault{L"Modules.BluetoothShowBattery", SettingKind::Number, 1, L""},
-    SettingDefault{L"Modules.BluetoothAllowList", SettingKind::Text, 0, L"FreeBuds;DualSense"},
+    SettingDefault{L"Modules.BluetoothAllowList", SettingKind::Text, 0, L""},
     SettingDefault{L"Modules.Progress", SettingKind::Number, 1, L""},
     SettingDefault{L"Modules.TimerModule", SettingKind::Number, 1, L""},
     SettingDefault{L"Modules.Clipboard", SettingKind::Number, 1, L""},
     SettingDefault{L"Modules.StatusCountdownProgress", SettingKind::Number, 0, L""},
     SettingDefault{L"Modules.DoNotDisturbIndicator", SettingKind::Number, 1, L""},
     SettingDefault{L"Modules.NotificationRespectDnD", SettingKind::Number, 1, L""},
-    SettingDefault{L"Modules.WindowsToastListener", SettingKind::Number, 0, L""},
     SettingDefault{L"Modules.NotificationCenter", SettingKind::Number, 1, L""},
-    SettingDefault{L"Modules.GitHubModule", SettingKind::Number, 1, L""},
-    SettingDefault{L"Modules.GitHubUser", SettingKind::Text, 0, L"1Filipek2"},
+    SettingDefault{L"Modules.GitHubModule", SettingKind::Number, 0, L""},
+    SettingDefault{L"Modules.GitHubUser", SettingKind::Text, 0, L""},
     SettingDefault{L"Modules.HardwareMonitorModule", SettingKind::Number, 1, L""},
     SettingDefault{L"Modules.GameOverlay", SettingKind::Number, 0, L""},
     SettingDefault{L"Modules.ShowMetricText", SettingKind::Number, 0, L""},
