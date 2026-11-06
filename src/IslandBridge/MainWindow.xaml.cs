@@ -27,7 +27,7 @@ public sealed partial class MainWindow : Window
 {
     private const int WidthDip = 380;
     private const int MaxHeightDip = 720;
-    private const int FitSlackDip = 14;
+    private const int FitSlackDip = 10;
     private const int EdgeMarginDip = 12;
     private const int RecentCollapsedCount = 1;
     private const int RecentScrollGutter = 12;
@@ -48,7 +48,7 @@ public sealed partial class MainWindow : Window
     private bool _recentExpanded;
     private IslandSettingsView? _islandView;
     private PointInt32 _anchor;
-    private bool _fitted;
+    private double _fittedHeight;
 
     internal MainWindow(AppHost host, PointInt32? anchor, long requestedAt)
     {
@@ -60,6 +60,7 @@ public sealed partial class MainWindow : Window
         _anchor = anchor ?? CursorPosition();
         Place(MaxHeightDip);
         Root.Loaded += OnRootLoaded;
+        MainContent.LayoutUpdated += OnMainContentLayoutUpdated;
 
         foreach (var toggle in new[] { IgnoreSilentSwitch, PreviewsSwitch, WindowsToastsSwitch, AutostartSwitch, MinimizedSwitch })
         {
@@ -135,18 +136,27 @@ public sealed partial class MainWindow : Window
         AppWindow.MoveAndResize(new RectInt32(x, y, width, height));
     }
 
-    // The window takes the height of the main page, so it opens without a scroll bar; the
-    // settings pages scroll inside that height.
-    private void OnRootLoaded(object sender, RoutedEventArgs args)
+    // The window follows the height of the main page (bottom edge stays put), so the main page
+    // never needs a scroll bar; the other pages scroll inside that height.
+    private void OnRootLoaded(object sender, RoutedEventArgs args) => FitToMainPage();
+
+    private void OnMainContentLayoutUpdated(object? sender, object args) => FitToMainPage();
+
+    private void FitToMainPage()
     {
-        if (_fitted)
+        if (_closed || MainScroller.Visibility != Visibility.Visible || MainContent.DesiredSize.Height <= 0)
         {
             return;
         }
 
-        _fitted = true;
-        Root.Measure(new Windows.Foundation.Size(WidthDip, double.PositiveInfinity));
-        Place(Root.DesiredSize.Height + FitSlackDip);
+        var chrome = Root.ActualHeight - MainScroller.ActualHeight;
+        var target = chrome + MainContent.DesiredSize.Height + FitSlackDip;
+
+        if (Math.Abs(target - _fittedHeight) >= 1)
+        {
+            _fittedHeight = target;
+            Place(target);
+        }
     }
 
     private static unsafe PointInt32 CursorPosition()
@@ -702,6 +712,7 @@ public sealed partial class MainWindow : Window
     {
         _closed = true;
         Root.Loaded -= OnRootLoaded;
+        MainContent.LayoutUpdated -= OnMainContentLayoutUpdated;
         _islandView?.Flush();
 
         if (_islandView is not null)
