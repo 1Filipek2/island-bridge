@@ -20,13 +20,13 @@
     <EventSourceSupport>false</EventSourceSupport>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DefaultLanguage>en-US</DefaultLanguage>
-    <Version>0.1.0</Version>
+    <Version>1.0.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="IslandBridge.Tests" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.WindowsAppSDK" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" />
     <PackageReference Include="Microsoft.Windows.CsWin32" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
