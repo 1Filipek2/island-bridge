@@ -259,7 +259,7 @@ void Renderer::draw_file_tray_dashboard(const SharedState& state, D2D1_RECT_F re
         }
         else if (item.is_directory)
         {
-            wcscpy_s(size_buf, L"—");
+            wcscpy_s(size_buf, L"-");
         }
         else if (item.size_bytes >= 1073741824ull)
         {

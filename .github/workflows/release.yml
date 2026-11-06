@@ -1,0 +1,78 @@
+name: release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+jobs:
+  release:
+    name: build installer and draft release
+    runs-on: windows-2025
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - name: Check out (actions/checkout v7.0.1)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET from global.json (actions/setup-dotnet v6.0.0)
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
+        with:
+          global-json-file: global.json
+
+      - name: Check that the tag matches the app version
+        id: version
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          $project = [xml](Get-Content src/IslandBridge/IslandBridge.csproj)
+          $declared = ($project.Project.PropertyGroup | Where-Object Version).Version
+          if ($declared -ne $version) { throw "tag $version does not match <Version>$declared</Version>" }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Restore with lock files
+        run: dotnet restore IslandBridge.slnx --locked-mode
+
+      - name: Test the app
+        run: dotnet test --project tests/IslandBridge.Tests -c Release
+
+      - name: Test the island
+        shell: cmd
+        run: call island\test.cmd Release
+
+      - name: Install Inno Setup 6.7.3 (pinned SHA256)
+        shell: pwsh
+        run: |
+          $setup = Join-Path $env:RUNNER_TEMP 'innosetup-6.7.3.exe'
+          Invoke-WebRequest https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe -OutFile $setup
+          $hash = (Get-FileHash $setup -Algorithm SHA256).Hash
+          if ($hash -ne '9C73C3BAE7ED48D44112A0F48E66742C00090BDB5BEF71D9D3C056C66E97B732') { throw "unexpected Inno Setup hash $hash" }
+          Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER' -Wait
+
+      - name: Build installer, portable zip and checksums
+        shell: pwsh
+        run: ./installer/build.ps1 -Version ${{ steps.version.outputs.version }}
+
+      - name: Create a draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create $env:GITHUB_REF_NAME --draft --verify-tag --generate-notes `
+            --repo $env:GITHUB_REPOSITORY --title "IslandBridge $env:VERSION" `
+            (Get-ChildItem artifacts/release -File).FullName

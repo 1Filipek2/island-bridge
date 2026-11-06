@@ -23,7 +23,6 @@ inline HANDLE g_audio_thread = nullptr;
 inline HANDLE g_weather_thread = nullptr;
 inline HANDLE g_github_thread = nullptr;
 inline HANDLE g_lyrics_thread = nullptr;
-inline HANDLE g_notification_thread = nullptr;
 inline HANDLE g_bluetooth_thread = nullptr;
 inline HANDLE g_island_pipe_thread = nullptr;
 inline std::atomic<bool> g_running = false;

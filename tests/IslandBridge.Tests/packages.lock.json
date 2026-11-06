@@ -135,12 +135,6 @@
           "xunit.v3.runner.common": "[4.0.2]"
         }
       },
-      "islandbridge": {
-        "type": "Project",
-        "dependencies": {
-          "IslandBridge.Core": "[1.0.0, )"
-        }
-      },
       "islandbridge.core": {
         "type": "Project"
       }

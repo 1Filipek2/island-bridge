@@ -9,8 +9,8 @@ public sealed class DeviceConfigTests
     {
         var device = new DeviceConfig { Name = "4" };
 
-        Assert.True(device.TryUpdateName("Findo"));
-        Assert.Equal("Findo", device.Name);
+        Assert.True(device.TryUpdateName("My iPhone"));
+        Assert.Equal("My iPhone", device.Name);
     }
 
     [Fact]
