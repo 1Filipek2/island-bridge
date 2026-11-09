@@ -86,6 +86,9 @@ bool notification_center_unread(const Settings& settings);
 
 float idle_dot_reserve(const IdleStripMetrics& metrics);
 
+// Room the collapsed media pill keeps on its right for the privacy and unread dots, so they never sit on the bars.
+float media_pill_dot_reserve(const SharedState& state, const Settings& settings);
+
 // One visible character of the song title, used by the title-change animation.
 struct TitleGlyph
 {

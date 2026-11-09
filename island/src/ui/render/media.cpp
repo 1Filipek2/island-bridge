@@ -462,11 +462,7 @@ void Renderer::draw_media(const SharedState& state, D2D1_RECT_F rect, const Sett
 
         const D2D1_RECT_F art_rect = collapsed_art_rect;
 
-        float shift_x = 0.0f;
-        if (state.system.mic_active || state.system.camera_active)
-        {
-            shift_x = 22.0f;
-        }
+        const float shift_x = media_pill_dot_reserve(state, settings);
 
         D2D1_RECT_F wave_rect =
             D2D1::RectF(rect.right - 42.0f - shift_x, cy - 10.0f, rect.right - 14.0f - shift_x, cy + 10.0f);
