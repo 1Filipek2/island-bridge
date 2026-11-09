@@ -14,9 +14,7 @@ Activity activity_for_kind(IslandKind kind, const Settings& settings, const Shar
     switch (kind)
     {
         case IslandKind::Media:
-            activity.width =
-                media_pill_layout::base_width +
-                (state.system.mic_active || state.system.camera_active ? media_pill_layout::privacy_extra_width : 0.0f);
+            activity.width = media_pill_layout::base_width + media_pill_dot_reserve(state, settings);
             activity.height = 44.0f;
             break;
         case IslandKind::Progress:
@@ -737,10 +735,8 @@ DWORD WINAPI render_thread_proc(void*)
                 return fallback;
             }
 
-            const float privacy_extra = snapshot.system.mic_active || snapshot.system.camera_active
-                                            ? media_pill_layout::privacy_extra_width
-                                            : 0.0f;
-            return (media_pill_layout::base_width + privacy_extra + clock_section) * g_settings.size_scale;
+            const float dot_extra = media_pill_dot_reserve(snapshot, g_settings);
+            return (media_pill_layout::base_width + dot_extra + clock_section) * g_settings.size_scale;
         };
 
         if (primary.kind == IslandKind::Media)

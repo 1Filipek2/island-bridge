@@ -1632,6 +1632,18 @@ float idle_dot_reserve(const IdleStripMetrics& metrics)
            (metrics.has_privacy && metrics.has_unread ? notification_center::unread_dot_gap : 0.0f);
 }
 
+float media_pill_dot_reserve(const SharedState& state, const Settings& settings)
+{
+    const bool privacy = settings.privacy_dots && ((state.system.mic_active && settings.privacy_dots_mic) ||
+                                                   (state.system.camera_active && settings.privacy_dots_cam));
+    const bool unread = notification_center_unread(settings);
+    if (!privacy && !unread)
+    {
+        return 0.0f;
+    }
+    return media_pill_layout::privacy_extra_width + (privacy && unread ? notification_center::unread_dot_gap : 0.0f);
+}
+
 // Every digit becomes '0' before measuring, so a ticking Clock never changes the pill width.
 std::wstring widest_digit_form(std::wstring text)
 {
