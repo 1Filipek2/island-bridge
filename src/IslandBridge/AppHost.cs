@@ -10,6 +10,7 @@ using IslandBridge.Core.Notifications;
 using IslandBridge.Core.Startup;
 using IslandBridge.Core.Toasts;
 using IslandBridge.Icons;
+using IslandBridge.Updates;
 
 namespace IslandBridge;
 
@@ -95,6 +96,8 @@ internal sealed class AppHost : IAsyncDisposable
         _islandTask = Task.Run(() => _island.RunAsync(_lifetime.Token));
         _islandProcess = new IslandSupervisor(new IslandLauncher(), log);
         _islandProcessTask = Task.Run(() => _islandProcess.RunAsync(_lifetime.Token));
+        Updates = new UpdateService(log, () => Config.Updates, RecordUpdateCheck, _timeProvider);
+        Updates.ExitForInstallRequested += (_, _) => RequestExit();
     }
 
     public event EventHandler? StatusChanged;
@@ -118,6 +121,8 @@ internal sealed class AppHost : IAsyncDisposable
     public AutostartRegistration Autostart { get; } = new();
 
     public IslandSettingsStore IslandSettings { get; } = new();
+
+    public UpdateService Updates { get; }
 
     public string ExecutablePath { get; } = Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "IslandBridge.exe");
 
@@ -354,12 +359,32 @@ internal sealed class AppHost : IAsyncDisposable
         Log.Info("test notification sent");
     }
 
+    // An installed copy updates itself; a portable copy opens the release page in the browser.
+    public void StartUpdate()
+    {
+        if (Updates.CanInstall)
+        {
+            _ = Task.Run(Updates.InstallAsync);
+            return;
+        }
+
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo(UpdateService.ReleasesPage.AbsoluteUri) { UseShellExecute = true });
+        }
+        catch (System.ComponentModel.Win32Exception exception)
+        {
+            Log.Error($"release page failed to open 0x{exception.NativeErrorCode:X8}");
+        }
+    }
+
     public void RequestShowWindow() => ShowWindowRequested?.Invoke(this, EventArgs.Empty);
 
     public void RequestExit() => ExitRequested?.Invoke(this, EventArgs.Empty);
 
     public async ValueTask DisposeAsync()
     {
+        Updates.Dispose();
         CancellationTokenSource? cancellation;
 
         lock (_gate)
@@ -549,6 +574,15 @@ internal sealed class AppHost : IAsyncDisposable
         }
 
         StatusChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void RecordUpdateCheck(DateTimeOffset at)
+    {
+        lock (_gate)
+        {
+            Config.Updates.LastCheck = at;
+            SaveLocked();
+        }
     }
 
     private void RefreshDeviceName(string deviceId, string? reportedName)

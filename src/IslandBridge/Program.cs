@@ -3,6 +3,7 @@ using IslandBridge.Core;
 using IslandBridge.Core.Diagnostics;
 using IslandBridge.Core.Startup;
 using IslandBridge.Shell;
+using IslandBridge.Updates;
 using Windows.Graphics;
 
 namespace IslandBridge;
@@ -18,6 +19,7 @@ internal static class Program
     private const uint ResumeCommand = 7;
     private const uint ExitCommand = 8;
     private const uint StatusCommand = 9;
+    private const uint UpdateCommand = 10;
 
     [STAThread]
     private static int Main(string[] args)
@@ -64,6 +66,7 @@ internal static class Program
 
             host.SyncWindowsToasts();
             host.StartBluetooth(arguments.BluetoothDelay(host.Config.Startup));
+            host.Updates.Reschedule();
             TrayIcon.RunMessageLoop();
 
             log.Info("exit requested");
@@ -89,7 +92,7 @@ internal static class Program
             new(PauseIndefinitelyCommand, localizer["Tray_PauseUntilResumed"]),
         ];
 
-        IReadOnlyList<TrayMenuItem> items =
+        List<TrayMenuItem> items =
         [
             new(StatusCommand, StatusPresenter.Describe(host), Enabled: false),
             TrayMenuItem.Separator,
@@ -99,6 +102,12 @@ internal static class Program
             TrayMenuItem.Separator,
             new(ExitCommand, localizer["Tray_Exit"]),
         ];
+
+        if (host.Updates.State == UpdateState.Available)
+        {
+            var label = localizer.Format(host.Updates.CanInstall ? "Tray_InstallUpdate" : "Tray_DownloadUpdate", host.Updates.Latest);
+            items.InsertRange(2, [new TrayMenuItem(UpdateCommand, label), TrayMenuItem.Separator]);
+        }
 
         switch (tray.ShowMenu(items, x, y))
         {
@@ -125,6 +134,9 @@ internal static class Program
                 break;
             case ExitCommand:
                 TrayIcon.Quit();
+                break;
+            case UpdateCommand:
+                host.StartUpdate();
                 break;
         }
     }

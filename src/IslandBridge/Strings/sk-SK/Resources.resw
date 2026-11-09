@@ -280,7 +280,7 @@
     <value>Ukončiť</value>
   </data>
   <data name="Footer_Privacy" xml:space="preserve">
-    <value>Bez prístupu na sieť. Text upozornení sa nikdy neloguje.</value>
+    <value>Na internet sa pripája iba samostatný updater, kvôli GitHub releases. Text upozornení sa nikdy neloguje.</value>
   </data>
   <data name="Test_Title" xml:space="preserve">
     <value>IslandBridge</value>
@@ -1040,5 +1040,68 @@
   </data>
   <data name="Section_Privacy" xml:space="preserve">
     <value>Súkromie</value>
+  </data>
+  <data name="Section_Updates" xml:space="preserve">
+    <value>Aktualizácie</value>
+  </data>
+  <data name="Update_Auto" xml:space="preserve">
+    <value>Automaticky kontrolovať aktualizácie</value>
+  </data>
+  <data name="Update_AutoHint" xml:space="preserve">
+    <value>Raz denne. Na internet (GitHub releases) sa pripája iba samostatný updater a nenainštaluje nič, čo neprejde kontrolou podpisu.</value>
+  </data>
+  <data name="Update_CheckNow" xml:space="preserve">
+    <value>Skontrolovať</value>
+  </data>
+  <data name="Update_Checking" xml:space="preserve">
+    <value>Hľadám aktualizácie...</value>
+  </data>
+  <data name="Update_Installed" xml:space="preserve">
+    <value>Nainštalovaná verzia {0}.</value>
+  </data>
+  <data name="Update_UpToDate" xml:space="preserve">
+    <value>Máš najnovšiu verziu ({0}).</value>
+  </data>
+  <data name="Update_Title" xml:space="preserve">
+    <value>Aktualizácia</value>
+  </data>
+  <data name="Update_Available" xml:space="preserve">
+    <value>Je dostupný IslandBridge {0}.</value>
+  </data>
+  <data name="Update_Install" xml:space="preserve">
+    <value>Nainštalovať</value>
+  </data>
+  <data name="Update_Download" xml:space="preserve">
+    <value>Stiahnuť</value>
+  </data>
+  <data name="Update_PortableHint" xml:space="preserve">
+    <value>Toto je prenosná verzia, novú verziu stiahni z GitHubu.</value>
+  </data>
+  <data name="Update_Installing" xml:space="preserve">
+    <value>Sťahujem a overujem {0}. IslandBridge sa sám reštartuje.</value>
+  </data>
+  <data name="Update_CheckFailed" xml:space="preserve">
+    <value>Kontrola aktualizácie zlyhala: {0}.</value>
+  </data>
+  <data name="Update_InstallFailed" xml:space="preserve">
+    <value>Aktualizácia sa nenainštalovala: {0}. Nič sa nezmenilo.</value>
+  </data>
+  <data name="Update_ReasonRejected" xml:space="preserve">
+    <value>stiahnutý súbor neprešiel kontrolou podpisu</value>
+  </data>
+  <data name="Update_ReasonNetwork" xml:space="preserve">
+    <value>GitHub je nedostupný</value>
+  </data>
+  <data name="Update_ReasonOther" xml:space="preserve">
+    <value>pozri updater.log</value>
+  </data>
+  <data name="Update_Unavailable" xml:space="preserve">
+    <value>Táto zostava nemá kontrolu aktualizácií.</value>
+  </data>
+  <data name="Tray_InstallUpdate" xml:space="preserve">
+    <value>Nainštalovať aktualizáciu {0}</value>
+  </data>
+  <data name="Tray_DownloadUpdate" xml:space="preserve">
+    <value>Stiahnuť aktualizáciu {0}</value>
   </data>
 </root>

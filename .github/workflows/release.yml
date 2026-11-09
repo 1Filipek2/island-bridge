@@ -17,12 +17,12 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
 
 jobs:
-  release:
-    name: build installer and draft release
+  build:
+    name: build installer and portable zip
     runs-on: windows-2025
     timeout-minutes: 45
-    permissions:
-      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Check out (actions/checkout v7.0.1)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -39,8 +39,8 @@ jobs:
         shell: pwsh
         run: |
           $version = $env:GITHUB_REF_NAME.TrimStart('v')
-          $project = [xml](Get-Content src/IslandBridge/IslandBridge.csproj)
-          $declared = ($project.Project.PropertyGroup | Where-Object Version).Version
+          $props = [xml](Get-Content Directory.Build.props)
+          $declared = ($props.Project.PropertyGroup | Where-Object Version).Version
           if ($declared -ne $version) { throw "tag $version does not match <Version>$declared</Version>" }
           "version=$version" >> $env:GITHUB_OUTPUT
 
@@ -63,16 +63,86 @@ jobs:
           if ($hash -ne '9C73C3BAE7ED48D44112A0F48E66742C00090BDB5BEF71D9D3C056C66E97B732') { throw "unexpected Inno Setup hash $hash" }
           Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER' -Wait
 
-      - name: Build installer, portable zip and checksums
+      - name: Build installer, portable zip, checksums and the update manifest
         shell: pwsh
         run: ./installer/build.ps1 -Version ${{ steps.version.outputs.version }}
+
+      - name: Upload the release files (actions/upload-artifact v7.0.2)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: release
+          path: artifacts/release
+          if-no-files-found: error
+          retention-days: 3
+
+  # Signing runs on a fresh runner that never restores packages or builds anything, and the key is
+  # only available in the protected "release" environment (tags v*, approval by the owner).
+  sign:
+    name: sign the update manifest and draft the release
+    needs: build
+    runs-on: windows-2025
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the trusted key list only (actions/checkout v7.0.1)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          sparse-checkout: src/IslandBridge.Core/Updates/UpdateSignature.cs
+          sparse-checkout-cone-mode: false
+
+      - name: Download the release files (actions/download-artifact v8.0.2)
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: release
+          path: release
+
+      - name: Sign the update manifest
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          if ($env:VERSION -notmatch '^\d+\.\d+\.\d+$') { throw 'bad version' }
+          if (-not $env:UPDATE_SIGNING_KEY) { throw 'UPDATE_SIGNING_KEY is not set' }
+
+          # The manifest is rebuilt here from the setup file, so the signature covers exactly what is published.
+          $setup = Get-Item "release/IslandBridge-$env:VERSION-setup-x64.exe"
+          $hash = (Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $text = "format=islandbridge-update-1`nversion=$env:VERSION`nfile=$($setup.Name)`nsize=$($setup.Length)`nsha256=$hash`n"
+          $bytes = [Text.Encoding]::ASCII.GetBytes($text)
+          $built = [IO.File]::ReadAllBytes((Resolve-Path release/update-manifest.txt))
+          if ([Convert]::ToBase64String($built) -ne [Convert]::ToBase64String($bytes)) { throw 'the built manifest does not match the setup file' }
+
+          $key = [Security.Cryptography.ECDsa]::Create()
+          try {
+            $read = 0
+            $key.ImportPkcs8PrivateKey([Convert]::FromBase64String($env:UPDATE_SIGNING_KEY), [ref]$read)
+            if ($key.KeySize -ne 384) { throw 'the signing key is not P-384' }
+
+            $public = [Convert]::ToBase64String($key.ExportSubjectPublicKeyInfo())
+            $trusted = Get-Content src/IslandBridge.Core/Updates/UpdateSignature.cs -Raw
+            if (-not $trusted.Contains("`"$public`"")) { throw 'the signing key is not in UpdateSignature.TrustedKeys' }
+
+            $format = [Security.Cryptography.DSASignatureFormat]::IeeeP1363FixedFieldConcatenation
+            $signature = $key.SignData($bytes, [Security.Cryptography.HashAlgorithmName]::SHA384, $format)
+            if (-not $key.VerifyData($bytes, $signature, [Security.Cryptography.HashAlgorithmName]::SHA384, $format)) { throw 'signature self-check failed' }
+          }
+          finally {
+            $key.Dispose()
+          }
+
+          [IO.File]::WriteAllBytes((Join-Path (Resolve-Path release) 'update-manifest.sig'), [Text.Encoding]::ASCII.GetBytes([Convert]::ToBase64String($signature) + "`n"))
+          Get-ChildItem release -File | Select-Object Name, Length | Format-Table -AutoSize
 
       - name: Create a draft release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
           gh release create $env:GITHUB_REF_NAME --draft --verify-tag --generate-notes `
             --repo $env:GITHUB_REPOSITORY --title "IslandBridge $env:VERSION" `
-            (Get-ChildItem artifacts/release -File).FullName
+            (Get-ChildItem release -File).FullName

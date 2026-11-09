@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/IslandBridge.Core/IslandBridge.Core.csproj" />
     <Project Path="src/IslandBridge/IslandBridge.csproj" />
+    <Project Path="src/IslandBridge.Updater/IslandBridge.Updater.csproj" />
   </Folder>
   <Folder Name="/spikes/">
     <Project Path="spikes/IslandBridge.AncsSpike/IslandBridge.AncsSpike.csproj" />

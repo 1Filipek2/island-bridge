@@ -8,6 +8,8 @@ using IslandBridge.Core.Diagnostics;
 using IslandBridge.Core.Notifications;
 using IslandBridge.Core.Startup;
 using IslandBridge.Core.Toasts;
+using IslandBridge.Core.Updates;
+using IslandBridge.Updates;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -62,7 +64,7 @@ public sealed partial class MainWindow : Window
         Root.Loaded += OnRootLoaded;
         MainContent.LayoutUpdated += OnMainContentLayoutUpdated;
 
-        foreach (var toggle in new[] { IgnoreSilentSwitch, PreviewsSwitch, WindowsToastsSwitch, AutostartSwitch, MinimizedSwitch })
+        foreach (var toggle in new[] { IgnoreSilentSwitch, PreviewsSwitch, WindowsToastsSwitch, AutostartSwitch, MinimizedSwitch, UpdatesAutoSwitch })
         {
             MakeCompact(toggle);
         }
@@ -73,6 +75,7 @@ public sealed partial class MainWindow : Window
         LoadValues();
         UpdateStatus();
         UpdateRecent();
+        UpdateUpdates();
 
         PauseSegments.SegmentSelected += OnPauseSelected;
         DelaySegments.SegmentSelected += OnDelaySelected;
@@ -84,6 +87,7 @@ public sealed partial class MainWindow : Window
         host.StatusChanged += OnHostStatusChanged;
         host.NotificationsChanged += OnHostNotificationsChanged;
         host.ConfigChanged += OnHostConfigChanged;
+        host.Updates.Changed += OnUpdatesChanged;
         host.Localizer.LanguageChanged += OnLanguageChanged;
         _ready = true;
     }
@@ -205,6 +209,9 @@ public sealed partial class MainWindow : Window
         ToolTipService.SetToolTip(CloseButton, localizer["Caption_Close"]);
         DelayLabel.Text = localizer["Setting_Delay"];
         AppearanceHeader.Text = localizer["Section_Appearance"];
+        UpdatesHeader.Text = localizer["Section_Updates"];
+        UpdatesAutoLabel.Text = localizer["Update_Auto"];
+        UpdatesHint.Text = localizer["Update_AutoHint"];
         IslandSettingsText.Text = localizer["Island_Open"];
         IslandSettingsSummary.Text = localizer["Island_OpenSummary"];
         LanguageLabel.Text = localizer["Setting_Language"];
@@ -240,6 +247,7 @@ public sealed partial class MainWindow : Window
         LanguageSegments.SelectedIndex = (int)config.Appearance.Language;
         ThemeSegments.SelectedIndex = (int)config.Appearance.Theme;
         CloseActionSegments.SelectedIndex = (int)config.Startup.CloseAction;
+        UpdatesAutoSwitch.IsOn = config.Updates.CheckAutomatically;
         RefreshAutostart();
         _ready = wasReady;
     }
@@ -289,6 +297,45 @@ public sealed partial class MainWindow : Window
         _ready = false;
         PauseSegments.SelectedIndex = (int)_host.CurrentPause;
         _ready = wasReady;
+    }
+
+    private void UpdateUpdates()
+    {
+        var updates = _host.Updates;
+        var localizer = _host.Localizer;
+        var latest = updates.Latest.ToString();
+        var actionText = localizer[updates.CanInstall ? "Update_Install" : "Update_Download"];
+        var reason = updates.Failure switch
+        {
+            UpdateFailure.Signature or UpdateFailure.Hash or UpdateFailure.Manifest => localizer["Update_ReasonRejected"],
+            UpdateFailure.Network or UpdateFailure.Download => localizer["Update_ReasonNetwork"],
+            _ => localizer["Update_ReasonOther"],
+        };
+
+        var status = updates.State switch
+        {
+            UpdateState.Unavailable => localizer["Update_Unavailable"],
+            UpdateState.Checking => localizer["Update_Checking"],
+            UpdateState.UpToDate => localizer.Format("Update_UpToDate", UpdateVersion.Current),
+            UpdateState.Available => localizer.Format("Update_Available", latest),
+            UpdateState.Installing => localizer.Format("Update_Installing", latest),
+            UpdateState.CheckFailed => localizer.Format("Update_CheckFailed", reason),
+            UpdateState.InstallFailed => localizer.Format("Update_InstallFailed", reason),
+            _ => localizer.Format("Update_Installed", UpdateVersion.Current),
+        };
+
+        var offersUpdate = updates.State is UpdateState.Available or UpdateState.InstallFailed;
+        UpdatesStatus.Text = status;
+        UpdatesButton.Content = offersUpdate ? actionText : localizer["Update_CheckNow"];
+        UpdatesButton.IsEnabled = updates.State is not (UpdateState.Unavailable or UpdateState.Checking or UpdateState.Installing);
+        UpdatesAutoSwitch.IsEnabled = updates.State != UpdateState.Unavailable;
+
+        UpdateBar.IsOpen = offersUpdate || updates.State == UpdateState.Installing;
+        UpdateBar.Severity = updates.State == UpdateState.InstallFailed ? InfoBarSeverity.Warning : InfoBarSeverity.Informational;
+        UpdateBar.Title = localizer["Update_Title"];
+        UpdateBar.Message = updates.State == UpdateState.Available && !updates.CanInstall ? $"{status} {localizer["Update_PortableHint"]}" : status;
+        UpdateBarButton.Content = actionText;
+        UpdateBarButton.Visibility = offersUpdate ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void UpdateRecent()
@@ -666,6 +713,30 @@ public sealed partial class MainWindow : Window
 
     private void OnExitClick(object sender, RoutedEventArgs args) => _host.RequestExit();
 
+    private void OnUpdateActionClick(object sender, RoutedEventArgs args) => _host.StartUpdate();
+
+    private void OnUpdatesButtonClick(object sender, RoutedEventArgs args)
+    {
+        if (_host.Updates.State is UpdateState.Available or UpdateState.InstallFailed)
+        {
+            _host.StartUpdate();
+            return;
+        }
+
+        _ = Task.Run(_host.Updates.CheckAsync);
+    }
+
+    private void OnUpdatesAutoToggled(object sender, RoutedEventArgs args)
+    {
+        if (_ready)
+        {
+            _host.UpdateConfig(config => config.Updates.CheckAutomatically = UpdatesAutoSwitch.IsOn);
+            _host.Updates.Reschedule();
+        }
+    }
+
+    private void OnUpdatesChanged(object? sender, EventArgs args) => DispatcherQueue.TryEnqueue(UpdateUpdates);
+
     private void SetCategoryMuted(AncsCategory category, bool muted) => _host.UpdateConfig(config =>
     {
         config.Notifications.MutedCategories.Remove(category);
@@ -704,6 +775,7 @@ public sealed partial class MainWindow : Window
         LoadValues();
         UpdateStatus();
         UpdateRecent();
+        UpdateUpdates();
         _islandView?.Rebuild();
         _ready = true;
     });
@@ -730,6 +802,7 @@ public sealed partial class MainWindow : Window
         _host.StatusChanged -= OnHostStatusChanged;
         _host.NotificationsChanged -= OnHostNotificationsChanged;
         _host.ConfigChanged -= OnHostConfigChanged;
+        _host.Updates.Changed -= OnUpdatesChanged;
         _host.Localizer.LanguageChanged -= OnLanguageChanged;
     }
 }
