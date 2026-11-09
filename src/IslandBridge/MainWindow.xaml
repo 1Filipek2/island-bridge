@@ -70,6 +70,11 @@
         <ScrollViewer x:Name="MainScroller" Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel x:Name="MainContent" Padding="16,0,16,12" Spacing="14">
                 <InfoBar x:Name="HintBar" IsClosable="False" IsOpen="False" Padding="0" />
+                <InfoBar x:Name="UpdateBar" IsClosable="False" IsOpen="False" Padding="0">
+                    <InfoBar.ActionButton>
+                        <Button x:Name="UpdateBarButton" Click="OnUpdateActionClick" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
 
                 <StackPanel Spacing="6">
                     <TextBlock x:Name="NotificationsHeader" Style="{StaticResource SectionHeader}" />
@@ -222,6 +227,27 @@
                     <controls:Segmented x:Name="CloseActionSegments" />
                     <TextBlock x:Name="DelayLabel" FontSize="13" />
                     <controls:Segmented x:Name="DelaySegments" />
+                </StackPanel>
+
+                <StackPanel Spacing="6">
+                    <TextBlock x:Name="UpdatesHeader" Style="{StaticResource SectionHeader}" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="UpdatesAutoLabel" Style="{StaticResource RowLabel}" />
+                        <ToggleSwitch x:Name="UpdatesAutoSwitch" Grid.Column="1" Toggled="OnUpdatesAutoToggled" />
+                    </Grid>
+                    <TextBlock x:Name="UpdatesHint" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="UpdatesStatus" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
+                        <Button x:Name="UpdatesButton" Grid.Column="1" Style="{StaticResource SmallButton}" Click="OnUpdatesButtonClick" />
+                    </Grid>
                 </StackPanel>
 
                 <StackPanel Spacing="6">

@@ -280,7 +280,7 @@
     <value>Exit</value>
   </data>
   <data name="Footer_Privacy" xml:space="preserve">
-    <value>No network access. Notification text is never logged.</value>
+    <value>Only the separate updater goes online, to check GitHub releases. Notification text is never logged.</value>
   </data>
   <data name="Test_Title" xml:space="preserve">
     <value>IslandBridge</value>
@@ -1040,5 +1040,68 @@
   </data>
   <data name="Section_Privacy" xml:space="preserve">
     <value>Privacy</value>
+  </data>
+  <data name="Section_Updates" xml:space="preserve">
+    <value>Updates</value>
+  </data>
+  <data name="Update_Auto" xml:space="preserve">
+    <value>Check for updates automatically</value>
+  </data>
+  <data name="Update_AutoHint" xml:space="preserve">
+    <value>Once a day. Only the separate updater goes online, to GitHub releases, and installs nothing that fails the signature check.</value>
+  </data>
+  <data name="Update_CheckNow" xml:space="preserve">
+    <value>Check now</value>
+  </data>
+  <data name="Update_Checking" xml:space="preserve">
+    <value>Checking for updates...</value>
+  </data>
+  <data name="Update_Installed" xml:space="preserve">
+    <value>Installed version {0}.</value>
+  </data>
+  <data name="Update_UpToDate" xml:space="preserve">
+    <value>You have the latest version ({0}).</value>
+  </data>
+  <data name="Update_Title" xml:space="preserve">
+    <value>Update</value>
+  </data>
+  <data name="Update_Available" xml:space="preserve">
+    <value>IslandBridge {0} is available.</value>
+  </data>
+  <data name="Update_Install" xml:space="preserve">
+    <value>Install</value>
+  </data>
+  <data name="Update_Download" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="Update_PortableHint" xml:space="preserve">
+    <value>This is a portable copy, download the new version from GitHub.</value>
+  </data>
+  <data name="Update_Installing" xml:space="preserve">
+    <value>Downloading and verifying {0}. IslandBridge restarts by itself.</value>
+  </data>
+  <data name="Update_CheckFailed" xml:space="preserve">
+    <value>The update check failed: {0}.</value>
+  </data>
+  <data name="Update_InstallFailed" xml:space="preserve">
+    <value>The update was not installed: {0}. Nothing was changed.</value>
+  </data>
+  <data name="Update_ReasonRejected" xml:space="preserve">
+    <value>the download did not pass the signature check</value>
+  </data>
+  <data name="Update_ReasonNetwork" xml:space="preserve">
+    <value>GitHub could not be reached</value>
+  </data>
+  <data name="Update_ReasonOther" xml:space="preserve">
+    <value>see updater.log</value>
+  </data>
+  <data name="Update_Unavailable" xml:space="preserve">
+    <value>This build has no update check.</value>
+  </data>
+  <data name="Tray_InstallUpdate" xml:space="preserve">
+    <value>Install update {0}</value>
+  </data>
+  <data name="Tray_DownloadUpdate" xml:space="preserve">
+    <value>Download update {0}</value>
   </data>
 </root>

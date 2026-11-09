@@ -42,6 +42,8 @@ public sealed class AppConfig
 
     public AppearanceConfig Appearance { get; set; } = new();
 
+    public UpdatesConfig Updates { get; set; } = new();
+
     public Dictionary<string, string> AppNames { get; set; } = new(StringComparer.Ordinal);
 
     public AppConfig Normalize()
@@ -50,6 +52,7 @@ public sealed class AppConfig
         Startup ??= new StartupConfig();
         Notifications ??= new NotificationConfig();
         Appearance ??= new AppearanceConfig();
+        Updates ??= new UpdatesConfig();
         AppNames ??= new Dictionary<string, string>(StringComparer.Ordinal);
 
         if (string.IsNullOrWhiteSpace(Device.DeviceId) || Device.DeviceId.Length > 512)
@@ -67,6 +70,11 @@ public sealed class AppConfig
         Appearance.Language = Enum.IsDefined(Appearance.Language) ? Appearance.Language : AppLanguage.System;
         Appearance.Theme = Enum.IsDefined(Appearance.Theme) ? Appearance.Theme : AppTheme.System;
         Startup.CloseAction = Enum.IsDefined(Startup.CloseAction) ? Startup.CloseAction : CloseAction.Tray;
+
+        if (Updates.LastCheck is { } lastCheck && lastCheck > DateTimeOffset.UtcNow.AddDays(1))
+        {
+            Updates.LastCheck = null;
+        }
 
         Notifications.MutedApps = [.. (Notifications.MutedApps ?? [])
             .Where(app => !string.IsNullOrWhiteSpace(app) && app.Length <= AncsLimits.MaxAppIdentifierLength)
@@ -134,4 +142,11 @@ public sealed class AppearanceConfig
     public AppLanguage Language { get; set; } = AppLanguage.System;
 
     public AppTheme Theme { get; set; } = AppTheme.System;
+}
+
+public sealed class UpdatesConfig
+{
+    public bool CheckAutomatically { get; set; } = true;
+
+    public DateTimeOffset? LastCheck { get; set; }
 }

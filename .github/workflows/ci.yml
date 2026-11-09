@@ -56,6 +56,9 @@ jobs:
           $env:PATH += ";${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
           dotnet publish src/IslandBridge -c Release -r win-x64 -o artifacts/publish
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet publish src/IslandBridge.Updater -c Release -r win-x64 -o artifacts/publish
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "IslandBridge.Updater.exe: {0:N1} MB" -f ((Get-Item artifacts/publish/IslandBridge.Updater.exe).Length / 1MB)
           $exe = Get-Item artifacts/publish/IslandBridge.exe
           "IslandBridge.exe: {0:N1} MB, folder: {1:N1} MB" -f ($exe.Length / 1MB), ((Get-ChildItem artifacts/publish -Recurse -File | Measure-Object Length -Sum).Sum / 1MB)
 

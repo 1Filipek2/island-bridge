@@ -14,6 +14,7 @@
 #define AppName "IslandBridge"
 #define AppExe "IslandBridge.exe"
 #define IslandExe "IslandBridge.Island.exe"
+#define UpdaterExe "IslandBridge.Updater.exe"
 
 [Setup]
 AppId={{6A4F1C2E-8B3D-4F7A-9E21-5C0D7B9A3F48}
@@ -72,19 +73,19 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopico
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchApp}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
-Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM {#AppExe} /IM {#IslandExe}"; Flags: runhidden; RunOnceId: "StopIslandBridge"
+Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM {#AppExe} /IM {#IslandExe} /IM {#UpdaterExe}"; Flags: runhidden; RunOnceId: "StopIslandBridge"
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "{#AppName}"; Flags: uninsdeletevalue dontcreatekey
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"; ValueType: none; ValueName: "{#AppName}"; Flags: uninsdeletevalue dontcreatekey
 
 [Code]
-// The app and the island it supervises must be gone before files are replaced.
+// The app, the island it supervises and the updater must be gone before files are replaced.
 procedure StopRunningApp();
 var
   ResultCode: Integer;
 begin
-  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM {#AppExe} /IM {#IslandExe}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM {#AppExe} /IM {#IslandExe} /IM {#UpdaterExe}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Sleep(500);
 end;
 
@@ -92,6 +93,25 @@ function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   StopRunningApp();
   Result := '';
+end;
+
+// The in-app updater runs setup silently with /relaunch=1. The app starts again whether the
+// install succeeded or not, so a failed update never leaves the user without IslandBridge.
+procedure DeinitializeSetup();
+var
+  ResultCode: Integer;
+  AppPath: String;
+begin
+  if WizardSilent and (ExpandConstant('{param:relaunch|0}') = '1') then
+  begin
+    try
+      AppPath := ExpandConstant('{app}\{#AppExe}');
+    except
+      AppPath := '';
+    end;
+    if (AppPath <> '') and FileExists(AppPath) then
+      Exec(AppPath, '', ExtractFileDir(AppPath), SW_SHOWNORMAL, ewNoWait, ResultCode);
+  end;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

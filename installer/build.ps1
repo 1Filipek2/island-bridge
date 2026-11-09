@@ -41,7 +41,11 @@ if ($LASTEXITCODE -ne 0) { throw 'island build failed' }
 
 dotnet publish (Join-Path $root 'src\IslandBridge') -c Release -r win-x64 -o $publish
 if ($LASTEXITCODE -ne 0) { throw 'publish failed' }
-if (-not (Test-Path (Join-Path $publish 'IslandBridge.Island.exe'))) { throw 'the publish folder has no IslandBridge.Island.exe' }
+dotnet publish (Join-Path $root 'src\IslandBridge.Updater') -c Release -r win-x64 -o $publish
+if ($LASTEXITCODE -ne 0) { throw 'updater publish failed' }
+foreach ($exe in 'IslandBridge.Island.exe', 'IslandBridge.Updater.exe') {
+    if (-not (Test-Path (Join-Path $publish $exe))) { throw "the publish folder has no $exe" }
+}
 
 # Windows App SDK license and notices ship next to its redistributable files.
 $packages = if ($env:NUGET_PACKAGES) { $env:NUGET_PACKAGES } else { Join-Path $env:USERPROFILE '.nuget\packages' }
@@ -69,5 +73,11 @@ Compress-Archive -Path (Join-Path $portable '*') -DestinationPath (Join-Path $re
 Get-ChildItem $release -File | Where-Object Extension -in '.exe', '.zip' | ForEach-Object {
     '{0} *{1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Name
 } | Set-Content (Join-Path $release 'SHA256SUMS.txt')
+
+# Update manifest for the in-app updater (format in UpdateManifest.cs). The release workflow signs
+# it; a local build leaves it unsigned, and the updater rejects an unsigned manifest.
+$setup = Get-Item (Join-Path $release "IslandBridge-$Version-setup-x64.exe")
+$manifest = "format=islandbridge-update-1`nversion=$Version`nfile=$($setup.Name)`nsize=$($setup.Length)`nsha256=$((Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLowerInvariant())`n"
+[IO.File]::WriteAllBytes((Join-Path $release 'update-manifest.txt'), [Text.Encoding]::ASCII.GetBytes($manifest))
 
 Get-ChildItem $release -File | Select-Object Name, @{ n = 'MB'; e = { [math]::Round($_.Length / 1MB, 1) } } | Format-Table -AutoSize
