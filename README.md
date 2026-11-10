@@ -29,7 +29,7 @@ IslandBridge connects to your iPhone over Bluetooth and shows every notification
 
 ## Install
 
-1. Download `IslandBridge-1.0.0-setup-x64.exe` from [Releases](https://github.com/1Filipek2/island-bridge/releases) and run it. It installs for your user only, no admin needed. The installer is not signed yet, so Windows SmartScreen may ask you to confirm (More info, Run anyway).
+1. Download `IslandBridge-1.1.0-setup-x64.exe` from [Releases](https://github.com/1Filipek2/island-bridge/releases) and run it. It installs for your user only, no admin needed. The installer is not signed yet, so Windows SmartScreen may ask you to confirm (More info, Run anyway).
 2. Pair your iPhone with the PC in Windows Settings, Bluetooth & devices, if it is not paired yet.
 3. Open IslandBridge from the tray and click the search button under Device to pick your iPhone.
 4. On the iPhone, open Settings, Bluetooth, tap ⓘ next to your PC and turn on **Share System Notifications**.
@@ -38,14 +38,14 @@ Requires Windows 11 (x64) and an iPhone. A portable zip is on the Releases page 
 
 ## Privacy
 
-IslandBridge talks only to your paired iPhone and never goes online. Notification text stays on your PC and is never written to the logs. Some optional island modules use the internet: weather (Open-Meteo, OpenStreetMap), lyrics (LRCLIB), quick lookup (Wiktionary, Wikipedia) and the GitHub tab. Each can be turned off.
+IslandBridge itself talks only to your paired iPhone. A separate updater checks GitHub Releases once a day (can be turned off in Settings) and installs only updates signed with the release key. Notification text stays on your PC and is never written to the logs. Some optional island modules use the internet: weather (Open-Meteo, OpenStreetMap), lyrics (LRCLIB), quick lookup (Wiktionary, Wikipedia) and the GitHub tab. Each can be turned off.
 
 ## Build from source
 
 Needs the .NET 10 SDK, Visual Studio 2022 or later with the C++ desktop workload and Inno Setup 6.
 
 ```powershell
-.\installer\build.ps1 -Version 1.0.0
+.\installer\build.ps1 -Version 1.1.0
 ```
 
 The installer, the portable zip and checksums end up in `artifacts\release`.
